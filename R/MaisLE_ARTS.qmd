@@ -2,7 +2,7 @@
 title: "ARTS - methods"
 author: "Mirjam R. Rieger, Jan Schmitt, Jannis Gottwald, Jonas Hoechst, Patrick Lampe, Paula Machin, Johann Musculus, Ralf Dittrich"
 format: 
-  pdf:
+  html:
     toc: true
     toc-depth: 2
     number-sections: true
