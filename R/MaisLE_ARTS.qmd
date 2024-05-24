@@ -1,0 +1,92 @@
+---
+title: "ARTS - methods"
+author: "Mirjam R. Rieger, Jan Schmitt, Jannis Gottwald, Jonas Hoechst, Patrick Lampe, Paula Machin, Johann Musculus, Ralf Dittrich"
+format: 
+  pdf:
+    toc: true
+    toc-depth: 2
+    number-sections: true
+    number-depth: 2
+---
+
+<!-- ```{css} -->
+<!-- #| echo: false -->
+<!-- p { -->
+<!--   text-align: justify -->
+<!-- } -->
+<!-- ``` -->
+
+
+# About {.unnumbered}
+
+Paper to compare different methods for position estimation using directional stations (quadrologgers) and omnidiretional stations (monologgers), mainly based on data from maisC but supplemented with data from maisD and melons (only quadrologgers).  
+
+We aim to publish it in Methods of Ecology and Evolution [https://besjournals.onlinelibrary.wiley.com/journal/2041210x]  
+
+# Abstract {.unnumbered}
+
+# Introduction
+
+# Methods
+
+## stations
+### quadrologgers
+A station with 4 directional antennas, usually facing north, east, south, and west. Antennas used were **Yagi** antennas (decribe model and type, e.g. refer to already existing paper with same setup)   
+*--> show picture of antenna beams (by Ralf)*
+
+
+### monologgers
+A station with 1 omnidirectional antenna facing upwards. Antennas used were **????** antennas (describe model and type, e.g. refer to already existing paper with same setup)  
+*--> show picture of antenna beam (tRackIT??)*  
+
+## tags
+*--> describe different types of testtags (for maisC and D same models, melons has different ones)*
+
+## sample sites
+*--> maybe make a table to compare the different sites with columns no. of quadrologgers, no. of monologgers, no. and type of testtags, no. of testtracks, no. of circle tracks, no. of grid points (and distance between them), site descirption (e.g. difference in elevation, vegetation, ...)*  
+
+### maisC
+- **10 quadrologgers** (maybe only 7 will be used due to twisted stations)  
+- **10 monologgers** (maybe only 7 corresponding stations will be used)  
+
+
+3-4 testtags at different heights (0.5m, 1m, 1.5m, 2m)  
+- **XX testtracks**  
+- **circle tracks** for stations c1l1-c6l1 (50m, 100m, 150m)  
+- **gridpoints** with 100m distance to each other within a 300m (or 400m???) radius around all stations  
+
+### maisD
+- **8 quadrologgers**  
+
+
+3 testtags at different heights (0.5m, 1m, 1.5m)  
+- **XX testtracks**  
+- **circle tracks** for all stations (50m, 100m, 150m)  
+- **gridpoints** with 100m distance to each other within a 300m (or 400m???) radius around all stations  
+
+### melons
+- **xx quadrologgers** (ask Paula)  
+
+
+xx testtags at different heights (???)  
+- **XX testtracks**  
+- **circle tracks** for xx stations (50m, 100m, 150m)  
+- **gridpoints** with ???m distance to each other within a 300m (or 400m???) radius around all stations  
+
+## preparation of data
+*--> explain filtering process done by tRackIT*  
+
+## position estimation
+We used xx different approaches for positions estimations, namely  
+- **bearings and triangulations**, e.g. method xx and method xy  
+- **antenna beams** for quadrologgers   
+- **multilateration** (e.g. another name) for monologgers  
+- **mix of both**  
+- ...   
+
+*--> make a table as overview (e.g. which method is used for which type of station, ...)*  
+
+## comparison of methods
+### bearing accuracy
+For bearing and triangulation methods only. Uses deviance between true angle (based on GPS position) and estimated angle. Should be accumulated around 0. If it is constantly shifted to the left or right, this might be an indicator that the antenna itself was shifted by some degrees. This might be used as a correction factor (also for other approaches) to redefine the northern orientation. If it shifts over time, one might either consider using different correction factors for the northern orientation over time or to exclude the station
+
