@@ -172,7 +172,7 @@ m <- leaflet() %>% setView(lng = 14.45, lat = 52.53, zoom = 13)
 
 leaflet(data = df.stat[df.stat$analysis == "yes",]) %>%
    addTiles() %>%
-   addMarkers(~station.lon, ~station.lat , popup = ~as.character(station.id), fill = ~as.factor(station.type))
+   addMarkers(~station.lon, ~station.lat , popup = ~as.character(station.id))
 
 ```
 
