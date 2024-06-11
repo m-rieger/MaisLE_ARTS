@@ -4,9 +4,7 @@
 \PassOptionsToPackage{dvipsnames,svgnames,x11names}{xcolor}
 %
 \documentclass[
-  letterpaper,
-  DIV=11,
-  numbers=noendperiod]{scrartcl}
+]{article}
 
 \usepackage{amsmath,amssymb}
 \usepackage{lmodern}
@@ -26,28 +24,10 @@
   \usepackage[]{microtype}
   \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
 }{}
-\makeatletter
-\@ifundefined{KOMAClassName}{% if non-KOMA class
-  \IfFileExists{parskip.sty}{%
-    \usepackage{parskip}
-  }{% else
-    \setlength{\parindent}{0pt}
-    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
-}{% if KOMA class
-  \KOMAoptions{parskip=half}}
-\makeatother
 \usepackage{xcolor}
+\usepackage[top=10pc,bottom=10pc,left=11pc,right=11pc,heightrounded]{geometry}
 \setlength{\emergencystretch}{3em} % prevent overfull lines
 \setcounter{secnumdepth}{-\maxdimen} % remove section numbering
-% Make \paragraph and \subparagraph free-standing
-\ifx\paragraph\undefined\else
-  \let\oldparagraph\paragraph
-  \renewcommand{\paragraph}[1]{\oldparagraph{#1}\mbox{}}
-\fi
-\ifx\subparagraph\undefined\else
-  \let\oldsubparagraph\subparagraph
-  \renewcommand{\subparagraph}[1]{\oldsubparagraph{#1}\mbox{}}
-\fi
 
 
 \providecommand{\tightlist}{%
@@ -75,7 +55,191 @@
 \def\fps@figure{htbp}
 \makeatother
 
-\KOMAoption{captions}{tableheading}
+% -----------------------
+% CUSTOM PREAMBLE STUFF
+% -----------------------
+
+% -----------------
+% Typography tweaks
+% -----------------
+% Indent size
+\setlength{\parindent}{1pc}  % 1p0
+
+% Fix widows and orphans
+\usepackage[all,defaultlines=2]{nowidow}
+
+% List things
+\usepackage{enumitem}
+% Same document-level indentation for ordered and ordered lists
+\setlist[1]{labelindent=\parindent}
+\setlist[itemize]{leftmargin=*}
+\setlist[enumerate]{leftmargin=*}
+
+% Wrap definition list terms
+% https://tex.stackexchange.com/a/9763/11851
+\setlist[description]{style=unboxed}
+
+
+% For better TOCs
+\usepackage{tocloft}
+
+% Remove left margin in lists inside longtables
+% https://tex.stackexchange.com/a/378190/11851
+\AtBeginEnvironment{longtable}{\setlist[itemize]{nosep, wide=0pt, leftmargin=*, before=\vspace*{-\baselineskip}, after=\vspace*{-\baselineskip}}}
+
+
+% -----------------
+% Title block stuff
+% -----------------
+
+% Abstract
+\usepackage[overload]{textcase}
+\usepackage[runin]{abstract}
+\renewcommand{\abstractnamefont}{\sffamily\footnotesize\bfseries\MakeUppercase}
+\renewcommand{\abstracttextfont}{\sffamily\small}
+\setlength{\absleftindent}{\parindent * 2}
+\setlength{\absrightindent}{\parindent * 2}
+\abslabeldelim{\quad}
+\setlength{\abstitleskip}{-\parindent}
+
+
+% Keywords
+\newenvironment{keywords}
+{\vskip -3em \hspace{\parindent}\small\sffamily{\sffamily\footnotesize\bfseries\MakeUppercase{Keywords}}\quad}
+{\vskip 3em}
+
+  
+% Title
+\usepackage{titling}
+\setlength{\droptitle}{3em}
+\pretitle{\par\vskip 5em \begin{flushleft}\LARGE\sffamily\bfseries}
+\posttitle{\par\end{flushleft}\vskip 0.75em}
+
+
+% Authors
+%
+% PHEW this is complicated for a number of reasons!
+%
+% When using \and with multiple authors, the article class in LaTeX wraps each 
+% author block in a tabluar environment with a hardcoded center alignment. It's 
+% possible to use \preauthor{} to start tabulars with a left alignment {l}, but 
+% that only applies to the first author because the others all use \and with the 
+% hardcoded {c}. But we can override the \and command and add our own {l}
+%
+% (See https://github.com/rstudio/rmarkdown/issues/1716#issuecomment-560601691 
+% for an example of redefining \and to just be \\)
+%
+% That's all great, except tabulars have some amount of default horizontal 
+% padding, which makes left-aligned author blocks not actuall get fully 
+% left-aligned on the page. We can set the horizontal padding for the column to 
+% 0, but it requires some wonky syntax: {@{\hspace{0em}}l@{}}
+\renewcommand{\and}{\end{tabular} \hskip 3em \begin{tabular}[t]{@{\hspace{0em}}l@{}}}
+\preauthor{\begin{flushleft}
+           \lineskip 1.5em 
+           \begin{tabular}[t]{@{\hspace{0em}}l@{}}}
+\postauthor{\end{tabular}\par\end{flushleft}}
+
+% Omit the date since the \published command does that
+\predate{}
+\postdate{}
+
+% Command for a note at the top of the first page describing the publication
+% status of the paper.
+\newcommand{\published}[1]{%
+   \gdef\puB{#1}}
+   \newcommand{\puB}{}
+   \renewcommand{\maketitlehooka}{%
+       \par\noindent\footnotesize\sffamily \puB}
+
+
+% ------------------
+% Section headings
+% ------------------
+\usepackage{titlesec}
+\titleformat*{\section}{\Large\sffamily\bfseries\raggedright}
+\titleformat*{\subsection}{\large\sffamily\bfseries\raggedright}
+\titleformat*{\subsubsection}{\normalsize\sffamily\bfseries\raggedright}
+\titleformat*{\paragraph}{\small\sffamily\bfseries\raggedright}
+
+% \titlespacing{<command>}{<left>}{<before-sep>}{<after-sep>}
+% Starred version removes indentation in following paragraph
+\titlespacing*{\section}{0em}{2em}{0.1em}
+\titlespacing*{\subsection}{0em}{1.25em}{0.1em}
+\titlespacing*{\subsubsection}{0em}{0.75em}{0em}
+
+
+% -----------
+% Footnotes
+% -----------
+% NB: footmisc has to come after biblatex because of conflicts
+\usepackage[bottom, flushmargin]{footmisc}
+\renewcommand*{\footnotelayout}{\footnotesize}
+
+\addtolength{\skip\footins}{10pt}    % vertical space between rule and main text
+\setlength{\footnotesep}{5pt}  % vertical space between footnotes
+
+
+% ----------
+% Captions
+% ----------
+\usepackage[font={small,sf}, labelfont={small,sf,bf}]{caption}
+
+
+% --------
+% Macros
+% --------
+% pandoc will not convert text within \begin{} XXX \end{} to Markdown and will
+% treat it as regular TeX. Because of this, it's impossible to do stuff like
+% this:
+
+% \begin{landscape}
+%
+% | One | Two   |
+% |-----+-------|
+% | my  | table |
+% | is  | nice  |
+%
+% \end{landscape}
+%
+% Since it'll render like: | One | Two | |—–+——-| | my | table | | is | nice |
+% 
+% BUT, from this http://stackoverflow.com/a/41945462/120898 we can get around
+% this by creating new commands for \begin and \end, like this:
+\newcommand{\blandscape}{\begin{landscape}}
+\newcommand{\elandscape}{\end{landscape}}
+
+% \blandscape
+%
+% | One | Two   |
+% |-----+-------|
+% | my  | table |
+% | is  | nice  |
+%
+% \elandscape
+
+% Same thing, but for generic groups
+% But can't use \bgroup and \egroup because those are built-in TeX things
+\newcommand{\stgroup}{\begingroup}
+\newcommand{\fingroup}{\endgroup}
+
+
+% ---------------------------
+% END CUSTOM PREAMBLE STUFF
+% ---------------------------
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{wrapfig}
+\usepackage{float}
+\usepackage{colortbl}
+\usepackage{pdflscape}
+\usepackage{tabu}
+\usepackage{threeparttable}
+\usepackage{threeparttablex}
+\usepackage[normalem]{ulem}
+\usepackage{makecell}
+\usepackage{xcolor}
 \makeatletter
 \makeatother
 \makeatletter
@@ -135,22 +299,97 @@
 \urlstyle{same} % disable monospaced font for URLs
 \hypersetup{
   pdftitle={ARTS - methods},
-  pdfauthor={Mirjam R. Rieger, Jan Schmitt, Jannis Gottwald, Jonas Hoechst, Patrick Lampe, Paula Machin, Johann Musculus, Ralf Dittrich},
+  pdfauthor={Mirjam Rieger; Thiemo Karwinkel},
+  pdfkeywords={bird migration, radio-telemetry, stopover ecology},
   colorlinks=true,
-  linkcolor={blue},
+  linkcolor={DarkSlateBlue},
   filecolor={Maroon},
-  citecolor={Blue},
-  urlcolor={Blue},
+  citecolor={DarkSlateBlue},
+  urlcolor={DarkSlateBlue},
   pdfcreator={LaTeX via pandoc}}
 
+% -----------------------
+% END-OF-PREAMBLE STUFF
+% -----------------------
+
+
+% ----------
+% BibLaTeX
+% ----------
+\usepackage[style=apa,backend=biber]{biblatex}
+
+\setlength\bibitemsep{0pt}  % No space between bib entries
+\renewcommand*{\bibfont}{\footnotesize}  % Use smaller font
+\setlength\bibhang{\parindent}  % Match document indentation
+
+% Fix biblatex's odd preference for using In: by default.
+\renewbibmacro{in:}{%
+  \ifentrytype{article}{}{%
+  \printtext{\bibstring{}\intitlepunct}}}
+
+\addbibresource{references.bib}
+
+% ---------------------- 
+% Title block elements
+% ---------------------- 
+\usepackage{orcidlink}  % Create automatic ORCID icons/links
+
 \title{ARTS - methods}
-\author{Mirjam R. Rieger, Jan Schmitt, Jannis Gottwald, Jonas Hoechst,
-Patrick Lampe, Paula Machin, Johann Musculus, Ralf Dittrich}
+
+
+\author{
+{\large Mirjam Rieger~\orcidlink{xxx}}%
+\thanks{Corresponding author.} \\%
+fdgdfg \\%
+{\footnotesize \url{mrieger@posteo.de}} \and
+{\large Thiemo Karwinkel~\orcidlink{0000-0001-6433-3013}}%
+ \\%
+fdgdfg \\%
+{\footnotesize \url{thiemo.karwinkel@uol.de}} \and
+}
+
 \date{}
 
+
+% Typeset URLs in the same font as their parent environment
+%
+% This has to come at the end of the preamble, after any biblatex stuff because 
+% some biblatex styles (like APA) define their own \urlstyle{}
+\usepackage{url}
+\urlstyle{same}
+
+% ---------------------------
+% END END-OF-PREAMBLE STUFF
+% ---------------------------
 \begin{document}
+% ---------------
+% TITLE SECTION
+% ---------------
+\published{\textbf{Tuesday, June 11, 2024} \qquad working
+manuscript \\ {\scriptsize Access the code, data, and analysis at
+\url{https://github.com/m-rieger/MaisLE_ARTS.git}}}
+
 \maketitle
-\ifdefined\Shaded\renewenvironment{Shaded}{\begin{tcolorbox}[boxrule=0pt, sharp corners, breakable, enhanced, frame hidden, interior hidden, borderline west={3pt}{0pt}{shadecolor}]}{\end{tcolorbox}}\fi
+
+\begin{abstract}
+Abstract goes here.
+\end{abstract}
+\vskip 3em
+
+\begin{keywords}
+\def\sep{;\ }
+bird migration\sep radio-telemetry\sep 
+stopover ecology
+\end{keywords}
+
+% -------------------
+% END TITLE SECTION
+% -------------------
+
+\ifdefined\Shaded\renewenvironment{Shaded}{\begin{tcolorbox}[boxrule=0pt, borderline west={3pt}{0pt}{shadecolor}, frame hidden, breakable, sharp corners, interior hidden, enhanced]}{\end{tcolorbox}}\fi
+
+author: ``Mirjam R. Rieger, Jan Schmitt, Jannis Gottwald, Jonas Hoechst,
+Patrick Lampe, Paula Machin, Johann Musculus, Ralf Dittrich''
 
 \hypertarget{about}{%
 \section*{About}\label{about}}
@@ -161,8 +400,9 @@ directional stations (quadrologgers) and omnidiretional stations
 (monologgers), mainly based on data from maisC but supplemented with
 data from maisD and melons (only quadrologgers).
 
-We aim to publish it in Methods of Ecology and Evolution
-{[}https://besjournals.onlinelibrary.wiley.com/journal/2041210x{]}
+We aim to publish it in
+\href{https://besjournals.onlinelibrary.wiley.com/journal/2041210x}{Methods
+of Ecology and Evolution}
 
 \hypertarget{abstract}{%
 \section*{Abstract}\label{abstract}}
@@ -205,8 +445,25 @@ and D same models, melons has different ones)}
 \emph{--\textgreater{} maybe make a table to compare the different sites
 with columns no. of quadrologgers, no. of monologgers, no. and type of
 testtags, no. of testtracks, no. of circle tracks, no. of grid points
-(and distance between them), site descirption (e.g.~difference in
+(and distance between them), site description (e.g.~difference in
 elevation, vegetation, \ldots)}
+
+\begin{table}
+\centering\begingroup\fontsize{10}{12}\selectfont
+
+\begin{tabular}{lllllrrrlrl}
+\toprule
+\multicolumn{5}{c}{ } & \multicolumn{2}{c}{stations} & \multicolumn{1}{c}{ } & \multicolumn{3}{c}{groundtruth data} \\
+\cmidrule(l{3pt}r{3pt}){6-7} \cmidrule(l{3pt}r{3pt}){9-11}
+site & location & elevation & vegetation & area & quadro & mono & testtags & testtracks & circle & grid\\
+\midrule
+\cellcolor{gray!6}{maisC} & \cellcolor{gray!6}{Vierlinden, Brandenburg, Germany} & \cellcolor{gray!6}{5-7m asl} & \cellcolor{gray!6}{agriculture, tree lines, ditches with reed} & \cellcolor{gray!6}{NA} & \cellcolor{gray!6}{10} & \cellcolor{gray!6}{10} & \cellcolor{gray!6}{4} & \cellcolor{gray!6}{NA} & \cellcolor{gray!6}{8} & \cellcolor{gray!6}{NA}\\
+maisD & Döbberin, Brandenburg, Germany & 47-59m asl & agriculture, tree lines, lakes with reed and shrubs & NA & 8 & 0 & 3 & NA & 8 & NA\\
+\cellcolor{gray!6}{melons} & \cellcolor{gray!6}{NA} & \cellcolor{gray!6}{NA} & \cellcolor{gray!6}{NA} & \cellcolor{gray!6}{NA} & \cellcolor{gray!6}{NA} & \cellcolor{gray!6}{0} & \cellcolor{gray!6}{NA} & \cellcolor{gray!6}{NA} & \cellcolor{gray!6}{NA} & \cellcolor{gray!6}{NA}\\
+\bottomrule
+\end{tabular}
+\endgroup{}
+\end{table}
 
 \hypertarget{maisc}{%
 \subsubsection{maisC}\label{maisc}}
@@ -221,11 +478,18 @@ elevation, vegetation, \ldots)}
   used)
 \end{itemize}
 
-3-4 testtags at different heights (0.5m, 1m, 1.5m, 2m)\\
-- \textbf{XX testtracks}\\
-- \textbf{circle tracks} for stations c1l1-c6l1 (50m, 100m, 150m)\\
-- \textbf{gridpoints} with 100m distance to each other within a 300m (or
-400m???) radius around all stations
+3-4 testtags at different heights (0.5m, 1m, 1.5m, 2m)
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{XX testtracks}\\
+\item
+  \textbf{circle tracks} for stations c1l1-c6l1 (50m, 100m, 150m)\\
+\item
+  \textbf{gridpoints} with 100m distance to each other within a 300m (or
+  400m???) radius around all stations
+\end{itemize}
 
 \hypertarget{maisd}{%
 \subsubsection{maisD}\label{maisd}}
@@ -236,11 +500,18 @@ elevation, vegetation, \ldots)}
   \textbf{8 quadrologgers}
 \end{itemize}
 
-3 testtags at different heights (0.5m, 1m, 1.5m)\\
-- \textbf{XX testtracks}\\
-- \textbf{circle tracks} for all stations (50m, 100m, 150m)\\
-- \textbf{gridpoints} with 100m distance to each other within a 300m (or
-400m???) radius around all stations
+3 testtags at different heights (0.5m, 1m, 1.5m)
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{XX testtracks}\\
+\item
+  \textbf{circle tracks} for all stations (50m, 100m, 150m)\\
+\item
+  \textbf{gridpoints} with 100m distance to each other within a 300m (or
+  400m???) radius around all stations
+\end{itemize}
 
 \hypertarget{melons}{%
 \subsubsection{melons}\label{melons}}
@@ -251,11 +522,18 @@ elevation, vegetation, \ldots)}
   \textbf{xx quadrologgers} (ask Paula)
 \end{itemize}
 
-xx testtags at different heights (???)\\
-- \textbf{XX testtracks}\\
-- \textbf{circle tracks} for xx stations (50m, 100m, 150m)\\
-- \textbf{gridpoints} with ???m distance to each other within a 300m (or
-400m???) radius around all stations
+xx testtags at different heights (???)
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{XX testtracks}\\
+\item
+  \textbf{circle tracks} for xx stations (50m, 100m, 150m)\\
+\item
+  \textbf{gridpoints} with ???m distance to each other within a 300m (or
+  400m???) radius around all stations
+\end{itemize}
 
 \hypertarget{preparation-of-data}{%
 \subsection{preparation of data}\label{preparation-of-data}}
@@ -265,12 +543,21 @@ xx testtags at different heights (???)\\
 \hypertarget{position-estimation}{%
 \subsection{position estimation}\label{position-estimation}}
 
-We used xx different approaches for positions estimations, namely\\
-- \textbf{bearings and triangulations}, e.g.~method xx and method xy\\
-- \textbf{antenna beams} for quadrologgers\\
-- \textbf{multilateration} (e.g.~another name) for monologgers\\
-- \textbf{mix of both}\\
-- \ldots{}
+We used xx different approaches for positions estimations, namely
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{bearings and triangulations}, e.g.~method xx and method xy\\
+\item
+  \textbf{antenna beams} for quadrologgers\\
+\item
+  \textbf{multilateration} (e.g.~another name) for monologgers\\
+\item
+  \textbf{mix of both}\\
+\item
+  \ldots{}
+\end{itemize}
 
 \emph{--\textgreater{} make a table as overview (e.g.~which method is
 used for which type of station, \ldots)}
@@ -290,6 +577,19 @@ redefine the northern orientation. If it shifts over time, one might
 either consider using different correction factors for the northern
 orientation over time or to exclude the station
 
+\hypertarget{position-accuracy}{%
+\subsubsection{position accuracy}\label{position-accuracy}}
+
+For all methods.
+
+\hypertarget{results}{%
+\section{Results}\label{results}}
+
+\hypertarget{discussion}{%
+\section{Discussion}\label{discussion}}
+
+
+\printbibliography[title=References]
 
 
 \end{document}

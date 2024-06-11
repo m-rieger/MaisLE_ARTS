@@ -1,13 +1,93 @@
 ---
-title: "ARTS - methods"
-author: "Mirjam R. Rieger, Jan Schmitt, Jannis Gottwald, Jonas Hoechst, Patrick Lampe, Paula Machin, Johann Musculus, Ralf Dittrich"
-format: 
-  html:
-    toc: true
-    toc-depth: 2
-    number-sections: true
-    number-depth: 2
+title: |
+  ARTS - methods
+short-title: ARTS_methods
+published: "working manuscript"
+code-repo: "Access the code, data, and analysis at <https://github.com/m-rieger/MaisLE_ARTS.git>"
+correspondence-prefix: "Correspondence concerning this article should be addressed to"
+author:
+  - name: Mirjam R. Rieger
+    email: mrieger@posteo.de
+    orcid: 0000-0002-7404-6023
+    affiliations: 
+      - id: HFR
+        name: University of Applied Science
+        department:
+        city: Rottenburg
+        country: Germany
+    attributes:
+      corresponding: true
+      
+  - name: Jan Schmitt
+    email: xx
+    orcid: xx
+    affiliations:
+      - id: UT
+        name: Eberhard Karls University
+        department: Institute of Evolution and Ecology
+        city: Tuebingen
+        country: Germany
+        
+  - name: Paula Machin
+    email: xx
+    orcid: xx
+    affiliations:
+      - id: Eurofins
+        name: Eurofins MITOX group
+        department: Wildlife field services
+        city: Dresden
+        country: Germany
+        
+  - name: Johann Musculus
+    email: xx
+    orcid: xx
+    affiliations:
+      - ref: Eurofins
+        
+  - name: Ralf Dittrich
+    email: xx
+    orcid: xx
+    affiliations:
+      - ref: Eurofins
+        
+  - name: Jannis Gottwald
+    email: gottwald@trackit.systems
+    orcid: xx
+    affiliations:
+      - id: trackit
+        name: tRackIT systems
+        department: 
+        city: Marburg
+        country: Germany
+
+  - name: Jonas Hoechst
+    email: hoechst@trackit.systems
+    orcid: 0000-0002-7326-2250
+    affiliations:
+      - ref: trackit               
+
+  - name: Patrick Lampe
+    email: lampe@trackit.systems
+    orcid: xx
+    affiliations:
+      - ref: trackit                  
+        
+abstract: |
+  Abstract goes here.
+keywords:
+  - bird migration
+  - radio-telemetry
+  - stopover ecology
+date: today
+bibliography: references.bib
+number-sections: false
+keep-tex: false
+format:
+  hikmah-pdf: default
+  # hikmah-manuscript-pdf: default
 ---
+
+author: "Mirjam R. Rieger, Jan Schmitt, Jannis Gottwald, Jonas Hoechst, Patrick Lampe, Paula Machin, Johann Musculus, Ralf Dittrich"
 
 <!-- ```{css} -->
 <!-- #| echo: false -->
@@ -16,12 +96,42 @@ format:
 <!-- } -->
 <!-- ``` -->
 
+<!-- rmarkdown::render("R/MaisLE_ARTS.qmd", output_format = "pdf_document") -->
+<!-- rmarkdown::render("R/MaisLE_ARTS.qmd", output_format = "word_document") -->
+
+<!-- cite using [@gottwald2019], add BibTeX citation to references.bib   -->
+
+```{r setup, include=F}
+knitr::opts_knit$set(echo = FALSE, warning = FALSE, message = FALSE)
+
+## packages
+library(tidyverse)
+library(kableExtra)
+library(sf)
+library(leaflet)
+
+## formatting variables
+# font size for tables
+smallT <- 10
+bigT <- 12
+
+tab.site <- read.csv("../data/tabSites.csv", encoding = "latin1")
+
+df.stat <- read.csv("../data/station.csv", encoding = "latin1")
+df.stat <- st_as_sf(x = df.stat,                         
+           coords = c("station.lon", "station.lat"),
+           crs = "+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0",
+           remove = F)
+```
+
+
 
 # About {.unnumbered}
 
-Paper to compare different methods for position estimation using directional stations (quadrologgers) and omnidiretional stations (monologgers), mainly based on data from maisC but supplemented with data from maisD and melons (only quadrologgers).  
+Paper to compare different methods for position estimation using directional stations (quadrologgers) and omnidiretional stations (monologgers), mainly based on data from maisC but supplemented with data from maisD and melons (only quadrologgers). 
 
-We aim to publish it in Methods of Ecology and Evolution [https://besjournals.onlinelibrary.wiley.com/journal/2041210x]  
+We aim to publish it in [Methods of Ecology and Evolution](https://besjournals.onlinelibrary.wiley.com/journal/2041210x)  
+
 
 # Abstract {.unnumbered}
 
@@ -43,7 +153,29 @@ A station with 1 omnidirectional antenna facing upwards. Antennas used were **??
 *--> describe different types of testtags (for maisC and D same models, melons has different ones)*
 
 ## sample sites
-*--> maybe make a table to compare the different sites with columns no. of quadrologgers, no. of monologgers, no. and type of testtags, no. of testtracks, no. of circle tracks, no. of grid points (and distance between them), site descirption (e.g. difference in elevation, vegetation, ...)*  
+*--> maybe make a table to compare the different sites with columns no. of quadrologgers, no. of monologgers, no. and type of testtags, no. of testtracks, no. of circle tracks, no. of grid points (and distance between them), site description (e.g. difference in elevation, vegetation, ...)*  
+
+```{r tabsite, echo=F}
+kable(tab.site, 
+      # format = "latex", 
+      booktabs = T, linesep = "") %>%
+  add_header_above(c(" " = 5, "stations" = 2, " " = 1, "groundtruth data" = 3)) %>%
+  kable_styling(font_size = smallT,
+                latex_options = c("striped", "repeat_header")) # repeat_header = repeats header when several pages
+  
+```
+
+```{r figsite, echo=F}
+# https://r-graph-gallery.com/182-add-circles-rectangles-on-leaflet-map.html
+# https://rstudio.github.io/leaflet/articles/markers.html
+m <- leaflet() %>% setView(lng = 14.45, lat = 52.53, zoom = 13)
+
+leaflet(data = df.stat[df.stat$analysis == "yes",]) %>%
+   addTiles() %>%
+   addMarkers(~station.lon, ~station.lat , popup = ~as.character(station.id), fill = ~as.factor(station.type))
+
+```
+
 
 ### maisC
 - **10 quadrologgers** (maybe only 7 will be used due to twisted stations)  
@@ -51,6 +183,7 @@ A station with 1 omnidirectional antenna facing upwards. Antennas used were **??
 
 
 3-4 testtags at different heights (0.5m, 1m, 1.5m, 2m)  
+
 - **XX testtracks**  
 - **circle tracks** for stations c1l1-c6l1 (50m, 100m, 150m)  
 - **gridpoints** with 100m distance to each other within a 300m (or 400m???) radius around all stations  
@@ -60,6 +193,7 @@ A station with 1 omnidirectional antenna facing upwards. Antennas used were **??
 
 
 3 testtags at different heights (0.5m, 1m, 1.5m)  
+
 - **XX testtracks**  
 - **circle tracks** for all stations (50m, 100m, 150m)  
 - **gridpoints** with 100m distance to each other within a 300m (or 400m???) radius around all stations  
@@ -69,6 +203,7 @@ A station with 1 omnidirectional antenna facing upwards. Antennas used were **??
 
 
 xx testtags at different heights (???)  
+
 - **XX testtracks**  
 - **circle tracks** for xx stations (50m, 100m, 150m)  
 - **gridpoints** with ???m distance to each other within a 300m (or 400m???) radius around all stations  
@@ -78,6 +213,7 @@ xx testtags at different heights (???)
 
 ## position estimation
 We used xx different approaches for positions estimations, namely  
+
 - **bearings and triangulations**, e.g. method xx and method xy  
 - **antenna beams** for quadrologgers   
 - **multilateration** (e.g. another name) for monologgers  
@@ -87,6 +223,23 @@ We used xx different approaches for positions estimations, namely
 *--> make a table as overview (e.g. which method is used for which type of station, ...)*  
 
 ## comparison of methods
+
 ### bearing accuracy
+
 For bearing and triangulation methods only. Uses deviance between true angle (based on GPS position) and estimated angle. Should be accumulated around 0. If it is constantly shifted to the left or right, this might be an indicator that the antenna itself was shifted by some degrees. This might be used as a correction factor (also for other approaches) to redefine the northern orientation. If it shifts over time, one might either consider using different correction factors for the northern orientation over time or to exclude the station
 
+### position accuracy
+
+For all methods.
+
+
+
+# Results
+
+
+
+# Discussion
+
+
+
+# References
