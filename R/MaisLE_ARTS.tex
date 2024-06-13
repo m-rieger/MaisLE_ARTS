@@ -7,7 +7,6 @@
 ]{article}
 
 \usepackage{amsmath,amssymb}
-\usepackage{lmodern}
 \usepackage{iftex}
 \ifPDFTeX
   \usepackage[T1]{fontenc}
@@ -17,6 +16,10 @@
   \usepackage{unicode-math}
   \defaultfontfeatures{Scale=MatchLowercase}
   \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+\usepackage{lmodern}
+\ifPDFTeX\else  
+    % xetex/luatex font selection
 \fi
 % Use upquote if available, for straight quotes in verbatim environments
 \IfFileExists{upquote.sty}{\usepackage{upquote}}{}
@@ -241,10 +244,6 @@
 \usepackage{makecell}
 \usepackage{xcolor}
 \makeatletter
-\makeatother
-\makeatletter
-\makeatother
-\makeatletter
 \@ifpackageloaded{caption}{}{\usepackage{caption}}
 \AtBeginDocument{%
 \ifdefined\contentsname
@@ -280,26 +279,21 @@
 \newcommand*\listoflistings{\listof{codelisting}{List of Listings}}
 \makeatother
 \makeatletter
+\makeatother
+\makeatletter
 \@ifpackageloaded{caption}{}{\usepackage{caption}}
 \@ifpackageloaded{subcaption}{}{\usepackage{subcaption}}
-\makeatother
-\makeatletter
-\@ifpackageloaded{tcolorbox}{}{\usepackage[many]{tcolorbox}}
-\makeatother
-\makeatletter
-\@ifundefined{shadecolor}{\definecolor{shadecolor}{rgb}{.97, .97, .97}}
-\makeatother
-\makeatletter
 \makeatother
 \ifLuaTeX
   \usepackage{selnolig}  % disable illegal ligatures
 \fi
-\IfFileExists{bookmark.sty}{\usepackage{bookmark}}{\usepackage{hyperref}}
+\usepackage{bookmark}
+
 \IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
 \urlstyle{same} % disable monospaced font for URLs
 \hypersetup{
   pdftitle={ARTS - methods},
-  pdfauthor={Mirjam Rieger; Thiemo Karwinkel},
+  pdfauthor={Mirjam R. Rieger; Jan Schmitt; Paula Machin; Johann Musculus; Ralf Dittrich; Jannis Gottwald; Jonas Hoechst; Patrick Lampe},
   pdfkeywords={bird migration, radio-telemetry, stopover ecology},
   colorlinks=true,
   linkcolor={DarkSlateBlue},
@@ -338,14 +332,38 @@
 
 
 \author{
-{\large Mirjam Rieger~\orcidlink{xxx}}%
+{\large Mirjam R. Rieger~\orcidlink{0000-0002-7404-6023}}%
 \thanks{Corresponding author.} \\%
-fdgdfg \\%
+University of Applied Science \\Eberhard Karls University \\%
 {\footnotesize \url{mrieger@posteo.de}} \and
-{\large Thiemo Karwinkel~\orcidlink{0000-0001-6433-3013}}%
+{\large Jan Schmitt~\orcidlink{xx}}%
  \\%
-fdgdfg \\%
-{\footnotesize \url{thiemo.karwinkel@uol.de}} \and
+Eberhard Karls University \\%
+{\footnotesize \url{xx}} \and
+{\large Paula Machin~\orcidlink{xx}}%
+ \\%
+Eurofins MITOX group \\%
+{\footnotesize \url{xx}} \and
+{\large Johann Musculus~\orcidlink{xx}}%
+ \\%
+Eurofins MITOX group \\%
+{\footnotesize \url{xx}} \and
+{\large Ralf Dittrich~\orcidlink{xx}}%
+ \\%
+Eurofins MITOX group \\%
+{\footnotesize \url{xx}} \and
+{\large Jannis Gottwald~\orcidlink{xx}}%
+ \\%
+tRackIT systems \\%
+{\footnotesize \url{gottwald@trackit.systems}} \and
+{\large Jonas Hoechst~\orcidlink{0000-0002-7326-2250}}%
+ \\%
+tRackIT systems \\%
+{\footnotesize \url{hoechst@trackit.systems}} \and
+{\large Patrick Lampe~\orcidlink{xx}}%
+ \\%
+tRackIT systems \\%
+{\footnotesize \url{lampe@trackit.systems}} \and
 }
 
 \date{}
@@ -365,7 +383,7 @@ fdgdfg \\%
 % ---------------
 % TITLE SECTION
 % ---------------
-\published{\textbf{Tuesday, June 11, 2024} \qquad working
+\published{\textbf{Thursday, June 13, 2024} \qquad working
 manuscript \\ {\scriptsize Access the code, data, and analysis at
 \url{https://github.com/m-rieger/MaisLE_ARTS.git}}}
 
@@ -386,13 +404,8 @@ stopover ecology
 % END TITLE SECTION
 % -------------------
 
-\ifdefined\Shaded\renewenvironment{Shaded}{\begin{tcolorbox}[boxrule=0pt, borderline west={3pt}{0pt}{shadecolor}, frame hidden, breakable, sharp corners, interior hidden, enhanced]}{\end{tcolorbox}}\fi
 
-author: ``Mirjam R. Rieger, Jan Schmitt, Jannis Gottwald, Jonas Hoechst,
-Patrick Lampe, Paula Machin, Johann Musculus, Ralf Dittrich''
-
-\hypertarget{about}{%
-\section*{About}\label{about}}
+\section*{About}\label{about}
 \addcontentsline{toc}{section}{About}
 
 Paper to compare different methods for position estimation using
@@ -400,47 +413,38 @@ directional stations (quadrologgers) and omnidiretional stations
 (monologgers), mainly based on data from maisC but supplemented with
 data from maisD and melons (only quadrologgers).
 
-We aim to publish it in
-\href{https://besjournals.onlinelibrary.wiley.com/journal/2041210x}{Methods
-of Ecology and Evolution}
+We aim to publish it in Methods of Ecology and Evolution
+\url{https://besjournals.onlinelibrary.wiley.com/journal/2041210x}
 
-\hypertarget{abstract}{%
-\section*{Abstract}\label{abstract}}
+\section*{Abstract}\label{abstract}
 \addcontentsline{toc}{section}{Abstract}
 
-\hypertarget{introduction}{%
-\section{Introduction}\label{introduction}}
+\section{Introduction}\label{introduction}
 
-\hypertarget{methods}{%
-\section{Methods}\label{methods}}
+\section{Methods}\label{methods}
 
-\hypertarget{stations}{%
-\subsection{stations}\label{stations}}
+\subsection{stations}\label{stations}
 
-\hypertarget{quadrologgers}{%
-\subsubsection{quadrologgers}\label{quadrologgers}}
+\subsubsection{quadrologgers}\label{quadrologgers}
 
 A station with 4 directional antennas, usually facing north, east,
 south, and west. Antennas used were \textbf{Yagi} antennas (decribe
 model and type, e.g.~refer to already existing paper with same setup)\\
 \emph{--\textgreater{} show picture of antenna beams (by Ralf)}
 
-\hypertarget{monologgers}{%
-\subsubsection{monologgers}\label{monologgers}}
+\subsubsection{monologgers}\label{monologgers}
 
 A station with 1 omnidirectional antenna facing upwards. Antennas used
 were \textbf{????} antennas (describe model and type, e.g.~refer to
 already existing paper with same setup)\\
 \emph{--\textgreater{} show picture of antenna beam (tRackIT??)}
 
-\hypertarget{tags}{%
-\subsection{tags}\label{tags}}
+\subsection{tags}\label{tags}
 
 \emph{--\textgreater{} describe different types of testtags (for maisC
 and D same models, melons has different ones)}
 
-\hypertarget{sample-sites}{%
-\subsection{sample sites}\label{sample-sites}}
+\subsection{sample sites}\label{sample-sites}
 
 \emph{--\textgreater{} maybe make a table to compare the different sites
 with columns no. of quadrologgers, no. of monologgers, no. and type of
@@ -448,25 +452,56 @@ testtags, no. of testtracks, no. of circle tracks, no. of grid points
 (and distance between them), site description (e.g.~difference in
 elevation, vegetation, \ldots)}
 
-\begin{table}
-\centering\begingroup\fontsize{10}{12}\selectfont
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 20\tabcolsep) * \real{0.0461}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 20\tabcolsep) * \real{0.2171}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 20\tabcolsep) * \real{0.0724}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 20\tabcolsep) * \real{0.3421}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 20\tabcolsep) * \real{0.0329}}
+  >{\raggedleft\arraybackslash}p{(\columnwidth - 20\tabcolsep) * \real{0.0461}}
+  >{\raggedleft\arraybackslash}p{(\columnwidth - 20\tabcolsep) * \real{0.0329}}
+  >{\raggedleft\arraybackslash}p{(\columnwidth - 20\tabcolsep) * \real{0.0592}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 20\tabcolsep) * \real{0.0724}}
+  >{\raggedleft\arraybackslash}p{(\columnwidth - 20\tabcolsep) * \real{0.0461}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 20\tabcolsep) * \real{0.0329}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+site
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+location
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+elevation
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+vegetation
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+area
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
+quadro
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
+mono
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
+testtags
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+testtracks
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
+circle
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+grid
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+maisC & Vierlinden, Brandenburg, Germany & 5-7m asl & agriculture, tree
+lines, ditches with reed & NA & 10 & 10 & 4 & NA & 8 & NA \\
+maisD & Döbberin, Brandenburg, Germany & 47-59m asl & agriculture, tree
+lines, lakes with reed and shrubs & NA & 8 & 0 & 3 & NA & 8 & NA \\
+melons & NA & NA & NA & NA & NA & 0 & NA & NA & NA & NA \\
+\end{longtable}
 
-\begin{tabular}{lllllrrrlrl}
-\toprule
-\multicolumn{5}{c}{ } & \multicolumn{2}{c}{stations} & \multicolumn{1}{c}{ } & \multicolumn{3}{c}{groundtruth data} \\
-\cmidrule(l{3pt}r{3pt}){6-7} \cmidrule(l{3pt}r{3pt}){9-11}
-site & location & elevation & vegetation & area & quadro & mono & testtags & testtracks & circle & grid\\
-\midrule
-\cellcolor{gray!6}{maisC} & \cellcolor{gray!6}{Vierlinden, Brandenburg, Germany} & \cellcolor{gray!6}{5-7m asl} & \cellcolor{gray!6}{agriculture, tree lines, ditches with reed} & \cellcolor{gray!6}{NA} & \cellcolor{gray!6}{10} & \cellcolor{gray!6}{10} & \cellcolor{gray!6}{4} & \cellcolor{gray!6}{NA} & \cellcolor{gray!6}{8} & \cellcolor{gray!6}{NA}\\
-maisD & Döbberin, Brandenburg, Germany & 47-59m asl & agriculture, tree lines, lakes with reed and shrubs & NA & 8 & 0 & 3 & NA & 8 & NA\\
-\cellcolor{gray!6}{melons} & \cellcolor{gray!6}{NA} & \cellcolor{gray!6}{NA} & \cellcolor{gray!6}{NA} & \cellcolor{gray!6}{NA} & \cellcolor{gray!6}{NA} & \cellcolor{gray!6}{0} & \cellcolor{gray!6}{NA} & \cellcolor{gray!6}{NA} & \cellcolor{gray!6}{NA} & \cellcolor{gray!6}{NA}\\
-\bottomrule
-\end{tabular}
-\endgroup{}
-\end{table}
+\includegraphics{MaisLE_ARTS_files/figure-pdf/figsite-1.pdf}
 
-\hypertarget{maisc}{%
-\subsubsection{maisC}\label{maisc}}
+\subsubsection{maisC}\label{maisc}
 
 \begin{itemize}
 \tightlist
@@ -491,8 +526,7 @@ maisD & Döbberin, Brandenburg, Germany & 47-59m asl & agriculture, tree lines, 
   400m???) radius around all stations
 \end{itemize}
 
-\hypertarget{maisd}{%
-\subsubsection{maisD}\label{maisd}}
+\subsubsection{maisD}\label{maisd}
 
 \begin{itemize}
 \tightlist
@@ -513,8 +547,7 @@ maisD & Döbberin, Brandenburg, Germany & 47-59m asl & agriculture, tree lines, 
   400m???) radius around all stations
 \end{itemize}
 
-\hypertarget{melons}{%
-\subsubsection{melons}\label{melons}}
+\subsubsection{melons}\label{melons}
 
 \begin{itemize}
 \tightlist
@@ -535,13 +568,11 @@ xx testtags at different heights (???)
   400m???) radius around all stations
 \end{itemize}
 
-\hypertarget{preparation-of-data}{%
-\subsection{preparation of data}\label{preparation-of-data}}
+\subsection{preparation of data}\label{preparation-of-data}
 
 \emph{--\textgreater{} explain filtering process done by tRackIT}
 
-\hypertarget{position-estimation}{%
-\subsection{position estimation}\label{position-estimation}}
+\subsection{position estimation}\label{position-estimation}
 
 We used xx different approaches for positions estimations, namely
 
@@ -562,11 +593,9 @@ We used xx different approaches for positions estimations, namely
 \emph{--\textgreater{} make a table as overview (e.g.~which method is
 used for which type of station, \ldots)}
 
-\hypertarget{comparison-of-methods}{%
-\subsection{comparison of methods}\label{comparison-of-methods}}
+\subsection{comparison of methods}\label{comparison-of-methods}
 
-\hypertarget{bearing-accuracy}{%
-\subsubsection{bearing accuracy}\label{bearing-accuracy}}
+\subsubsection{bearing accuracy}\label{bearing-accuracy}
 
 For bearing and triangulation methods only. Uses deviance between true
 angle (based on GPS position) and estimated angle. Should be accumulated
@@ -577,16 +606,13 @@ redefine the northern orientation. If it shifts over time, one might
 either consider using different correction factors for the northern
 orientation over time or to exclude the station
 
-\hypertarget{position-accuracy}{%
-\subsubsection{position accuracy}\label{position-accuracy}}
+\subsubsection{position accuracy}\label{position-accuracy}
 
 For all methods.
 
-\hypertarget{results}{%
-\section{Results}\label{results}}
+\section{Results}\label{results}
 
-\hypertarget{discussion}{%
-\section{Discussion}\label{discussion}}
+\section{Discussion}\label{discussion}
 
 
 \printbibliography[title=References]

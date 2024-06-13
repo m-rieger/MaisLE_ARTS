@@ -15,6 +15,11 @@ author:
         department:
         city: Rottenburg
         country: Germany
+      - id: UT
+        name: Eberhard Karls University
+        department: Institute of Evolution and Ecology
+        city: Tuebingen
+        country: Germany
     attributes:
       corresponding: true
       
@@ -22,11 +27,7 @@ author:
     email: xx
     orcid: xx
     affiliations:
-      - id: UT
-        name: Eberhard Karls University
-        department: Institute of Evolution and Ecology
-        city: Tuebingen
-        country: Germany
+      - ref: UT
         
   - name: Paula Machin
     email: xx
@@ -81,13 +82,12 @@ keywords:
 date: today
 bibliography: references.bib
 number-sections: false
-keep-tex: false
+keep-tex: true
 format:
-  hikmah-pdf: default
+  hikmah-pdf: default # this does not work due to latex problems
   # hikmah-manuscript-pdf: default
+  hikmah-manuscript-docx: default
 ---
-
-author: "Mirjam R. Rieger, Jan Schmitt, Jannis Gottwald, Jonas Hoechst, Patrick Lampe, Paula Machin, Johann Musculus, Ralf Dittrich"
 
 <!-- ```{css} -->
 <!-- #| echo: false -->
@@ -130,7 +130,7 @@ df.stat <- st_as_sf(x = df.stat,
 
 Paper to compare different methods for position estimation using directional stations (quadrologgers) and omnidiretional stations (monologgers), mainly based on data from maisC but supplemented with data from maisD and melons (only quadrologgers). 
 
-We aim to publish it in [Methods of Ecology and Evolution](https://besjournals.onlinelibrary.wiley.com/journal/2041210x)  
+We aim to publish it in Methods of Ecology and Evolution <https://besjournals.onlinelibrary.wiley.com/journal/2041210x>  
 
 
 # Abstract {.unnumbered}
@@ -156,12 +156,13 @@ A station with 1 omnidirectional antenna facing upwards. Antennas used were **??
 *--> maybe make a table to compare the different sites with columns no. of quadrologgers, no. of monologgers, no. and type of testtags, no. of testtracks, no. of circle tracks, no. of grid points (and distance between them), site description (e.g. difference in elevation, vegetation, ...)*  
 
 ```{r tabsite, echo=F}
-kable(tab.site, 
-      # format = "latex", 
-      booktabs = T, linesep = "") %>%
-  add_header_above(c(" " = 5, "stations" = 2, " " = 1, "groundtruth data" = 3)) %>%
-  kable_styling(font_size = smallT,
-                latex_options = c("striped", "repeat_header")) # repeat_header = repeats header when several pages
+kable(tab.site)
+# kable(tab.site, 
+#       # format = "latex", 
+#       booktabs = T, linesep = "") %>%
+#   add_header_above(c(" " = 5, "stations" = 2, " " = 1, "groundtruth data" = 3)) %>%
+#   kable_styling(font_size = smallT,
+#                 latex_options = c("striped", "repeat_header")) # repeat_header = repeats header when several pages
   
 ```
 
