@@ -1,0 +1,12 @@
+### `r t` {.unnumbered}
+
+
+```{r, fig.width = 10, fig.height = 5}
+ggplot(tmp, aes(y = Error..m., x = Station.Count, color = Station.Count)) +
+  stat_dotsinterval() +
+  scale_color_viridis_c() +
+  facet_wrap(~group) +
+  theme_bw()
+
+```
+
