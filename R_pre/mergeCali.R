@@ -295,70 +295,21 @@ rmarkdown::render(input = here("R_pre", "plotCali.Rmd"),
 
 #### density ####
 tmp <- st_read(here("data", "station.csv"))
-df.p <- st_as_sf(tmp[tmp$station.id %in% c("c1l1", "c2l1", "c3l1", "c4l1", "c5l1", "c6l1", "c7l1", "c8l1", "c9l1", "c10l1"),], coords = c("station.lon", "station.lat"), crs = 4326)
-df.p <- st_as_sf(tmp[tmp$station.id %in% c("c1l1", "c2l1"),], coords = c("station.lon", "station.lat"), crs = 4326)
-df.p <- st_as_sf(tmp[tmp$station.id == "c1l1",], coords = c("station.lon", "station.lat"), crs = 4326)
-
 crs <- 31467 # Gauss-Krüger (in m)
-# 
-# for(s in c("c1l1", "c2l1", "c3l1", "c4l1", "c5l1", "c6l1", "c7l1", "c8l1", "c9l1", "c10l1")) {
-#   df.p <- st_as_sf(tmp[tmp$station.id == s,], coords = c("station.lon", "station.lat"), crs = 4326)
-#   df.p <- st_transform(df.p, crs = crs)
-#   b100 <- st_buffer(df.p, dist = 100)
-#   b100$dens <- 1
-#   b200 <- st_buffer(b100, dist = 100)
-#   b200$dens <- 0.75
-#   b300 <- st_buffer(b200, dist = 100)
-#   b300$dens <- 0.5
-#   b400 <- st_buffer(b300, dist = 100)
-#   b400$dens <- 0.25
-#   # shp.buffer <- rbind(b100, b200)
-#   # shp.buffer <- rbind(shp.buffer, b300)
-#   # shp.buffer <- rbind(shp.buffer, b400)
-#   
-#   df.rast1 <- st_rasterize(b100, st_as_stars(st_bbox(b400), nx = 40, ny = 40, values = b100$dens))
-#   df.rast2 <- st_rasterize(b200, st_as_stars(st_bbox(b400), nx = 40, ny = 40, values = b200$dens))
-#   df.rast3 <- st_rasterize(b300, st_as_stars(st_bbox(b400), nx = 40, ny = 40, values = b300$dens))
-#   df.rast4 <- st_rasterize(b400, st_as_stars(st_bbox(b400), nx = 40, ny = 40, values = b400$dens))
-#   
-#   df.rast <- df.rast1 + df.rast2
-#   df.rast <- df.rast + df.rast3
-#   df.rast <- df.rast + df.rast4
-#   
-#   plot(df.rast, axes = TRUE)
-#   
-# }
 
-
-
-
-
-# df.rast <- st_rasterize(shp.buffer, st_as_stars(st_bbox(shp.buffer), nx = 40, ny = 40, values = NA_real_))
-# 
-# df.rast$dens <- 1
-# plot(df.rast, axes = TRUE)
-# 
-# df.rast2 <- df.rast + df.rast
-# #df.rast <- raster(shp.buffer)
-# # df.rast <- raster(shp.buffer)
-# #plot(df.rast, breaks = "equal")
-# 
-# ggplot(shp.buffer) + geom_sf(aes(alpha = dens), fill = "blue")
-
-#########################
 stations <- c("c1l1", "c2l1", "c3l1", "c4l1", "c5l1", "c6l1", "c7l1", "c8l1", "c9l1", "c10l1")
 
 b100 <- b200 <- b300 <- b400 <- shp.buffer <- list()
 df.r <- NULL
 
 ## get raster dimension
-df.p <- st_as_sf(tmp[tmp$station.id %in% stations,], coords = c("station.lon", "station.lat"), crs = 4326)
-df.p <- st_transform(df.p, crs = crs)
-r.dim <- st_buffer(df.p, dist = 500)
+df.stat <- st_as_sf(tmp[tmp$station.id %in% stations,], coords = c("station.lon", "station.lat"), crs = 4326)
+df.stat <- st_transform(df.stat, crs = crs)
+r.dim <- st_buffer(df.stat, dist = 600) # 500m buffer
 
 # Define extent and resolution
 raster_extent <- extent(r.dim)  # Adjust according to your needs
-raster_resolution <- 10  # Change resolution as needed
+raster_resolution <- 10  # Change resolution as needed (in meter)
 
 # Create an empty raster
 r <- raster(raster_extent, resolution = raster_resolution)
@@ -377,10 +328,10 @@ for(i in 1:length(stations)) {
   b300[[s]] <- st_difference(b300[[s]], b200[[s]])
   b200[[s]] <- st_difference(b200[[s]], b100[[s]])
   
-  b100[[s]]$dens <- 1/length(stations)
-  b200[[s]]$dens <- 0.75/length(stations)
-  b300[[s]]$dens <- 0.5/length(stations)
-  b400[[s]]$dens <- 0.25/length(stations)
+  b100[[s]]$dens <- 1
+  b200[[s]]$dens <- 0.75
+  b300[[s]]$dens <- 0.5
+  b400[[s]]$dens <- 0.25
   b100[[s]] <- b100[[s]][, "dens"]
   b200[[s]] <- b200[[s]][, "dens"]
   b300[[s]] <- b300[[s]][, "dens"]
@@ -397,4 +348,59 @@ for(i in 1:length(stations)) {
   
 }
 
-plot(df.r, main = "Rasterized Polygon")
+## transform to sf object and crs to lat-lon
+df.r2 <- df.r
+df.r <- st_make_valid(st_as_sf(st_as_stars(df.r), point = FALSE, merge = TRUE, connect8 = TRUE))
+colnames(df.r) <- c("dens", "geometry")
+df.r <- st_transform(df.r, crs = crs(df))
+
+## plot raster (= merged polygons)
+ggplot() + 
+  geom_sf(aes(fill = dens, color = dens), data = df.r, lwd = 0.1) + 
+  geom_sf(data = df.stat, pch = 2, color = "white") + 
+  # geom_sf(data = df[100000:100100,], pch = 1, color = "grey80", alpha = 0.5) + # check whether dimensions are correct
+  scale_fill_viridis_c("station density", direction = -1, option = "rocket") +
+  scale_color_viridis_c("station density", direction = -1, option = "rocket") +
+  theme_light()
+
+## plot example for methods
+ggplot() + 
+  geom_sf(aes(fill = as.character(dens)), color = NA, data = b400[[1]], lwd = 2) + 
+  geom_sf(aes(fill = as.character(dens)), color = NA, data = b300[[1]], lwd = 2) + 
+  geom_sf(aes(fill = as.character(dens)), color = NA, data = b200[[1]], lwd = 2) + 
+  geom_sf(aes(fill = as.character(dens)), color = NA, data = b100[[1]], lwd = 2) + 
+  geom_sf(data = df.stat[df.stat$station.id == "c1l1",], pch = 2, color = "white") + 
+  scale_fill_viridis_d("station density", direction = -1, option = "rocket", alpha = 0.4) +
+  theme_light()
+
+## plot example for methods
+ggplot() + 
+  geom_sf(aes(fill = as.character(dens)), color = NA, data = b400[[1]], lwd = 2) + 
+  geom_sf(aes(fill = as.character(dens)), color = NA, data = b300[[1]], lwd = 2) + 
+  geom_sf(aes(fill = as.character(dens)), color = NA, data = b200[[1]], lwd = 2) + 
+  geom_sf(aes(fill = as.character(dens)), color = NA, data = b100[[1]], lwd = 2) + 
+  geom_sf(aes(fill = as.character(dens)), color = NA, data = b400[[2]], lwd = 2) + 
+  geom_sf(aes(fill = as.character(dens)), color = NA, data = b300[[2]], lwd = 2) + 
+  geom_sf(aes(fill = as.character(dens)), color = NA, data = b200[[2]], lwd = 2) + 
+  geom_sf(aes(fill = as.character(dens)), color = NA, data = b100[[2]], lwd = 2) + 
+  geom_sf(data = df.stat[df.stat$station.id == "c1l1",], pch = 2, color = "white") + 
+  geom_sf(data = df.stat[df.stat$station.id == "c2l1",], pch = 2, color = "white") + 
+  scale_fill_viridis_d("station density", direction = -1, option = "rocket", alpha = 0.4) +
+  theme_light()
+
+## intersect df.r with df
+# e.g. try this https://gis.stackexchange.com/questions/271268/assigning-raster-values-to-spatial-point-using-r
+
+df.test <- df[df$Project == "maisC" & df$detR == "700m" & df$ant == "1-10" & df$meth == "ab_ql" & df$Individual == "TT090C",]
+
+# get raster values for points
+df.test$dens <- extract(df.r2, df.test)
+
+# xx <- st_intersection(df.r, df.test[1:5000,])
+
+## plot distance error depending on dens (indicator for how good the station cover is)
+ggplot(df.test) + 
+  geom_point(aes(x = dens, y = distance), pch = 1, color = "black", alpha = 0.2) +
+  geom_smooth(aes(x = dens, y = distance)) +
+  theme_light()
+
