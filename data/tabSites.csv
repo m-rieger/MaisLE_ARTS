@@ -1,9 +1,10 @@
 site,maisC,maisD
 location,"Vierlinden, Brandenburg, Germany","Döbberin, Brandenburg, Germany"
 elevation,5-7 m asl,47-59 m asl
-vegetation,"agriculture, tree lines, ditches with reed","agriculture, tree lines, lakes with reed and shrubs"
-area,NA,NA
+vegetation,"agriculture, tree lines, hedges, ditches with reed","agriculture, tree lines, lakes with reed and woods"
+area (800 m buffer around stations),NA,NA
 N quadro,10,8
 N mono,10,0
+height of station,6 m,8 m
 N testtags,4,4
 height testtags,"0.5m, 1m, 1.5m, 2m","0.5m, 1m, 1.5m"

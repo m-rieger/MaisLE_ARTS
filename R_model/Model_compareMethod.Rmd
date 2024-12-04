@@ -1,0 +1,1291 @@
+---
+title: "compare position estimation methods"
+author: "Mirjam R. Rieger"
+date: "'r Sys.Date'"
+output: html_document
+---
+
+<style>
+.scroll5 {
+    height: 500px;
+    overflow-y: scroll;
+}
+</style>
+
+
+
+# ToDo:
+
+
+```{r preparation, echo = F, warning = F, message = F}
+rm(list = ls())
+
+## variables
+modname <- "comp_Gauss"
+RUN <- TRUE # if TRUE model is run, if FALSE model is read in
+LANG <- "EN" # "DE" or "EN"
+
+if(length(grep("Gauss", modname) == 1)) pars <- c("alpha", "beta", "gamma", "theta", "z", "etasq", "rhosq")
+if(length(grep("NegBin",  modname) == 1)) pars <- c("alpha", "beta", "gamma", "theta", "z", "etasq", "rhosq", "phi")
+
+## basesize of plots
+bs <- 14
+
+## packages
+library(tidyverse)
+library(cmdstanr)
+library(bayesplot)
+library(plotly)
+library(gridExtra)
+
+## functions
+get_draws <- function(var = NULL, d = modsims) {
+  class(d) <- "data.frame"
+  dd <- as.matrix(d[, startsWith(colnames(d), var)])
+  return(dd)
+}
+
+prop_zero   <- function(z) sum(z == 0) / length(z)
+
+```
+
+```{r dataprep, echo = F, warning = F, message = F}
+
+## Load data
+dsn <- paste0("../data/data_", dtyp, "/savedFiles/Data_cali_raster.gpkg")
+st_write(df.r, layer = 'shp_raster', append = F, dsn = dsn, 
+         layer_options = "GEOMETRY_NAME=geometry")
+
+dat.mod <- read.csv("../data/dat_mod.csv", fileEncoding = "latin1")
+dat.mod <- dat.mod[dat.mod$netNr != 100,]
+Spec.list <- levels(as.factor(dat.mod$species))
+
+
+## exlude data from RP-MH-23 when using height
+if(modname == "ZInflatedPoisson_Dmat_Nzip_wh") dat.mod <- dat.mod[!is.na(dat.mod$Hoehe_cm),]
+
+## transform data
+dat.mod$dist_c    <- c(scale(dat.mod$distance_m))
+dat.mod$height_c  <- c(scale(dat.mod$Hoehe_cm))
+dat.mod$weed_p    <- dat.mod$prop_weed/100
+dat.mod$maize_p   <- dat.mod$maize_1000m/100
+dat.mod$woodS_p   <- dat.mod$woodS_1000m/100
+dat.mod$jday      <- c(scale(dat.mod$julian_day))
+dat.mod$effort100 <- dat.mod$effort/100
+
+## create distance matrix for sites
+site.coor <- dat.mod %>%
+  group_by(site_short) %>%
+  summarize(lon = mean(lon),
+            lat = mean(lat),
+            .groups = "drop")
+
+site.coor <- site.coor[order(site.coor$site_short),]
+
+Dmat <- as.matrix(dist(site.coor[, c("lon", "lat")], diag = T, upper = T))
+
+```
+
+# Data exploration
+
+## Proportion of zeros
+```{r VpropZ, echo = F, warning = F, message = F}
+## get prop. of zeros per species
+dat.mod %>% group_by(species) %>%
+  summarise(propZ = round(length(NInd_pd[NInd_pd == 0]) / n(), 2))
+```
+
+  
+## Distribution of response variable {.tabset}
+
+### NInd
+```{r Vhist, echo = F, warning = F, message = F, fig.dim = c(10, 5)}
+## histogram of response variable (with and without effort)
+ggplot(dat.mod) +
+  geom_histogram(aes(NInd_pd, fill = species)) +
+  facet_wrap(~species, scales = "free") +
+  xlab(nI) +
+  scale_fill_viridis_d(direction = -1, end = 0.9) +
+  theme_bw(base_size = bs) +
+  theme(legend.position = "none")
+```
+
+### density
+```{r Vhist2, echo = F, warning = F, message = F, fig.dim = c(10, 5)}
+ggplot(dat.mod) +
+  geom_histogram(aes(NInd_pd/effort100, fill = species)) +
+  facet_wrap(~species, scales = "free") +
+  xlab(dens) +
+  scale_fill_viridis_d(spec, direction = -1, end = 0.9) +
+  theme_bw(base_size = bs) +
+  theme(legend.position = "none")
+```
+
+### NInd (zero excl.)
+```{r Vhist3, echo = F, warning = F, message = F, fig.dim = c(10, 5)}
+## histogram of response variable without zeros (with and without effort)
+ggplot(dat.mod[dat.mod$NInd_pd != 0,]) +
+  geom_histogram(aes(NInd_pd, fill = species)) +
+  facet_wrap(~species, scales = "free") +
+  xlab(nI) +
+  scale_fill_viridis_d(spec, direction = -1, end = 0.9) +
+  theme_bw(base_size = bs) +
+  theme(legend.position = "none")
+```
+
+### density (zero excl.)
+```{r Vhist4, echo = F, warning = F, message = F, fig.dim = c(10, 5)}
+ggplot(dat.mod[dat.mod$NInd_pd != 0,]) +
+  geom_histogram(aes(NInd_pd/effort100, fill = species)) +
+  facet_wrap(~species, scales = "free") +
+  xlab(dens) +
+  scale_fill_viridis_d(spec, direction = -1, end = 0.9) +
+  theme_bw(base_size = bs) +
+  theme(legend.position = "none")
+
+```
+
+
+## Explanatory variables {.tabset}
+
+### distance
+```{r Vdist, echo = F, warning = F, message = F, fig.dim = c(10, 5)}
+ggplot(dat.mod) +
+  geom_point(aes(x = distance_m, y = NInd_pd/effort100, color = as.factor(year)),
+             pch = 1, size = 2) +
+  scale_color_viridis_d(year, direction = -1, end = 0.9) +
+  facet_wrap(~species, scales = "free") +
+  xlab(dist) +
+  ylab(dens) +
+  theme_bw(base_size = bs)
+
+```
+
+  
+### maize
+```{r Vmaize, echo = F, warning = F, message = F, fig.dim = c(10, 5)}
+ggplot(dat.mod) +
+  geom_point(aes(x = maize_p, y = NInd_pd/effort100, color = as.factor(year)),
+             pch = 1, size = 2) +
+  scale_color_viridis_d(year, direction = -1, end = 0.9) +
+  facet_wrap(~species, scales = "free") +
+  xlab(maize) +
+  ylab(dens) +
+  theme_bw(base_size = bs)
+
+```
+
+  
+### woodS
+```{r VwoodS, echo = F, warning = F, message = F, fig.dim = c(10, 5)}
+ggplot(dat.mod) +
+  geom_point(aes(x = woodS_p, y = NInd_pd/effort100, color = as.factor(year)),
+             pch = 1, size = 2) +
+  scale_color_viridis_d(year, direction = -1, end = 0.9) +
+  facet_wrap(~species, scales = "free") +
+  xlab(woodS) +
+  ylab(maize) +
+  theme_bw(base_size = bs)
+
+```
+
+### plant height
+```{r Vheight, echo = F, warning = F, message = F, fig.dim = c(10, 5)}
+ggplot(dat.mod) +
+  geom_point(aes(x = Hoehe_cm, y = NInd_pd/effort100, color = as.factor(year)),
+             pch = 1, size = 2, position = "jitter") +
+  scale_color_viridis_d(year, direction = -1, end = 0.9) +
+  facet_wrap(~species, scales = "free") +
+  xlab(height) +
+  ylab(dens) +
+  theme_bw(base_size = bs)
+
+```
+
+### weed
+```{r Vweed, echo = F, warning = F, message = F, fig.dim = c(10, 5)}
+ggplot(dat.mod) +
+  geom_point(aes(x = weed_p*100, y = NInd_pd/effort100, color = as.factor(year)),
+             pch = 1, size = 2, position = "jitter") +
+  scale_color_viridis_d(year, direction = -1, end = 0.9) +
+  facet_wrap(~species, scales = "free") +
+  xlab(weed) +
+  ylab(dens) +
+  theme_bw(base_size = bs)
+
+```
+  
+### jday
+```{r Vjday, echo = F, warning = F, message = F, fig.dim = c(10, 5)}
+ggplot(dat.mod) +
+  geom_point(aes(x = julian_day, y = NInd_pd/effort100, color = as.factor(year)),
+             pch = 1, size = 2) +
+  scale_color_viridis_d(year, direction = -1, end = 0.9) +
+  facet_wrap(~species, scales = "free") +
+  xlab(jday) +
+  ylab(dens) +
+  theme_bw(base_size = bs)
+
+```
+
+  
+### distance & maize
+```{r Vdm, echo = F, warning = F, message = F, fig.dim = c(10, 5)}
+ggplot(dat.mod[dat.mod$species == Spec.list[1],]) +
+  geom_point(aes(x = distance_m, y = maize_p, color = as.factor(year)),
+              pch = 1, size = 2, position = "jitter") +
+  scale_color_viridis_d(year, direction = -1, end = 0.9) +
+  xlab(dist) +
+  ylab(maize) +
+  theme_bw(base_size = bs)
+```
+
+  
+### distance & woodS
+```{r Vdw, echo = F, warning = F, message = F, fig.dim = c(10, 5)}
+ggplot(dat.mod[dat.mod$species == Spec.list[1],]) +
+  geom_point(aes(x = distance_m, y = woodS_p, color = as.factor(year)),
+              pch = 1, size = 2, position = "jitter") +
+  scale_color_viridis_d(year, direction = -1, end = 0.9) +
+  xlab(dist) +
+  ylab(woodS) +
+  theme_bw(base_size = bs)
+```
+
+  
+### maize & woodS
+```{r Vmw, echo = F, warning = F, message = F, fig.dim = c(10, 5)}
+ggplot(dat.mod[dat.mod$species == Spec.list[1],]) +
+  geom_point(aes(x = maize_p, y = woodS_p, color = as.factor(year)),
+              pch = 1, size = 2, position = "jitter") +
+  scale_color_viridis_d(year, direction = -1, end = 0.9) +
+  xlab(maize) +
+  ylab(woodS) +
+  theme_bw(base_size = bs)
+```
+
+
+### distance & height  
+```{r Vdh, echo = F, warning = F, message = F, fig.dim = c(10, 5)}
+ggplot(dat.mod[dat.mod$species == Spec.list[1],]) +
+  geom_point(aes(x = distance_m, y = Hoehe_cm, color = as.factor(year)),
+              pch = 1, size = 2, position = "jitter") +
+  scale_color_viridis_d(year, direction = -1, end = 0.9) +
+  xlab(dist) +
+  ylab(height) +
+  theme_bw(base_size = bs)
+```
+
+
+### distance & weed  
+```{r Vdwe, echo = F, warning = F, message = F, fig.dim = c(10, 5)}
+ggplot(dat.mod[dat.mod$species == Spec.list[1],]) +
+  geom_point(aes(x = distance_m, y = weed_p*100, color = as.factor(year)),
+              pch = 1, size = 2, position = "jitter") +
+  scale_color_viridis_d(year, direction = -1, end = 0.9) +
+  xlab(dist) +
+  ylab(weed) +
+  theme_bw(base_size = bs)
+```
+
+### height & weed  
+```{r Vhwe, echo = F, warning = F, message = F, fig.dim = c(10, 5)}
+ggplot(dat.mod[dat.mod$species == Spec.list[1],]) +
+  geom_point(aes(x = Hoehe_cm, y = weed_p*100, color = as.factor(year)),
+              pch = 1, size = 2, position = "jitter") +
+  scale_color_viridis_d(year, direction = -1, end = 0.9) +
+  xlab(height) +
+  ylab(weed) +
+  theme_bw(base_size = bs)
+```
+
+# Model
+The used model is `r modname`.  
+```{r runmod, echo = F}
+
+stan.data <- with(dat.mod, list(
+    N = nrow(dat.mod),
+    
+    Nsp = length(unique(species)),
+    Nyear = length(unique(year)),
+    Nsite = length(unique(site)),
+    Nland = 5, ## change if necessary
+
+    sp = as.numeric(as.factor(species)),
+    year = as.numeric(as.factor(year)),
+    site = as.numeric(as.factor(site_short)),
+    jday = jday,
+
+    land = matrix(c(dist_c,
+                    maize_p,
+                    woodS_p,
+                    height_c,
+                    weed_p),
+                  ncol = 5), ## change if necessary
+    
+    Dmat = Dmat,
+    
+    y = as.integer(NInd_pd),
+    effort = effort100
+
+))
+
+## run model if RUN == TRUE
+mod <- cmdstan_model(paste0("../stan/", modname, ".stan"))
+
+if(RUN) {
+  fit <- mod$sample(stan.data, chains = 4, parallel_chains = 4, refresh = 100)
+  fit$save_object(file = paste0("../saved models/", modname))
+}
+
+## read model if RUN == FALSE
+if(!RUN) {
+  fit <- readRDS(paste0("../saved models/", modname))
+}
+
+# fit$cmdstan_diagnose()
+
+## number of simulations
+nsim <- prod(dim(fit$draws("etasq"))[1:2])
+```
+
+<div class="scroll5">
+```{r ppsum, echo = F}
+## summary per parameter
+print(fit$summary(pars), n = nrow(fit$summary(pars))+10)
+
+```
+</div>
+
+## Posterior predictive checks  {.tabset}
+
+<div class="scroll5">
+### areas
+```{r ppc1, echo = F, fig.dim = c(9, 5)}
+for(p in pars) {
+  print(mcmc_areas(fit$draws(p),
+                   prob = 0.80,
+                   prob_outer = 1))
+}
+```
+</div>
+
+<div class="scroll5">
+### dens_overlay
+```{r ppc2, echo = F, fig.dim = c(9, 5)}
+for(p in pars) {
+  print(mcmc_dens_overlay(fit$draws(p)))
+}
+```
+</div>
+
+<div class="scroll5">
+### trace
+```{r ppc3, echo = F, fig.dim = c(9, 5)}
+for(p in pars) {
+  print(mcmc_trace(fit$draws(p)))
+}
+```
+</div>
+
+
+## posterior predictive stats   {.tabset}
+
+<div class="scroll5">
+### NInd
+```{r pps1, echo = F, warning = F, message = F, fig.dim = c(4.5, 4)}
+modsims <- fit$draws("y_sim", format = "df")
+
+for(sp in 1:length(Spec.list)) {
+  y    <- stan.data$y[which(stan.data$sp == sp)]
+
+  yrep <- get_draws("y_sim")[, which(stan.data$sp == sp)]
+
+  print(ppc_hist(y, yrep[runif(8, 1, nsim),]) + ggtitle(Spec.list[sp]))
+  
+  gmean  <- ppc_stat(y, yrep, stat = "mean") + 
+    ggtitle("mean") + theme(legend.position = "none")
+  gsd    <- ppc_stat(y, yrep, stat = "sd") + 
+    ggtitle("sd") + theme(legend.position = "none")
+  gpropZ <- ppc_stat(y, yrep, stat = "prop_zero") + 
+    ggtitle("propZ") + theme(legend.position = "none")
+  gmax   <- ppc_stat(y, yrep, stat = "max") + 
+    ggtitle("max") + theme(legend.position = "none")
+  
+  grid.arrange(gmean, gsd, gpropZ, gmax, ncol = 2, nrow = 2)
+}
+```
+</div>
+
+<div class="scroll5">
+### density
+```{r pps2, echo = F, warning = F, message = F, fig.dim = c(4.5, 4)}
+
+for(sp in 1:length(Spec.list)) {
+  y    <- stan.data$y[which(stan.data$sp == sp)]/ stan.data$effort[which(stan.data$sp == sp)]
+  yrep <- get_draws("y_sim")[, which(stan.data$sp == sp)]/ stan.data$effort[which(stan.data$sp == sp)][col(yrep)]
+  
+  print(ppc_hist(y, yrep[runif(8, 1, 100),]) + ggtitle(Spec.list[sp]))
+  
+  gmean  <- ppc_stat(y, yrep, stat = "mean") + 
+    ggtitle("mean") + theme(legend.position = "none")
+  gsd    <- ppc_stat(y, yrep, stat = "sd") + 
+    ggtitle("sd") + theme(legend.position = "none")
+  gpropZ <- ppc_stat(y, yrep, stat = "prop_zero") + 
+    ggtitle("propZ") + theme(legend.position = "none")
+  gmax   <- ppc_stat(y, yrep, stat = "max") + 
+    ggtitle("max") + theme(legend.position = "none")
+  
+  grid.arrange(gmean, gsd, gpropZ, gmax, ncol = 2, nrow = 2)
+  
+}
+```
+</div>
+
+## Posterior predictions {.tabset}
+
+
+### distance
+```{r ppdist, echo = F, warning = F, message = F, fig.dim = c(10, 5)}
+## get draws
+modsims <- fit$draws(c("alpha", "beta", "gamma", "theta"), format = "df")
+
+xx <- modsims[,grep("beta", colnames(modsims))]
+for(i in 1:ncol(xx)) {
+  x <- xx[,i]
+  print(round((sum(x>0)/nrow(x) + 0.5*sum(x=0)/nrow(x))*100, 1))
+}
+
+## number of simulations for graph
+gsim <- round(runif(100, 1, nsim))
+
+## extract predictions
+pp <- data.frame()
+ff <- data.frame()
+
+jday.spec <- c(1,1,0,1,1,0,1,0,1)
+
+for(s in 1:max(stan.data$sp)) {
+  ## newdat
+  newdat <- with(stan.data, data.frame(
+                          year = max(year),
+                          jday = jday.spec[s],
+                          jday2 = jday.spec[s]^2,
+                          land1 = seq(min(land[,1]), max(land[,1]), length = 100),
+                          land2 = mean(land[,2]),
+                          land3 = mean(land[,3]),
+                          land4 = mean(land[,4]),
+                          land5 = mean(land[,5]),
+                          effort = 10)) ## effort now working
+  
+  ## add species, species names and distance_m
+  newdat$sp <- s
+  newdat$species <- Spec.list[s]
+  newdat$distance_m <- sd(dat.mod$distance_m)*newdat$land1 + mean(dat.mod$distance_m)
+  
+  Xmat  <- model.matrix(~ land1 + land2 + land3 + land4 + land5 + 
+                          jday + jday2 + 
+                          log(effort), data = newdat)
+  #  Xmat  <- model.matrix(~ land1 + land2 + land3 + log(effort), data = newdat)
+  XmatZ <- model.matrix(~ 1, data = newdat)
+  
+  fitmat <- matrix(ncol = nsim, nrow = nrow(newdat))
+  
+  for(j in 1:nsim) {
+    
+    # plogis für zi, exp für poisson
+    fitmat[, j] <- (1 - plogis(XmatZ %*% get_draws(paste0("theta[", s))[j])) * # zi part
+      exp(Xmat %*% c( # poisson part
+        get_draws("alpha")[j, s],  # year
+        get_draws(paste0("beta[", s, ",1]"))[j], # land1 (distance)
+        get_draws(paste0("beta[", s, ",2]"))[j], # land2 (maize)
+        get_draws(paste0("beta[", s, ",3]"))[j], # land3 (woodS)
+        get_draws(paste0("beta[", s, ",4]"))[j], # land4 (height)
+        get_draws(paste0("beta[", s, ",5]"))[j],  # land5 (weed)   
+        get_draws(paste0("gamma[1,", s, "]"))[j],  # jday    
+        get_draws(paste0("gamma[2,", s, "]"))[j],  # jday2   
+        1 # effort100
+        ))
+  }
+  
+  newdat$fit <- apply(X = fitmat, MARGIN = 1, FUN = quantile, probs = 0.5)
+  newdat$mean <- apply(X = fitmat, MARGIN = 1, FUN = mean)
+  newdat$lwr <- apply(X = fitmat, MARGIN = 1, FUN = quantile, probs = 0.025)
+  newdat$upr <- apply(X = fitmat, MARGIN = 1, FUN = quantile, probs = 0.975)
+
+  pp <- rbind(pp, newdat)
+  
+  df.sim <- as.data.frame(fitmat[,gsim])
+  df.sim$species <- Spec.list[s]
+  ff <- rbind(ff, df.sim)
+  
+}
+
+pp$species <- factor(pp$species, levels = Spec.order, ordered = T)
+ff$species <- factor(ff$species, levels = Spec.order, ordered = T)
+dat.mod$species <- factor(dat.mod$species, levels = Spec.order, ordered = T)
+
+## plot predictions
+gg <- ggplot() +
+
+  # geom_ribbon(data = pp, aes(x = distance_m, ymin = lwr, ymax = upr, fill = species),
+  #             alpha = 0.3) +
+  
+  geom_point(data = dat.mod, aes(x = distance_m, y = NInd_pd/effort100*10),
+             color = "grey40", alpha = 0.3, pch = 1) +  
+  
+  geom_line(data = pp, aes(x = distance_m, y = fit, color = species), lwd = 1.2) +
+  
+  scale_color_viridis_d(spec, direction = -1, end = 0.9) +
+  scale_fill_viridis_d(spec, direction = -1, end = 0.9) +
+  
+  facet_wrap(~species, scales = "free_y") +
+  
+  xlab(dist) +
+  ylab(dens) +
+  
+  theme_bw(base_size = bs) +
+  theme(legend.position = "none")
+
+for(i in 1:length(gsim)) {
+  pp$lsim <- ff[,i]
+  gg <- gg + geom_line(data = pp, aes(x = distance_m, y = lsim, color = species), alpha = 0.1)
+}
+
+print(gg)
+
+
+## save plot for presentations
+gspec <- c("Blaumeise", "Zilpzalp", "Buchfink", "Teichrohrsänger", "Feldsperling", "Mönchsgrasmücke")
+  # c("Zilpzalp", "Teichrohrsänger")
+
+pp.ov <- pp %>% group_by(year, land1, land2, land3, land4, land5, distance_m) %>%
+  summarise(fit = sum(fit),
+            mean = sum(mean),
+            lwr = sum(lwr),
+            upr = sum(upr),
+            .groups = "drop")
+  
+gg <- ggplot() +
+
+  # geom_ribbon(data = pp, aes(x = distance_m, ymin = lwr, ymax = upr, fill = species),
+  #             alpha = 0.3) +
+  
+  # geom_point(data = dat.mod[dat.mod$species %in% gspec,], aes(x = distance_m, y = NInd_pd/effort100*10),
+  #            color = "grey40", alpha = 0.3, pch = 1, size = 8, stroke = 2) +
+  
+  geom_line(data = pp[pp$species %in% gspec,], aes(x = distance_m, y = fit, color = species), lwd = 6) +
+  
+  scale_color_viridis_d(spec, direction = -1, end = 0.9) +
+  scale_fill_viridis_d(spec, direction = -1, end = 0.9) +
+  
+  facet_wrap(~species, 
+            # scales = "free_y", 
+             nrow = 1) +
+  
+  xlab(dist) +
+  ylab(dens) +
+  
+  theme_bw(base_size = 5*bs) +
+  theme(legend.position = "none", 
+        plot.margin=unit(c(1,2,1,2), 'cm'),
+        strip.background = element_blank(),
+        strip.text.x = element_blank())
+
+for(i in 1:length(gsim)) {
+  pp$lsim <- ff[,i]
+  gg <- gg + geom_line(data = pp[pp$species %in% gspec,], aes(x = distance_m, y = lsim, color = species), alpha = 0.1, lwd = 2)
+}
+
+jpeg(filename = "../graphs/dist.jpeg", width = 4500, height = 1500)
+print(gg)
+dev.off()
+
+gg <- ggplot() +
+
+  geom_line(data = pp[pp$species %in% gspec,], aes(x = distance_m, y = fit, color = species), lwd = 6) +
+  
+  scale_color_viridis_d(spec, direction = -1, end = 0.9) +
+  scale_fill_viridis_d(spec, direction = -1, end = 0.9) +
+  
+
+  xlab(dist) +
+  ylab(dens) +
+  
+  theme_bw(base_size = 5*bs) +
+  theme(legend.position = "right", 
+        plot.margin=unit(c(1,2,1,2), 'cm'),
+        strip.background = element_blank(),
+        strip.text.x = element_blank())
+
+
+jpeg(filename = "../graphs/dist_all.jpeg", width = 4500, height = 1500)
+print(gg)
+dev.off()
+
+gg <- ggplot() +
+
+  geom_ribbon(data = pp.ov, aes(x = distance_m, ymin = lwr, ymax = upr), fill = "grey30", color = "grey30",
+              alpha = 0.3) +
+  
+  # geom_point(data = dat.mod[dat.mod$species %in% gspec,], aes(x = distance_m, y = NInd_pd/effort100*10),
+  #            color = "grey40", alpha = 0.3, pch = 1, size = 8, stroke = 2) +  
+  
+  geom_line(data = pp.ov, aes(x = distance_m, y = fit), color = "grey30", lwd = 6) +
+  
+  xlab(dist) +
+  ylab(dens) +
+  
+  theme_bw(base_size = 5*bs) +
+  theme(legend.position = "right", 
+        plot.margin=unit(c(1,2,1,2), 'cm'),
+        strip.background = element_blank(),
+        strip.text.x = element_blank())
+
+jpeg(filename = "../graphs/dist_ov.jpeg", width = 3500, height = 1500)
+print(gg)
+dev.off()
+```
+
+
+### maize
+```{r ppmaize, echo = F, warning = F, message = F, fig.dim = c(10, 5)}
+pp <- data.frame()
+ff <- data.frame()
+
+for(s in 1:max(stan.data$sp)) {
+  ## newdat
+  newdat <- with(stan.data, data.frame(
+    year = max(year),
+    # jday = mean(jday),
+    land1 = mean(land[,1]),
+    land2 = seq(min(land[,2]), max(land[,2]), length = 100),
+    land3 = mean(land[,3]),
+    land4 = mean(land[,4]),
+    land5 = mean(land[,5]),
+    jday = jday.spec[s],
+    jday2 = jday.spec[s]^2,
+    effort = 10)) ## effort now working
+  newdat$sp <- s
+  newdat$species <- Spec.list[s]
+  
+  Xmat  <- model.matrix(~ land1 + land2 + land3 + land4 + land5 +
+                          jday + jday2 + 
+                          log(effort), data = newdat)
+  #  Xmat  <- model.matrix(~ land1 + land2 + land3 + log(effort), data = newdat)
+  XmatZ <- model.matrix(~ 1, data = newdat)
+  
+  fitmat <- matrix(ncol = nsim, nrow = nrow(newdat))
+  
+  for(j in 1:nsim) {
+    
+    # plogis für zi, exp für poisson
+    fitmat[, j] <- (1 - plogis(XmatZ %*% get_draws(paste0("theta[", s))[j])) * # zi part
+      exp(Xmat %*% c( # poisson part
+        get_draws("alpha")[j, s],  # year
+        get_draws(paste0("beta[", s, ",1]"))[j], # land1 (distance)
+        get_draws(paste0("beta[", s, ",2]"))[j], # land2 (maize)
+        get_draws(paste0("beta[", s, ",3]"))[j], # land3 (woodS)
+        get_draws(paste0("beta[", s, ",4]"))[j], # land4 (height)
+        get_draws(paste0("beta[", s, ",5]"))[j],  # land5 (weed)   
+        get_draws(paste0("gamma[1,", s, "]"))[j],  # jday    
+        get_draws(paste0("gamma[2,", s, "]"))[j],  # jday2   
+        1 # effort100
+        ))
+  }
+  
+  newdat$fit <- apply(X = fitmat, MARGIN = 1, FUN = quantile, probs = 0.5)
+  newdat$mean <- apply(X = fitmat, MARGIN = 1, FUN = mean)
+  newdat$lwr <- apply(X = fitmat, MARGIN = 1, FUN = quantile, probs = 0.025)
+  newdat$upr <- apply(X = fitmat, MARGIN = 1, FUN = quantile, probs = 0.975)
+  
+  pp <- rbind(pp, newdat)
+  
+  df.sim <- as.data.frame(fitmat[,gsim])
+  df.sim$species <- Spec.list[s]
+  ff <- rbind(ff, df.sim)
+}
+
+pp$species <- factor(pp$species, levels = Spec.order, ordered = T)
+ff$species <- factor(ff$species, levels = Spec.order, ordered = T)
+dat.mod$species <- factor(dat.mod$species, levels = Spec.order, ordered = T)
+
+## plot predictions
+gg <- ggplot() +
+
+  # geom_ribbon(data = pp, aes(x = land2, ymin = lwr, ymax = upr, fill = species),
+  #             alpha = 0.3) +
+  
+  geom_point(data = dat.mod, aes(x = maize_p, y = NInd_pd/effort100*10),
+             color = "grey40", alpha = 0.3, pch = 1) +  
+  
+  geom_line(data = pp, aes(x = land2, y = fit, color = species), lwd = 1.2) +
+  
+  scale_color_viridis_d(spec, direction = -1, end = 0.9) +
+  scale_fill_viridis_d(spec, direction = -1, end = 0.9) +
+  
+  facet_wrap(~species, scales = "free_y") +
+  
+  xlab(maize) +
+  ylab(dens) +
+  
+  theme_bw(base_size = bs) +
+  theme(legend.position = "none")
+
+for(i in 1:length(gsim)) {
+  pp$lsim <- ff[,i]
+  gg <- gg + geom_line(data = pp, aes(x = land2, y = lsim, color = species), alpha = 0.1)
+}
+
+print(gg)
+
+## save plot for presentations
+pp.ov <- pp %>% group_by(year, land1, land2, land3, land4, land5) %>%
+  summarise(fit = sum(fit),
+            mean = sum(mean),
+            lwr = sum(lwr),
+            upr = sum(upr),
+            .groups = "drop")
+  
+gg <- ggplot() +
+
+  # geom_ribbon(data = pp, aes(x = distance_m, ymin = lwr, ymax = upr, fill = species),
+  #             alpha = 0.3) +
+  
+  # geom_point(data = dat.mod[dat.mod$species %in% gspec,], aes(x = maize_p, y = NInd_pd/effort100*10),
+  #            color = "grey40", alpha = 0.3, pch = 1, size = 8, stroke = 2) +
+  
+  geom_line(data = pp[pp$species %in% gspec,], aes(x = land2, y = fit, color = species), lwd = 6) +
+  
+  scale_color_viridis_d(spec, direction = -1, end = 0.9) +
+  scale_fill_viridis_d(spec, direction = -1, end = 0.9) +
+  
+  facet_wrap(~species, 
+             #scales = "free_y", 
+             nrow = 1) +
+  
+  xlab(maize) +
+  ylab(dens) +
+  
+  theme_bw(base_size = 5*bs) +
+  theme(legend.position = "none", 
+        plot.margin=unit(c(1,2,1,2), 'cm'),
+        strip.background = element_blank(),
+        strip.text.x = element_blank())
+
+for(i in 1:length(gsim)) {
+  pp$lsim <- ff[,i]
+  gg <- gg + geom_line(data = pp[pp$species %in% gspec,], aes(x = land2, y = lsim, color = species), alpha = 0.1, lwd = 2)
+}
+
+jpeg(filename = "../graphs/maize.jpeg", width = 4500, height = 1500)
+print(gg)
+dev.off()
+
+gg <- ggplot() +
+
+  geom_line(data = pp[pp$species %in% gspec,], aes(x = land2, y = fit, color = species), lwd = 6) +
+  
+  scale_color_viridis_d(spec, direction = -1, end = 0.9) +
+  scale_fill_viridis_d(spec, direction = -1, end = 0.9) +
+  
+
+  xlab(maize) +
+  ylab(dens) +
+  
+  theme_bw(base_size = 5*bs) +
+  theme(legend.position = "right", 
+        plot.margin=unit(c(1,2,1,2), 'cm'),
+        strip.background = element_blank(),
+        strip.text.x = element_blank())
+
+
+jpeg(filename = "../graphs/maize_all.jpeg", width = 4500, height = 1500)
+print(gg)
+dev.off()
+
+gg <- ggplot() +
+
+  geom_ribbon(data = pp.ov, aes(x = land2, ymin = lwr, ymax = upr), fill = "grey30", color = "grey30",
+              alpha = 0.3) +
+  
+  # geom_point(data = dat.mod[dat.mod$species %in% gspec,], aes(x = distance_m, y = NInd_pd/effort100*10),
+  #            color = "grey40", alpha = 0.3, pch = 1, size = 8, stroke = 2) +  
+  
+  geom_line(data = pp.ov, aes(x = land2, y = fit), color = "grey30", lwd = 6) +
+  
+  xlab(maize) +
+  ylab(dens) +
+  
+  theme_bw(base_size = 5*bs) +
+  theme(legend.position = "right", 
+        plot.margin=unit(c(1,2,1,2), 'cm'),
+        strip.background = element_blank(),
+        strip.text.x = element_blank())
+
+jpeg(filename = "../graphs/maize_ov.jpeg", width = 3500, height = 1500)
+print(gg)
+dev.off()
+
+```
+
+
+### woodS
+```{r ppwoodS, echo = F, warning = F, message = F, fig.dim = c(10, 5)}
+pp <- data.frame()
+ff <- data.frame()
+
+for(s in 1:max(stan.data$sp)) {
+  ## newdat
+  newdat <- with(stan.data, data.frame(
+    year = max(year),
+    jday = jday.spec[s],
+    jday2 = jday.spec[s]^2,
+    land1 = mean(land[,1]),
+    land2 = mean(land[,2]),
+    land3 = seq(min(land[,3]), max(land[,3]), length = 100),
+    land4 = mean(land[,4]),
+    land5 = mean(land[,5]),
+    effort = 10)) ## effort now working
+  newdat$sp <- s
+  newdat$species <- Spec.list[s]
+  
+  Xmat  <- model.matrix(~ land1 + land2 + land3 + land4 + land5  + 
+                          jday + jday2 +
+                          log(effort), data = newdat)
+  #  Xmat  <- model.matrix(~ land1 + land2 + land3 + log(effort), data = newdat)
+  XmatZ <- model.matrix(~ 1, data = newdat)
+  
+  fitmat <- matrix(ncol = nsim, nrow = nrow(newdat))
+  
+  for(j in 1:nsim) {
+    
+    # plogis für zi, exp für poisson
+    fitmat[, j] <- (1 - plogis(XmatZ %*% get_draws(paste0("theta[", s))[j])) * # zi part
+      exp(Xmat %*% c( # poisson part
+        get_draws("alpha")[j, s],  # year
+        get_draws(paste0("beta[", s, ",1]"))[j], # land1 (distance)
+        get_draws(paste0("beta[", s, ",2]"))[j], # land2 (maize)
+        get_draws(paste0("beta[", s, ",3]"))[j], # land3 (woodS)
+        get_draws(paste0("beta[", s, ",4]"))[j], # land4 (height)
+        get_draws(paste0("beta[", s, ",5]"))[j],  # land5 (weed)   
+        get_draws(paste0("gamma[1,", s, "]"))[j],  # jday    
+        get_draws(paste0("gamma[2,", s, "]"))[j],  # jday2   
+        1 # effort100
+        ))
+  }
+  
+  newdat$fit <- apply(X = fitmat, MARGIN = 1, FUN = quantile, probs = 0.5)
+  newdat$mean <- apply(X = fitmat, MARGIN = 1, FUN = mean)
+  newdat$lwr <- apply(X = fitmat, MARGIN = 1, FUN = quantile, probs = 0.025)
+  newdat$upr <- apply(X = fitmat, MARGIN = 1, FUN = quantile, probs = 0.975)
+  
+  pp <- rbind(pp, newdat)
+ 
+  df.sim <- as.data.frame(fitmat[,gsim])
+  df.sim$species <- Spec.list[s]
+  ff <- rbind(ff, df.sim)
+}
+
+pp$species <- factor(pp$species, levels = Spec.order, ordered = T)
+ff$species <- factor(ff$species, levels = Spec.order, ordered = T)
+dat.mod$species <- factor(dat.mod$species, levels = Spec.order, ordered = T)
+
+## plot predictions
+gg <- ggplot() +
+
+  # geom_ribbon(data = pp, aes(x = land3, ymin = lwr, ymax = upr, fill = species),
+  #             alpha = 0.3) +
+  
+  geom_point(data = dat.mod, aes(x = woodS_p, y = NInd_pd/effort100*10),
+             color = "grey40", alpha = 0.3, pch = 1) +  
+  
+  geom_line(data = pp, aes(x = land3, y = fit, color = species), lwd = 1.2) +
+  
+  scale_color_viridis_d(spec, direction = -1, end = 0.9) +
+  scale_fill_viridis_d(spec, direction = -1, end = 0.9) +
+  
+  facet_wrap(~species, scales = "free_y") +
+  
+  xlab(woodS) +
+  ylab(dens) +
+  
+  theme_bw(base_size = bs) +
+  theme(legend.position = "none")
+
+for(i in 1:length(gsim)) {
+  pp$lsim <- ff[,i]
+  gg <- gg + geom_line(data = pp, aes(x = land3, y = lsim, color = species), alpha = 0.1)
+}
+
+print(gg)
+
+## save plot for presentations
+## save plot for presentations
+pp.ov <- pp %>% group_by(year, land1, land2, land3, land4, land5) %>%
+  summarise(fit = sum(fit),
+            mean = sum(mean),
+            lwr = sum(lwr),
+            upr = sum(upr),
+            .groups = "drop")
+  
+gg <- ggplot() +
+
+  # geom_ribbon(data = pp, aes(x = distance_m, ymin = lwr, ymax = upr, fill = species),
+  #             alpha = 0.3) +
+  
+  # geom_point(data = dat.mod[dat.mod$species %in% gspec,], aes(x = woodS_p, y = NInd_pd/effort100*10),
+  #            color = "grey40", alpha = 0.3, pch = 1, size = 8, stroke = 2) +
+  
+  geom_line(data = pp[pp$species %in% gspec,], aes(x = land3, y = fit, color = species), lwd = 6) +
+  
+  scale_color_viridis_d(spec, direction = -1, end = 0.9) +
+  scale_fill_viridis_d(spec, direction = -1, end = 0.9) +
+  
+  facet_wrap(~species, 
+             #scales = "free_y", 
+             nrow = 1) +
+  
+  xlab(maize) +
+  ylab(dens) +
+  
+  theme_bw(base_size = 5*bs) +
+  theme(legend.position = "none", 
+        plot.margin=unit(c(1,2,1,2), 'cm'),
+        strip.background = element_blank(),
+        strip.text.x = element_blank())
+
+for(i in 1:length(gsim)) {
+  pp$lsim <- ff[,i]
+  gg <- gg + geom_line(data = pp[pp$species %in% gspec,], aes(x = land3, y = lsim, color = species), alpha = 0.1, lwd = 2)
+}
+
+jpeg(filename = "../graphs/woodS.jpeg", width = 4500, height = 1500)
+print(gg)
+dev.off()
+
+gg <- ggplot() +
+
+  geom_line(data = pp[pp$species %in% gspec,], aes(x = land3, y = fit, color = species), lwd = 6) +
+  
+  scale_color_viridis_d(spec, direction = -1, end = 0.9) +
+  scale_fill_viridis_d(spec, direction = -1, end = 0.9) +
+  
+
+  xlab(maize) +
+  ylab(dens) +
+  
+  theme_bw(base_size = 5*bs) +
+  theme(legend.position = "right", 
+        plot.margin=unit(c(1,2,1,2), 'cm'),
+        strip.background = element_blank(),
+        strip.text.x = element_blank())
+
+
+jpeg(filename = "../graphs/woodS_all.jpeg", width = 4500, height = 1500)
+print(gg)
+dev.off()
+
+gg <- ggplot() +
+
+  geom_ribbon(data = pp.ov, aes(x = land3, ymin = lwr, ymax = upr), fill = "grey30", color = "grey30",
+              alpha = 0.3) +
+  
+  # geom_point(data = dat.mod[dat.mod$species %in% gspec,], aes(x = distance_m, y = NInd_pd/effort100*10),
+  #            color = "grey40", alpha = 0.3, pch = 1, size = 8, stroke = 2) +  
+  
+  geom_line(data = pp.ov, aes(x = land3, y = fit), color = "grey30", lwd = 6) +
+  
+  xlab(maize) +
+  ylab(dens) +
+  
+  theme_bw(base_size = 5*bs) +
+  theme(legend.position = "right", 
+        plot.margin=unit(c(1,2,1,2), 'cm'),
+        strip.background = element_blank(),
+        strip.text.x = element_blank())
+
+jpeg(filename = "../graphs/woodS_ov.jpeg", width = 3500, height = 1500)
+print(gg)
+dev.off()
+```
+
+### height
+```{r ppheight, echo = F, warning = F, message = F, fig.dim = c(10, 5)}
+pp <- data.frame()
+ff <- data.frame()
+
+for(s in 1:max(stan.data$sp)) {
+  ## newdat
+  newdat <- with(stan.data, data.frame(
+    year = max(year),
+    jday = jday.spec[s],
+    jday2 = jday.spec[s]^2,
+    land1 = mean(land[,1]),
+    land2 = mean(land[,2]),
+    land3 = mean(land[,3]),
+    land4 = seq(min(land[,4]), max(land[,4]), length = 100),
+    land5 = mean(land[,5]),
+    effort = 10)) ## effort now working
+  newdat$sp <- s
+  newdat$species <- Spec.list[s]
+  newdat$Hoehe_cm <- sd(dat.mod$Hoehe_cm)*newdat$land4 + mean(dat.mod$Hoehe_cm)
+  
+  Xmat  <- model.matrix(~ land1 + land2 + land3 + land4 + land5  + 
+                          jday + jday2 +
+                          log(effort), data = newdat)
+  #  Xmat  <- model.matrix(~ land1 + land2 + land3 + log(effort), data = newdat)
+  XmatZ <- model.matrix(~ 1, data = newdat)
+  
+  fitmat <- matrix(ncol = nsim, nrow = nrow(newdat))
+  
+  for(j in 1:nsim) {
+    
+    # plogis für zi, exp für poisson
+    fitmat[, j] <- (1 - plogis(XmatZ %*% get_draws(paste0("theta[", s))[j])) * # zi part
+      exp(Xmat %*% c( # poisson part
+        get_draws("alpha")[j, s],  # year
+        get_draws(paste0("beta[", s, ",1]"))[j], # land1 (distance)
+        get_draws(paste0("beta[", s, ",2]"))[j], # land2 (maize)
+        get_draws(paste0("beta[", s, ",3]"))[j], # land3 (woodS)
+        get_draws(paste0("beta[", s, ",4]"))[j], # land4 (height)
+        get_draws(paste0("beta[", s, ",5]"))[j],  # land5 (weed)   
+        get_draws(paste0("gamma[1,", s, "]"))[j],  # jday    
+        get_draws(paste0("gamma[2,", s, "]"))[j],  # jday2   
+        1 # effort100
+        ))
+  }  
+  newdat$fit <- apply(X = fitmat, MARGIN = 1, FUN = quantile, probs = 0.5)
+  newdat$mean <- apply(X = fitmat, MARGIN = 1, FUN = mean)
+  newdat$lwr <- apply(X = fitmat, MARGIN = 1, FUN = quantile, probs = 0.025)
+  newdat$upr <- apply(X = fitmat, MARGIN = 1, FUN = quantile, probs = 0.975)
+  
+  pp <- rbind(pp, newdat)
+ 
+  df.sim <- as.data.frame(fitmat[,gsim])
+  df.sim$species <- Spec.list[s]
+  ff <- rbind(ff, df.sim)
+}
+
+pp$species <- factor(pp$species, levels = Spec.order, ordered = T)
+ff$species <- factor(ff$species, levels = Spec.order, ordered = T)
+dat.mod$species <- factor(dat.mod$species, levels = Spec.order, ordered = T)
+
+## plot predictions
+gg <- ggplot() +
+
+  # geom_ribbon(data = pp, aes(x = land3, ymin = lwr, ymax = upr, fill = species),
+  #             alpha = 0.3) +
+  
+  geom_point(data = dat.mod, aes(x = Hoehe_cm, y = NInd_pd/effort100*10),
+             color = "grey40", alpha = 0.3, pch = 1) +  
+  
+  geom_line(data = pp, aes(x = Hoehe_cm, y = fit, color = species), lwd = 1.2) +
+  
+  scale_color_viridis_d(spec, direction = -1, end = 0.9) +
+  scale_fill_viridis_d(spec, direction = -1, end = 0.9) +
+  
+  facet_wrap(~species, scales = "free_y") +
+  
+  xlab(height) +
+  ylab(dens) +
+  
+  theme_bw(base_size = bs) +
+  theme(legend.position = "none")
+
+for(i in 1:length(gsim)) {
+  pp$lsim <- ff[,i]
+  gg <- gg + geom_line(data = pp, aes(x = Hoehe_cm, y = lsim, color = species), alpha = 0.1)
+}
+
+print(gg)
+
+## save plot for presentations
+gg <- ggplot() +
+
+  # geom_ribbon(data = pp, aes(x = land3, ymin = lwr, ymax = upr, fill = species),
+  #             alpha = 0.3) +
+  
+  # geom_point(data = dat.mod[dat.mod$species %in% gspec,], aes(x = Hoehe_cm, y = NInd_pd/effort100*10),
+  #            color = "grey40", alpha = 0.3, pch = 1, size = 8, stroke = 2, position = "jitter") +  
+  
+  geom_line(data = pp[pp$species %in% gspec,], aes(x = Hoehe_cm, y = fit, color = species), lwd = 6) +
+  
+  scale_color_viridis_d(spec, direction = -1, end = 0.9) +
+  scale_fill_viridis_d(spec, direction = -1, end = 0.9) +
+  
+  facet_wrap(~species, 
+             #scales = "free_y", 
+             nrow = 1) +
+  
+  xlab(height) +
+  ylab(dens) +
+  
+  theme_bw(base_size = 5*bs) +
+  theme(legend.position = "none", 
+        plot.margin=unit(c(1,2,1,2), 'cm'),
+        strip.background = element_blank(),
+        strip.text.x = element_blank())
+
+for(i in 1:length(gsim)) {
+  pp$lsim <- ff[,i]
+  gg <- gg + geom_line(data = pp[pp$species %in% gspec,], aes(x = Hoehe_cm, y = lsim, color = species), alpha = 0.1, lwd = 2)
+}
+
+jpeg(filename = "../graphs/height.jpeg", width = 4500, height = 1500)
+print(gg)
+dev.off()
+
+df.hist <- data.frame(value = c(dat.mod$prop_weed[dat.mod$species == "Blaumeise"],
+                                dat.mod$Hoehe_cm[dat.mod$species == "Blaumeise"],
+                                dat.mod$maize_1000m[dat.mod$species == "Blaumeise"],
+                                dat.mod$woodS_1000m[dat.mod$species == "Blaumeise"],
+                                dat.mod$distance_m[dat.mod$species == "Blaumeise"]),
+                      pred = c(rep("Verunkrautung [%]", length(dat.mod$prop_weed[dat.mod$species == "Blaumeise"])), 
+                               rep("Maishöhe [cm]", length(dat.mod$prop_weed[dat.mod$species == "Blaumeise"])), 
+                               rep("Maisanteil 1 km [%]", length(dat.mod$prop_weed[dat.mod$species == "Blaumeise"])), 
+                               rep("Wald- & Gehölzanteil 1 km [%]", length(dat.mod$prop_weed[dat.mod$species == "Blaumeise"])), 
+                               rep("Abstand zum Feldrand [m]", length(dat.mod$prop_weed[dat.mod$species == "Blaumeise"]))),
+                      year = c(dat.mod$year[dat.mod$species == "Blaumeise"],
+                               dat.mod$year[dat.mod$species == "Blaumeise"],
+                               dat.mod$year[dat.mod$species == "Blaumeise"],
+                               dat.mod$year[dat.mod$species == "Blaumeise"],
+                               dat.mod$year[dat.mod$species == "Blaumeise"]))
+
+
+jpeg(filename = "../graphs/hist.jpeg", width = 4500, height = 1500)
+ggplot(df.hist) +
+  geom_histogram(aes(value, fill = as.factor(year)), bins = 20) +
+  scale_fill_viridis_d("Jahr", begin = 0.7, end = 0.9) +
+  facet_wrap(~pred, scales = "free_x") +
+  theme_bw(base_size = 5*bs)
+dev.off()
+```
+
+### weed
+```{r ppweed, echo = F, warning = F, message = F, fig.dim = c(10, 5)}
+pp <- data.frame()
+ff <- data.frame()
+
+for(s in 1:max(stan.data$sp)) {
+  ## newdat
+  newdat <- with(stan.data, data.frame(
+    year = max(year),
+    jday = jday.spec[s],
+    jday2 = jday.spec[s]^2,
+    land1 = mean(land[,1]),
+    land2 = mean(land[,2]),
+    land3 = mean(land[,3]),
+    land4 = mean(land[,4]),
+    land5 = seq(min(land[,5]), max(land[,5]), length = 100),
+    effort = 10)) ## effort now working
+  newdat$sp <- s
+  newdat$species <- Spec.list[s]
+  
+  Xmat  <- model.matrix(~ land1 + land2 + land3 + land4 + land5  + 
+                          jday + jday2 +
+                          log(effort), data = newdat)
+  #  Xmat  <- model.matrix(~ land1 + land2 + land3 + log(effort), data = newdat)
+  XmatZ <- model.matrix(~ 1, data = newdat)
+  
+  fitmat <- matrix(ncol = nsim, nrow = nrow(newdat))
+  
+  for(j in 1:nsim) {
+    
+    # plogis für zi, exp für poisson
+    fitmat[, j] <- (1 - plogis(XmatZ %*% get_draws(paste0("theta[", s))[j])) * # zi part
+      exp(Xmat %*% c( # poisson part
+        get_draws("alpha")[j, s],  # year
+        get_draws(paste0("beta[", s, ",1]"))[j], # land1 (distance)
+        get_draws(paste0("beta[", s, ",2]"))[j], # land2 (maize)
+        get_draws(paste0("beta[", s, ",3]"))[j], # land3 (woodS)
+        get_draws(paste0("beta[", s, ",4]"))[j], # land4 (height)
+        get_draws(paste0("beta[", s, ",5]"))[j],  # land5 (weed)   
+        get_draws(paste0("gamma[1,", s, "]"))[j],  # jday    
+        get_draws(paste0("gamma[2,", s, "]"))[j],  # jday2   
+        1 # effort100
+        ))
+  }
+  
+  newdat$fit <- apply(X = fitmat, MARGIN = 1, FUN = quantile, probs = 0.5)
+  newdat$mean <- apply(X = fitmat, MARGIN = 1, FUN = mean)
+  newdat$lwr <- apply(X = fitmat, MARGIN = 1, FUN = quantile, probs = 0.025)
+  newdat$upr <- apply(X = fitmat, MARGIN = 1, FUN = quantile, probs = 0.975)
+  
+  pp <- rbind(pp, newdat)
+ 
+  df.sim <- as.data.frame(fitmat[,gsim])
+  df.sim$species <- Spec.list[s]
+  ff <- rbind(ff, df.sim)
+}
+
+pp$species <- factor(pp$species, levels = Spec.order, ordered = T)
+ff$species <- factor(ff$species, levels = Spec.order, ordered = T)
+dat.mod$species <- factor(dat.mod$species, levels = Spec.order, ordered = T)
+
+## plot predictions
+gg <- ggplot() +
+
+  # geom_ribbon(data = pp, aes(x = land3, ymin = lwr, ymax = upr, fill = species),
+  #             alpha = 0.3) +
+  
+  geom_point(data = dat.mod, aes(x = weed_p*100, y = NInd_pd/effort100*10),
+             color = "grey40", alpha = 0.3, pch = 1) +  
+  
+  geom_line(data = pp, aes(x = land5*100, y = fit, color = species), lwd = 1.2) +
+  
+  scale_color_viridis_d(spec, direction = -1, end = 0.9) +
+  scale_fill_viridis_d(spec, direction = -1, end = 0.9) +
+  
+  facet_wrap(~species, scales = "free_y") +
+  
+  xlab(weed) +
+  ylab(dens) +
+  
+  theme_bw(base_size = bs) +
+  theme(legend.position = "none")
+
+for(i in 1:length(gsim)) {
+  pp$lsim <- ff[,i]
+  gg <- gg + geom_line(data = pp, aes(x = land5*100, y = lsim, color = species), alpha = 0.1)
+}
+
+print(gg)
+
+## save plot for presentations
+gg <- ggplot() +
+
+  # geom_ribbon(data = pp, aes(x = land3, ymin = lwr, ymax = upr, fill = species),
+  #             alpha = 0.3) +
+  
+  # geom_point(data = dat.mod[dat.mod$species %in% gspec,], aes(x = weed_p*100, y = NInd_pd/effort100*10),
+  #            color = "grey40", alpha = 0.3, pch = 1, size = 8, stroke = 2, position = "jitter") +  
+  
+  geom_line(data = pp[pp$species %in% gspec,], aes(x = land5*100, y = fit, color = species), lwd = 6) +
+  
+  scale_color_viridis_d(spec, direction = -1, end = 0.9) +
+  scale_fill_viridis_d(spec, direction = -1, end = 0.9) +
+  
+  facet_wrap(~species, 
+             #scales = "free_y", 
+             nrow = 1) +
+  
+  xlab(weed) +
+  ylab(dens) +
+  
+  theme_bw(base_size = 5*bs) +
+  theme(legend.position = "none", 
+        plot.margin=unit(c(1,2,1,2), 'cm'),
+        strip.background = element_blank(),
+        strip.text.x = element_blank())
+
+for(i in 1:length(gsim)) {
+  pp$lsim <- ff[,i]
+  gg <- gg + geom_line(data = pp[pp$species %in% gspec,], aes(x = land5*100, y = lsim, color = species), alpha = 0.1, lwd = 2)
+}
+
+jpeg(filename = "../graphs/weed.jpeg", width = 4500, height = 1500)
+print(gg)
+dev.off()
+
+```

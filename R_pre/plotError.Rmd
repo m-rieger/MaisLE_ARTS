@@ -10,14 +10,12 @@ date: "`r Sys.Date()`"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
 
-library(ggspatial) # for annotation bar
-
-## add column  to df.stat for plotting
-df.stat$plot <- "station"
+## add column  to shp.stat for plotting
+shp.stat$plot <- "station"
 
 ## get plotting dimensions
-dimC <- st_bbox(shp[shp$Project == "maisC",])
-dimD <- st_bbox(shp[shp$Project == "maisD",])
+dimC <- st_bbox(shp[shp$site == "maisC",])
+dimD <- st_bbox(shp[shp$site == "maisD",])
 
 ```
 
@@ -34,7 +32,7 @@ ggplot() +
   geom_sf(aes(fill = as.character(dens)), color = NA, data = b300[[1]], lwd = 2) + 
   geom_sf(aes(fill = as.character(dens)), color = NA, data = b200[[1]], lwd = 2) + 
   geom_sf(aes(fill = as.character(dens)), color = NA, data = b100[[1]], lwd = 2) + 
-  geom_sf(data = df.stat[df.stat$station.id == "c1l1",], pch = 2, color = "white") + 
+  geom_sf(data = shp.stat[shp.stat$station.id == "c1l1",], pch = 2, color = "white") + 
   scale_fill_viridis_d("station density", direction = -1, option = "rocket", alpha = 0.4) +
   theme_light()
 
@@ -54,8 +52,8 @@ ggplot() +
   geom_sf(aes(fill = as.character(dens)), color = NA, data = b300[[2]], lwd = 2) + 
   geom_sf(aes(fill = as.character(dens)), color = NA, data = b200[[2]], lwd = 2) + 
   geom_sf(aes(fill = as.character(dens)), color = NA, data = b100[[2]], lwd = 2) + 
-  geom_sf(data = df.stat[df.stat$station.id == "c1l1",], pch = 2, color = "white") + 
-  geom_sf(data = df.stat[df.stat$station.id == "c2l1",], pch = 2, color = "white") + 
+  geom_sf(data = shp.stat[shp.stat$station.id == "c1l1",], pch = 2, color = "white") + 
+  geom_sf(data = shp.stat[shp.stat$station.id == "c2l1",], pch = 2, color = "white") + 
   scale_fill_viridis_d("station density", direction = -1, option = "rocket", alpha = 0.4) +
   theme_light()
 ```
@@ -66,11 +64,12 @@ ggplot() +
 
 ```{r}
 ## clip raster to maisC
-df.rC <- st_intersection(st_transform(df.r, crs = crs), st_union(st_buffer(df.stat[df.stat$station.project_id == "maisC",], dist = 800)))
+df.rC <- st_intersection(st_transform(df.r, crs = crs), st_union(st_buffer(st_transform(shp.stat[shp.stat$station.project_id == "maisC",], crs = crs), dist = rast_buf)))
+
 ## plot raster (= merged polygons)
 ggplot() + 
   geom_sf(aes(fill = dens, color = dens), data = df.rC, lwd = 0.1) + 
-  geom_sf(data = df.stat[df.stat$station.project_id == "maisC",], pch = 2, color = "white") + 
+  geom_sf(data = shp.stat[shp.stat$station.project_id == "maisC",], pch = 2, color = "white") + 
   # geom_sf(data = df[100000:100100,], pch = 1, color = "grey80", alpha = 0.5) + # check whether dimensions are correct
   scale_fill_viridis_c("station density", direction = -1, option = "rocket", na.value = NA) +
   scale_color_viridis_c("station density", direction = -1, option = "rocket", na.value = NA) +
@@ -82,11 +81,11 @@ ggplot() +
 
 ```{r}
 ## clip raster to maisD
-df.rD <- st_intersection(st_transform(df.r, crs = crs), st_union(st_buffer(df.stat[df.stat$station.project_id == "maisD",], dist = 800)))
+df.rD <- st_intersection(st_transform(df.r, crs = crs), st_union(st_buffer(st_transform(shp.stat[shp.stat$station.project_id == "maisD",], crs = crs), dist = rast_buf)))
 ## plot raster (= merged polygons)
 ggplot() + 
   geom_sf(aes(fill = dens, color = dens), data = df.rD, lwd = 0.1) + 
-  geom_sf(data = df.stat[df.stat$station.project_id == "maisD",], pch = 2, color = "white") + 
+  geom_sf(data = shp.stat[shp.stat$station.project_id == "maisD",], pch = 2, color = "white") + 
   # geom_sf(data = df[100000:100100,], pch = 1, color = "grey80", alpha = 0.5) + # check whether dimensions are correct
   scale_fill_viridis_c("station density", direction = -1, option = "rocket", na.value = NA) +
   scale_color_viridis_c("station density", direction = -1, option = "rocket", na.value = NA) +
@@ -99,9 +98,9 @@ ggplot() +
 ## maisC
 
 ```{r}
-for(m in unique(df$meth[df$Project == "maisC"])) {
-  dat <- df[df$Project == "maisC" & df$meth == m & df$ant == "1-10",]
-  dat.m <- df.m[df.m$Project == "maisC" & df.m$meth == m & df.m$ant == "1-10",]
+for(m in unique(df$meth[df$site == "maisC"])) {
+  dat <- df[df$site == "maisC" & df$meth == m & df$ant == "1-10",]
+  dat.m <- df.m[df.m$site == "maisC" & df.m$meth == m & df.m$ant == "1-10",]
 
   print(ggplot(dat) +
     # geom_point(aes(x = dens, y = dist, color = detR, group = detR),
@@ -123,9 +122,9 @@ for(m in unique(df$meth[df$Project == "maisC"])) {
 ## maisD
 
 ```{r}
-for(m in unique(df$meth[df$Project == "maisD"])) {
-  dat <- df[df$Project == "maisD" & df$meth == m,]
-  dat.m <- df.m[df.m$Project == "maisD" & df.m$meth == m,]
+for(m in unique(df$meth[df$site == "maisD"])) {
+  dat <- df[df$site == "maisD" & df$meth == m,]
+  dat.m <- df.m[df.m$site == "maisD" & df.m$meth == m,]
 
   print(ggplot(dat) +
     # geom_point(aes(x = dens, y = dist, color = detR, group = detR),
@@ -148,8 +147,8 @@ for(m in unique(df$meth[df$Project == "maisD"])) {
 ## maisC (raw, mean)
 
 ```{r}
-for(m in unique(df$meth[df$Project == "maisC"])) {
-  dat.m <- df.m[df.m$Project == "maisC" & df.m$meth == m & df.m$ant == "1-10",]
+for(m in unique(df$meth[df$site == "maisC"])) {
+  dat.m <- df.m[df.m$site == "maisC" & df.m$meth == m & df.m$ant == "1-10",]
 
   print(ggplot(dat.m) +
     geom_point(aes(x = dens, y = dist, color = detR, group = detR),
@@ -170,8 +169,8 @@ for(m in unique(df$meth[df$Project == "maisC"])) {
 ## maisD (raw, mean)
 
 ```{r}
-for(m in unique(df$meth[df$Project == "maisD"])) {
-  dat.m <- df.m[df.m$Project == "maisD" & df.m$meth == m,]
+for(m in unique(df$meth[df$site == "maisD"])) {
+  dat.m <- df.m[df.m$site == "maisD" & df.m$meth == m,]
 
   print(ggplot(dat.m) +
     geom_point(aes(x = dens, y = dist, color = detR, group = detR),
@@ -191,54 +190,41 @@ for(m in unique(df$meth[df$Project == "maisD"])) {
 
 
 # raster
-These plots show summarized raster (`r raster_resolution*raster_incr`x`r raster_resolution*raster_incr` m resolution) based on positions from testtags with ground truth data (GPS data). Each plot is split by individual (= testtag, e.g. TT090C) and separate plots were made per method (*ab_ql* = antenna beams quadro-logger, *ab_ml* = antenna beams mono-logger, *ml_ml* = mulitlateration mono-logger, *in_ql* = intersection quadro-logger)  
+These plots show summarized raster (`r rast_res*rast_inc`x`r rast_res*rast_inc` m resolution) based on positions from testtags with ground truth data (GPS data). Each plot is split by individual (= testtag, e.g. TT090C) and separate plots were made per method (*ab_ql* = antenna beams quadro-logger, *ab_ml* = antenna beams mono-logger, *ml_ml* = mulitlateration mono-logger, *in_ql* = intersection quadro-logger)  
 
 **abbreviations in tabs:**  
 - *rp*: raw positions (no rolling mean applied)  
 - *mp*: mean positions (rolling mean applied to rp)  
-- *tp*: true GPS positions (reference for distance error are mp)  
-- *mean*: mean distance error  
-- *sd*: sd of distance error  
+- *tp*: true GPS positions (reference for position error are mp)  
+- *mean*: mean position error  
+- *sd*: sd of position error  
 - *N*: number of points  
 
 
 ---
-
-```{r}
-## ggplot function for display
-plot.display <- function(g, leg = " ", lim = c(0, 200)){
-  g <- g +
-      scale_fill_viridis_c(leg, direction = -1, option = "rocket", limits = lim, 
-                           oob = scales::oob_squish, na.value = c(NA, "black")) +
-      scale_color_viridis_c(leg, direction = -1, option = "rocket", limits = lim, 
-                            oob = scales::oob_squish, na.value = c(NA, "black")) +
-      scale_shape_manual(" ", values = c("station" = 24)) +
-      ggtitle(paste0(m, " - detR ", d)) +
-      facet_wrap(~Individual) +
-      annotation_scale(width_hint = 0.2, bar_cols = c("grey60", "white"), 
-                       location = "tl", height = unit(0.15, "cm")) +
-      theme_light() +
-      theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
-  print(g)
-}
-```
-
 
 ## maisC {.tabset}
 
 ### mean rp
 
 ```{r}
+site <- "maisC"
+dim <- dimC
+ant <- "1-10"
+
 ## plot raster (= merged polygons)
-for(m in unique(shp$meth[shp$Project == "maisC"])) {
-  for(d in unique(shp$detR[shp$Project == "maisC" & shp$meth == m])) {
+for(m in unique(shp$meth[shp$site == site])) {
+  for(d in unique(shp$detR[shp$site == site & shp$meth == m])) {
+    if(m %in% c("ab_ml", "ml_ml")) type <- "mono"
+    if(m %in% c("ab_ql", "in_ql")) type <- "quadro"
+    
     g <- ggplot() + 
-      geom_sf(data = shp[shp$Project == "maisC" & shp$ant == "1-10" & shp$meth == m & shp$detR == d,], 
-              aes(fill = mean, color = mean), lwd = 0.1) + 
-      geom_sf(data = df.stat[df.stat$station.project_id == "maisC",], 
-              aes(shape = plot), color = "black", fill = "white") +
-      coord_sf(xlim = c(dimC[1], dimC[3]), ylim = c(dimC[2], dimC[4]))
-    plot.display(g, leg = "mean \ndistance \nerror")
+      geom_sf(data = shp[shp$site == site & shp$ant == ant & shp$meth == m & shp$detR == d,], 
+              aes(fill = mean, color = mean), lwd = 0.1)
+    g <- plot.raster(g, leg = "mean \nposition \nerror")
+    g <- plot.station(g, site = site, type = type, size = 2, stroke = 1)
+    print(plot.theme(g) +
+      coord_sf(xlim = c(dim[1], dim[3]), ylim = c(dim[2], dim[4])))
   }
 }
 
@@ -248,33 +234,38 @@ for(m in unique(shp$meth[shp$Project == "maisC"])) {
 
 ```{r}
 ## plot raster (= merged polygons)
-for(m in unique(shp$meth[shp$Project == "maisC"])) {
-  for(d in unique(shp$detR[shp$Project == "maisC" & shp$meth == m])) {
+for(m in unique(shp$meth[shp$site == site])) {
+  for(d in unique(shp$detR[shp$site == site & shp$meth == m])) {
+    if(m %in% c("ab_ml", "ml_ml")) type <- "mono"
+    if(m %in% c("ab_ql", "in_ql")) type <- "quadro"
+    
     g <- ggplot() + 
-      geom_sf(data = shp[shp$Project == "maisC" & shp$ant == "1-10" & shp$meth == m & shp$detR == d,], 
-              aes(fill = median, color = median), lwd = 0.1) + 
-      geom_sf(data = df.stat[df.stat$station.project_id == "maisC",], 
-              aes(shape = plot), color = "black", fill = "white") +
-      coord_sf(xlim = c(dimC[1], dimC[3]), ylim = c(dimC[2], dimC[4]))
-    plot.display(g, leg = "median \ndistance \nerror")
+      geom_sf(data = shp[shp$site == site & shp$ant == ant & shp$meth == m & shp$detR == d,], 
+              aes(fill = median, color = median), lwd = 0.1)
+    g <- plot.raster(g, leg = "median \nposition \nerror")
+    g <- plot.station(g, site = site, type = type, size = 2, stroke = 1)
+    print(plot.theme(g))      
+
   }
 }
-
 ```
 
 ### sd rp
 
 ```{r}
 ## plot raster (= merged polygons)
-for(m in unique(shp$meth[shp$Project == "maisC"])) {
-  for(d in unique(shp$detR[shp$Project == "maisC" & shp$meth == m])) {
+for(m in unique(shp$meth[shp$site == site])) {
+  for(d in unique(shp$detR[shp$site == site & shp$meth == m])) {
+    if(m %in% c("ab_ml", "ml_ml")) type <- "mono"
+    if(m %in% c("ab_ql", "in_ql")) type <- "quadro"
+    
     g <- ggplot() + 
-      geom_sf(data = shp[shp$Project == "maisC" & shp$ant == "1-10" & shp$meth == m & shp$detR == d,], 
-              aes(fill = sd, color = sd), lwd = 0.1) + 
-      geom_sf(data = df.stat[df.stat$station.project_id == "maisC",], 
-              aes(shape = plot), color = "black", fill = "white") +
-      coord_sf(xlim = c(dimC[1], dimC[3]), ylim = c(dimC[2], dimC[4]))
-    plot.display(g, leg = "sd \ndistance \nerror", lim = c(0, 100))
+      geom_sf(data = shp[shp$site == site & shp$ant == ant & shp$meth == m & shp$detR == d,], 
+              aes(fill = sd, color = sd), lwd = 0.1)
+    g <- plot.raster(g, leg = "sd \nposition \nerror")
+    g <- plot.station(g, site = site, type = type, size = 2, stroke = 1)
+    print(plot.theme(g))      
+
   }
 }
 
@@ -284,15 +275,18 @@ for(m in unique(shp$meth[shp$Project == "maisC"])) {
 
 ```{r}
 ## plot raster (= merged polygons)
-for(m in unique(shp$meth[shp$Project == "maisC"])) {
-  for(d in unique(shp$detR[shp$Project == "maisC" & shp$meth == m])) {
+for(m in unique(shp$meth[shp$site == site])) {
+  for(d in unique(shp$detR[shp$site == site & shp$meth == m])) {
+    if(m %in% c("ab_ml", "ml_ml")) type <- "mono"
+    if(m %in% c("ab_ql", "in_ql")) type <- "quadro"
+    
     g <- ggplot() + 
-      geom_sf(data = shp[shp$Project == "maisC" & shp$ant == "1-10" & shp$meth == m & shp$detR == d,], 
-              aes(fill = N, color = N), lwd = 0.1) + 
-      geom_sf(data = df.stat[df.stat$station.project_id == "maisC",], 
-              aes(shape = plot), color = "black", fill = "white") +
-      coord_sf(xlim = c(dimC[1], dimC[3]), ylim = c(dimC[2], dimC[4]))
-    plot.display(g, leg = "N points", lim = c(0, 200))
+      geom_sf(data = shp[shp$site == site & shp$ant == ant & shp$meth == m & shp$detR == d,], 
+              aes(fill = N, color = N), lwd = 0.1)
+    g <- plot.raster(g, leg = "N points")
+    g <- plot.station(g, site = site, type = type, size = 2, stroke = 1)
+    print(plot.theme(g))      
+
   }
 }
 
@@ -302,15 +296,19 @@ for(m in unique(shp$meth[shp$Project == "maisC"])) {
 
 ```{r}
 ## plot raster (= merged polygons)
-for(m in unique(shp.m$meth[shp.m$Project == "maisC"])) {
-  for(d in unique(shp.m$detR[shp.m$Project == "maisC" & shp.m$meth == m])) {
+for(m in unique(shp.m$meth[shp.m$site == site])) {
+  for(d in unique(shp.m$detR[shp.m$site == site & shp.m$meth == m])) {
+    if(m %in% c("ab_ml", "ml_ml")) type <- "mono"
+    if(m %in% c("ab_ql", "in_ql")) type <- "quadro"
+    
     g <- ggplot() + 
-      geom_sf(data = shp.m[shp.m$Project == "maisC" & shp.m$ant == "1-10" & shp.m$meth == m & shp.m$detR == d,], 
-              aes(fill = mean, color = mean), lwd = 0.1) + 
-      geom_sf(data = df.stat[df.stat$station.project_id == "maisC",], 
-              aes(shape = plot), color = "black", fill = "white") +
-      coord_sf(xlim = c(dimC[1], dimC[3]), ylim = c(dimC[2], dimC[4]))
-    plot.display(g, leg = "mean \ndistance \nerror")
+      geom_sf(data = shp.m[shp.m$site == site & shp.m$ant == ant & 
+                             shp.m$meth == m & shp.m$detR == d,], 
+              aes(fill = mean, color = mean), lwd = 0.1)
+    g <- plot.raster(g, leg = "mean \nposition \nerror")
+    g <- plot.station(g, site = site, type = type, size = 2, stroke = 1)
+    print(plot.theme(g))      
+
   }
 }
 
@@ -320,15 +318,19 @@ for(m in unique(shp.m$meth[shp.m$Project == "maisC"])) {
 
 ```{r}
 ## plot raster (= merged polygons)
-for(m in unique(shp.m$meth[shp.m$Project == "maisC"])) {
-  for(d in unique(shp.m$detR[shp.m$Project == "maisC" & shp.m$meth == m])) {
+for(m in unique(shp.m$meth[shp.m$site == site])) {
+  for(d in unique(shp.m$detR[shp.m$site == site & shp.m$meth == m])) {
+    if(m %in% c("ab_ml", "ml_ml")) type <- "mono"
+    if(m %in% c("ab_ql", "in_ql")) type <- "quadro"
+    
     g <- ggplot() + 
-      geom_sf(data = shp.m[shp.m$Project == "maisC" & shp.m$ant == "1-10" & shp.m$meth == m & shp.m$detR == d,], 
-              aes(fill = median, color = median), lwd = 0.1) + 
-      geom_sf(data = df.stat[df.stat$station.project_id == "maisC",], 
-              aes(shape = plot), color = "black", fill = "white") +
-      coord_sf(xlim = c(dimC[1], dimC[3]), ylim = c(dimC[2], dimC[4]))
-    plot.display(g, leg = "median \ndistance \nerror")
+      geom_sf(data = shp.m[shp.m$site == site & shp.m$ant == ant & 
+                             shp.m$meth == m & shp.m$detR == d,], 
+              aes(fill = median, color = median), lwd = 0.1)
+    g <- plot.raster(g, leg = "median \nposition \nerror")
+    g <- plot.station(g, site = site, type = type, size = 2, stroke = 1)
+    print(plot.theme(g))      
+
   }
 }
 
@@ -338,15 +340,19 @@ for(m in unique(shp.m$meth[shp.m$Project == "maisC"])) {
 
 ```{r}
 ## plot raster (= merged polygons)
-for(m in unique(shp.m$meth[shp.m$Project == "maisC"])) {
-  for(d in unique(shp.m$detR[shp.m$Project == "maisC" & shp.m$meth == m])) {
+for(m in unique(shp.m$meth[shp.m$site == site])) {
+  for(d in unique(shp.m$detR[shp.m$site == site & shp.m$meth == m])) {
+    if(m %in% c("ab_ml", "ml_ml")) type <- "mono"
+    if(m %in% c("ab_ql", "in_ql")) type <- "quadro"
+    
     g <- ggplot() + 
-      geom_sf(data = shp.m[shp.m$Project == "maisC" & shp.m$ant == "1-10" & shp.m$meth == m & shp.m$detR == d,], 
-              aes(fill = sd, color = sd), lwd = 0.1) + 
-      geom_sf(data = df.stat[df.stat$station.project_id == "maisC",], 
-              aes(shape = plot), color = "black", fill = "white") +
-      coord_sf(xlim = c(dimC[1], dimC[3]), ylim = c(dimC[2], dimC[4]))
-    plot.display(g, leg = "sd \ndistance \nerror", lim = c(0, 100))
+      geom_sf(data = shp.m[shp.m$site == site & shp.m$ant == ant & 
+                             shp.m$meth == m & shp.m$detR == d,], 
+              aes(fill = sd, color = sd), lwd = 0.1)
+    g <- plot.raster(g, leg = "sd \nposition \nerror")
+    g <- plot.station(g, site = site, type = type, size = 2, stroke = 1)
+    print(plot.theme(g))      
+
   }
 }
 
@@ -356,15 +362,19 @@ for(m in unique(shp.m$meth[shp.m$Project == "maisC"])) {
 
 ```{r}
 ## plot raster (= merged polygons)
-for(m in unique(shp.m$meth[shp.m$Project == "maisC"])) {
-  for(d in unique(shp.m$detR[shp.m$Project == "maisC" & shp.m$meth == m])) {
+for(m in unique(shp.m$meth[shp.m$site == site])) {
+  for(d in unique(shp.m$detR[shp.m$site == site & shp.m$meth == m])) {
+    if(m %in% c("ab_ml", "ml_ml")) type <- "mono"
+    if(m %in% c("ab_ql", "in_ql")) type <- "quadro"
+    
     g <- ggplot() + 
-      geom_sf(data = shp.m[shp.m$Project == "maisC" & shp.m$ant == "1-10" & shp.m$meth == m & shp.m$detR == d,], 
-              aes(fill = N, color = N), lwd = 0.1) + 
-      geom_sf(data = df.stat[df.stat$station.project_id == "maisC",], 
-              aes(shape = plot), color = "black", fill = "white") +
-      coord_sf(xlim = c(dimC[1], dimC[3]), ylim = c(dimC[2], dimC[4]))
-    plot.display(g, leg = "N points", lim = c(0, 200))
+      geom_sf(data = shp.m[shp.m$site == site & shp.m$ant == ant & 
+                             shp.m$meth == m & shp.m$detR == d,], 
+              aes(fill = N, color = N), lwd = 0.1)
+    g <- plot.raster(g, leg = "N points")
+    g <- plot.station(g, site = site, type = type, size = 2, stroke = 1)
+    print(plot.theme(g))      
+
   }
 }
 
@@ -374,15 +384,19 @@ for(m in unique(shp.m$meth[shp.m$Project == "maisC"])) {
 
 ```{r}
 ## plot raster (= merged polygons)
-for(m in unique(shp.t$meth[shp.t$Project == "maisC"])) {
-  for(d in unique(shp.t$detR[shp.t$Project == "maisC" & shp.t$meth == m])) {
+for(m in unique(shp.t$meth[shp.t$site == site])) {
+  for(d in unique(shp.t$detR[shp.t$site == site & shp.t$meth == m])) {
+    if(m %in% c("ab_ml", "ml_ml")) type <- "mono"
+    if(m %in% c("ab_ql", "in_ql")) type <- "quadro"
+    
     g <- ggplot() + 
-      geom_sf(data = shp.t[shp.t$Project == "maisC" & shp.t$ant == "1-10" & shp.t$meth == m & shp.t$detR == d,], 
-              aes(fill = mean, color = mean), lwd = 0.1) + 
-      geom_sf(data = df.stat[df.stat$station.project_id == "maisC",], 
-              aes(shape = plot), color = "black", fill = "white") +
-      coord_sf(xlim = c(dimC[1], dimC[3]), ylim = c(dimC[2], dimC[4]))
-    plot.display(g, leg = "mean \ndistance \nerror")
+      geom_sf(data = shp.t[shp.t$site == site & shp.t$ant == ant & 
+                             shp.t$meth == m & shp.t$detR == d,], 
+              aes(fill = mean, color = mean), lwd = 0.1)
+    g <- plot.raster(g, leg = "mean \nposition \nerror")
+    g <- plot.station(g, site = site, type = type, size = 2, stroke = 1)
+    print(plot.theme(g))      
+
   }
 }
 
@@ -393,15 +407,19 @@ for(m in unique(shp.t$meth[shp.t$Project == "maisC"])) {
 
 ```{r}
 ## plot raster (= merged polygons)
-for(m in unique(shp.t$meth[shp.t$Project == "maisC"])) {
-  for(d in unique(shp.t$detR[shp.t$Project == "maisC" & shp.t$meth == m])) {
+for(m in unique(shp.t$meth[shp.t$site == site])) {
+  for(d in unique(shp.t$detR[shp.t$site == site & shp.t$meth == m])) {
+    if(m %in% c("ab_ml", "ml_ml")) type <- "mono"
+    if(m %in% c("ab_ql", "in_ql")) type <- "quadro"
+    
     g <- ggplot() + 
-      geom_sf(data = shp.t[shp.t$Project == "maisC" & shp.t$ant == "1-10" & shp.t$meth == m & shp.t$detR == d,], 
-              aes(fill = median, color = median), lwd = 0.1) + 
-      geom_sf(data = df.stat[df.stat$station.project_id == "maisC",], 
-              aes(shape = plot), color = "black", fill = "white") +
-      coord_sf(xlim = c(dimC[1], dimC[3]), ylim = c(dimC[2], dimC[4]))
-    plot.display(g, leg = "median \ndistance \nerror")
+      geom_sf(data = shp.t[shp.t$site == site & shp.t$ant == ant & 
+                             shp.t$meth == m & shp.t$detR == d,], 
+              aes(fill = median, color = median), lwd = 0.1)
+    g <- plot.raster(g, leg = "median \nposition \nerror")
+    g <- plot.station(g, site = site, type = type, size = 2, stroke = 1)
+    print(plot.theme(g))      
+
   }
 }
 
@@ -411,15 +429,19 @@ for(m in unique(shp.t$meth[shp.t$Project == "maisC"])) {
 
 ```{r}
 ## plot raster (= merged polygons)
-for(m in unique(shp.t$meth[shp.t$Project == "maisC"])) {
-  for(d in unique(shp.t$detR[shp.t$Project == "maisC" & shp.t$meth == m])) {
+for(m in unique(shp.t$meth[shp.t$site == site])) {
+  for(d in unique(shp.t$detR[shp.t$site == site & shp.t$meth == m])) {
+    if(m %in% c("ab_ml", "ml_ml")) type <- "mono"
+    if(m %in% c("ab_ql", "in_ql")) type <- "quadro"
+    
     g <- ggplot() + 
-      geom_sf(data = shp.t[shp.t$Project == "maisC" & shp.t$ant == "1-10" & shp.t$meth == m & shp.t$detR == d,],  
-              aes(fill = sd, color = sd), lwd = 0.1) + 
-      geom_sf(data = df.stat[df.stat$station.project_id == "maisC",], 
-              aes(shape = plot), color = "black", fill = "white") +
-      coord_sf(xlim = c(dimC[1], dimC[3]), ylim = c(dimC[2], dimC[4]))
-    plot.display(g, leg = "sd \ndistance \nerror", lim = c(0, 100))
+      geom_sf(data = shp.t[shp.t$site == site & shp.t$ant == ant & 
+                             shp.t$meth == m & shp.t$detR == d,], 
+              aes(fill = sd, color = sd), lwd = 0.1)
+    g <- plot.raster(g, leg = "sd \nposition \nerror")
+    g <- plot.station(g, site = site, type = type, size = 2, stroke = 1)
+    print(plot.theme(g))      
+
   }
 }
 
@@ -429,15 +451,19 @@ for(m in unique(shp.t$meth[shp.t$Project == "maisC"])) {
 
 ```{r}
 ## plot raster (= merged polygons)
-for(m in unique(shp.t$meth[shp.t$Project == "maisC"])) {
-  for(d in unique(shp.t$detR[shp.t$Project == "maisC" & shp.t$meth == m])) {
+for(m in unique(shp.t$meth[shp.t$site == site])) {
+  for(d in unique(shp.t$detR[shp.t$site == site & shp.t$meth == m])) {
+    if(m %in% c("ab_ml", "ml_ml")) type <- "mono"
+    if(m %in% c("ab_ql", "in_ql")) type <- "quadro"
+    
     g <- ggplot() + 
-      geom_sf(data = shp.t[shp.t$Project == "maisC" & shp.t$ant == "1-10" & shp.t$meth == m & shp.t$detR == d,],  
-              aes(fill = N, color = N), lwd = 0.1) + 
-      geom_sf(data = df.stat[df.stat$station.project_id == "maisC",], 
-              aes(shape = plot), color = "black", fill = "white") +
-      coord_sf(xlim = c(dimC[1], dimC[3]), ylim = c(dimC[2], dimC[4]))
-    plot.display(g, leg = "N points", lim = c(0, 200))
+      geom_sf(data = shp.t[shp.t$site == site & shp.t$ant == ant & 
+                             shp.t$meth == m & shp.t$detR == d,], 
+              aes(fill = N, color = N), lwd = 0.1)
+    g <- plot.raster(g, leg = "N points")
+    g <- plot.station(g, site = site, type = type, size = 2, stroke = 1)
+    print(plot.theme(g))      
+
   }
 }
 
@@ -448,16 +474,23 @@ for(m in unique(shp.t$meth[shp.t$Project == "maisC"])) {
 ### mean rp
 
 ```{r}
+site <- "maisD"
+dim <- dimD
+ant <- "1-8"
+
 ## plot raster (= merged polygons)
-for(m in unique(shp$meth[shp$Project == "maisD"])) {
-  for(d in unique(shp$detR[shp$Project == "maisD" & shp$meth == m])) {
+for(m in unique(shp$meth[shp$site == site])) {
+  for(d in unique(shp$detR[shp$site == site & shp$meth == m])) {
+    if(m %in% c("ab_ml", "ml_ml")) type <- "mono"
+    if(m %in% c("ab_ql", "in_ql")) type <- "quadro"
+    
     g <- ggplot() + 
-      geom_sf(data = shp[shp$Project == "maisD" & shp$ant == "1-8" & shp$meth == m & shp$detR == d,], 
-              aes(fill = mean, color = mean), lwd = 0.1) + 
-      geom_sf(data = df.stat[df.stat$station.project_id == "maisD",], 
-              aes(shape = plot), color = "black", fill = "white") +
-      coord_sf(xlim = c(dimD[1], dimD[3]), ylim = c(dimD[2], dimD[4]))
-    plot.display(g, leg = "mean \ndistance \nerror")
+      geom_sf(data = shp[shp$site == site & shp$ant == ant & shp$meth == m & shp$detR == d,], 
+              aes(fill = mean, color = mean), lwd = 0.1)
+    g <- plot.raster(g, leg = "mean \nposition \nerror")
+    g <- plot.station(g, site = site, type = type, size = 2, stroke = 1)
+    print(plot.theme(g))      
+
   }
 }
 
@@ -467,33 +500,38 @@ for(m in unique(shp$meth[shp$Project == "maisD"])) {
 
 ```{r}
 ## plot raster (= merged polygons)
-for(m in unique(shp$meth[shp$Project == "maisD"])) {
-  for(d in unique(shp$detR[shp$Project == "maisD" & shp$meth == m])) {
+for(m in unique(shp$meth[shp$site == site])) {
+  for(d in unique(shp$detR[shp$site == site & shp$meth == m])) {
+    if(m %in% c("ab_ml", "ml_ml")) type <- "mono"
+    if(m %in% c("ab_ql", "in_ql")) type <- "quadro"
+    
     g <- ggplot() + 
-      geom_sf(data = shp[shp$Project == "maisD" & shp$ant == "1-8" & shp$meth == m & shp$detR == d,], 
-              aes(fill = median, color = median), lwd = 0.1) + 
-      geom_sf(data = df.stat[df.stat$station.project_id == "maisD",], 
-              aes(shape = plot), color = "black", fill = "white") +
-      coord_sf(xlim = c(dimD[1], dimD[3]), ylim = c(dimD[2], dimD[4]))
-    plot.display(g, leg = "median \ndistance \nerror")
+      geom_sf(data = shp[shp$site == site & shp$ant == ant & shp$meth == m & shp$detR == d,], 
+              aes(fill = median, color = median), lwd = 0.1)
+    g <- plot.raster(g, leg = "median \nposition \nerror")
+    g <- plot.station(g, site = site, type = type, size = 2, stroke = 1)
+    print(plot.theme(g))      
+
   }
 }
-
 ```
 
 ### sd rp
 
 ```{r}
 ## plot raster (= merged polygons)
-for(m in unique(shp$meth[shp$Project == "maisD"])) {
-  for(d in unique(shp$detR[shp$Project == "maisD" & shp$meth == m])) {
+for(m in unique(shp$meth[shp$site == site])) {
+  for(d in unique(shp$detR[shp$site == site & shp$meth == m])) {
+    if(m %in% c("ab_ml", "ml_ml")) type <- "mono"
+    if(m %in% c("ab_ql", "in_ql")) type <- "quadro"
+    
     g <- ggplot() + 
-      geom_sf(data = shp[shp$Project == "maisD" & shp$ant == "1-8" & shp$meth == m & shp$detR == d,], 
-              aes(fill = sd, color = sd), lwd = 0.1) + 
-      geom_sf(data = df.stat[df.stat$station.project_id == "maisD",], 
-              aes(shape = plot), color = "black", fill = "white") +
-      coord_sf(xlim = c(dimD[1], dimD[3]), ylim = c(dimD[2], dimD[4]))
-    plot.display(g, leg = "sd \ndistance \nerror", lim = c(0, 100))
+      geom_sf(data = shp[shp$site == site & shp$ant == ant & shp$meth == m & shp$detR == d,], 
+              aes(fill = sd, color = sd), lwd = 0.1)
+    g <- plot.raster(g, leg = "sd \nposition \nerror")
+    g <- plot.station(g, site = site, type = type, size = 2, stroke = 1)
+    print(plot.theme(g))      
+
   }
 }
 
@@ -503,15 +541,18 @@ for(m in unique(shp$meth[shp$Project == "maisD"])) {
 
 ```{r}
 ## plot raster (= merged polygons)
-for(m in unique(shp$meth[shp$Project == "maisD"])) {
-  for(d in unique(shp$detR[shp$Project == "maisD" & shp$meth == m])) {
+for(m in unique(shp$meth[shp$site == site])) {
+  for(d in unique(shp$detR[shp$site == site & shp$meth == m])) {
+    if(m %in% c("ab_ml", "ml_ml")) type <- "mono"
+    if(m %in% c("ab_ql", "in_ql")) type <- "quadro"
+    
     g <- ggplot() + 
-      geom_sf(data = shp[shp$Project == "maisD" & shp$ant == "1-8" & shp$meth == m & shp$detR == d,], 
-              aes(fill = N, color = N), lwd = 0.1) + 
-      geom_sf(data = df.stat[df.stat$station.project_id == "maisD",], 
-              aes(shape = plot), color = "black", fill = "white") +
-      coord_sf(xlim = c(dimD[1], dimD[3]), ylim = c(dimD[2], dimD[4]))
-    plot.display(g, leg = "N points", lim = c(0, 200))
+      geom_sf(data = shp[shp$site == site & shp$ant == ant & shp$meth == m & shp$detR == d,], 
+              aes(fill = N, color = N), lwd = 0.1)
+    g <- plot.raster(g, leg = "N points")
+    g <- plot.station(g, site = site, type = type, size = 2, stroke = 1)
+    print(plot.theme(g))      
+
   }
 }
 
@@ -521,15 +562,19 @@ for(m in unique(shp$meth[shp$Project == "maisD"])) {
 
 ```{r}
 ## plot raster (= merged polygons)
-for(m in unique(shp.m$meth[shp.m$Project == "maisD"])) {
-  for(d in unique(shp.m$detR[shp.m$Project == "maisD" & shp.m$meth == m])) {
+for(m in unique(shp.m$meth[shp.m$site == site])) {
+  for(d in unique(shp.m$detR[shp.m$site == site & shp.m$meth == m])) {
+    if(m %in% c("ab_ml", "ml_ml")) type <- "mono"
+    if(m %in% c("ab_ql", "in_ql")) type <- "quadro"
+    
     g <- ggplot() + 
-      geom_sf(data = shp.m[shp.m$Project == "maisD" & shp.m$ant == "1-8" & shp.m$meth == m & shp.m$detR == d,], 
-              aes(fill = mean, color = mean), lwd = 0.1) + 
-      geom_sf(data = df.stat[df.stat$station.project_id == "maisD",], 
-              aes(shape = plot), color = "black", fill = "white") +
-      coord_sf(xlim = c(dimD[1], dimD[3]), ylim = c(dimD[2], dimD[4]))
-    plot.display(g, leg = "mean \ndistance \nerror")
+      geom_sf(data = shp.m[shp.m$site == site & shp.m$ant == ant & 
+                             shp.m$meth == m & shp.m$detR == d,], 
+              aes(fill = mean, color = mean), lwd = 0.1)
+    g <- plot.raster(g, leg = "mean \nposition \nerror")
+    g <- plot.station(g, site = site, type = type, size = 2, stroke = 1)
+    print(plot.theme(g))      
+
   }
 }
 
@@ -539,15 +584,19 @@ for(m in unique(shp.m$meth[shp.m$Project == "maisD"])) {
 
 ```{r}
 ## plot raster (= merged polygons)
-for(m in unique(shp.m$meth[shp.m$Project == "maisD"])) {
-  for(d in unique(shp.m$detR[shp.m$Project == "maisD" & shp.m$meth == m])) {
+for(m in unique(shp.m$meth[shp.m$site == site])) {
+  for(d in unique(shp.m$detR[shp.m$site == site & shp.m$meth == m])) {
+    if(m %in% c("ab_ml", "ml_ml")) type <- "mono"
+    if(m %in% c("ab_ql", "in_ql")) type <- "quadro"
+    
     g <- ggplot() + 
-      geom_sf(data = shp.m[shp.m$Project == "maisD" & shp.m$ant == "1-8" & shp.m$meth == m & shp.m$detR == d,], 
-              aes(fill = median, color = median), lwd = 0.1) + 
-      geom_sf(data = df.stat[df.stat$station.project_id == "maisD",], 
-              aes(shape = plot), color = "black", fill = "white") +
-      coord_sf(xlim = c(dimD[1], dimD[3]), ylim = c(dimD[2], dimD[4]))
-    plot.display(g, leg = "median \ndistance \nerror")
+      geom_sf(data = shp.m[shp.m$site == site & shp.m$ant == ant & 
+                             shp.m$meth == m & shp.m$detR == d,], 
+              aes(fill = median, color = median), lwd = 0.1)
+    g <- plot.raster(g, leg = "median \nposition \nerror")
+    g <- plot.station(g, site = site, type = type, size = 2, stroke = 1)
+    print(plot.theme(g))      
+
   }
 }
 
@@ -557,15 +606,19 @@ for(m in unique(shp.m$meth[shp.m$Project == "maisD"])) {
 
 ```{r}
 ## plot raster (= merged polygons)
-for(m in unique(shp.m$meth[shp.m$Project == "maisD"])) {
-  for(d in unique(shp.m$detR[shp.m$Project == "maisD" & shp.m$meth == m])) {
+for(m in unique(shp.m$meth[shp.m$site == site])) {
+  for(d in unique(shp.m$detR[shp.m$site == site & shp.m$meth == m])) {
+    if(m %in% c("ab_ml", "ml_ml")) type <- "mono"
+    if(m %in% c("ab_ql", "in_ql")) type <- "quadro"
+    
     g <- ggplot() + 
-      geom_sf(data = shp.m[shp.m$Project == "maisD" & shp.m$ant == "1-8" & shp.m$meth == m & shp.m$detR == d,], 
-              aes(fill = sd, color = sd), lwd = 0.1) + 
-      geom_sf(data = df.stat[df.stat$station.project_id == "maisD",], 
-              aes(shape = plot), color = "black", fill = "white") +
-      coord_sf(xlim = c(dimD[1], dimD[3]), ylim = c(dimD[2], dimD[4]))
-    plot.display(g, leg = "sd \ndistance \nerror", lim = c(0, 100))
+      geom_sf(data = shp.m[shp.m$site == site & shp.m$ant == ant & 
+                             shp.m$meth == m & shp.m$detR == d,], 
+              aes(fill = sd, color = sd), lwd = 0.1)
+    g <- plot.raster(g, leg = "sd \nposition \nerror")
+    g <- plot.station(g, site = site, type = type, size = 2, stroke = 1)
+    print(plot.theme(g))      
+
   }
 }
 
@@ -575,15 +628,19 @@ for(m in unique(shp.m$meth[shp.m$Project == "maisD"])) {
 
 ```{r}
 ## plot raster (= merged polygons)
-for(m in unique(shp.m$meth[shp.m$Project == "maisD"])) {
-  for(d in unique(shp.m$detR[shp.m$Project == "maisD" & shp.m$meth == m])) {
+for(m in unique(shp.m$meth[shp.m$site == site])) {
+  for(d in unique(shp.m$detR[shp.m$site == site & shp.m$meth == m])) {
+    if(m %in% c("ab_ml", "ml_ml")) type <- "mono"
+    if(m %in% c("ab_ql", "in_ql")) type <- "quadro"
+    
     g <- ggplot() + 
-      geom_sf(data = shp.m[shp.m$Project == "maisD" & shp.m$ant == "1-8" & shp.m$meth == m & shp.m$detR == d,], 
-              aes(fill = N, color = N), lwd = 0.1) + 
-      geom_sf(data = df.stat[df.stat$station.project_id == "maisD",], 
-              aes(shape = plot), color = "black", fill = "white") +
-      coord_sf(xlim = c(dimD[1], dimD[3]), ylim = c(dimD[2], dimD[4]))
-    plot.display(g, leg = "N points", lim = c(0, 200))
+      geom_sf(data = shp.m[shp.m$site == site & shp.m$ant == ant & 
+                             shp.m$meth == m & shp.m$detR == d,], 
+              aes(fill = N, color = N), lwd = 0.1)
+    g <- plot.raster(g, leg = "N points")
+    g <- plot.station(g, site = site, type = type, size = 2, stroke = 1)
+    print(plot.theme(g))      
+
   }
 }
 
@@ -593,15 +650,19 @@ for(m in unique(shp.m$meth[shp.m$Project == "maisD"])) {
 
 ```{r}
 ## plot raster (= merged polygons)
-for(m in unique(shp.t$meth[shp.t$Project == "maisD"])) {
-  for(d in unique(shp.t$detR[shp.t$Project == "maisD" & shp.t$meth == m])) {
+for(m in unique(shp.t$meth[shp.t$site == site])) {
+  for(d in unique(shp.t$detR[shp.t$site == site & shp.t$meth == m])) {
+    if(m %in% c("ab_ml", "ml_ml")) type <- "mono"
+    if(m %in% c("ab_ql", "in_ql")) type <- "quadro"
+    
     g <- ggplot() + 
-      geom_sf(data = shp.t[shp.t$Project == "maisD" & shp.t$ant == "1-8" & shp.t$meth == m & shp.t$detR == d,], 
-              aes(fill = mean, color = mean), lwd = 0.1) + 
-      geom_sf(data = df.stat[df.stat$station.project_id == "maisD",], 
-              aes(shape = plot), color = "black", fill = "white") +
-      coord_sf(xlim = c(dimD[1], dimD[3]), ylim = c(dimD[2], dimD[4]))
-    plot.display(g, leg = "mean \ndistance \nerror")
+      geom_sf(data = shp.t[shp.t$site == site & shp.t$ant == ant & 
+                             shp.t$meth == m & shp.t$detR == d,], 
+              aes(fill = mean, color = mean), lwd = 0.1)
+    g <- plot.raster(g, leg = "mean \nposition \nerror")
+    g <- plot.station(g, site = site, type = type, size = 2, stroke = 1)
+    print(plot.theme(g))      
+
   }
 }
 
@@ -612,15 +673,19 @@ for(m in unique(shp.t$meth[shp.t$Project == "maisD"])) {
 
 ```{r}
 ## plot raster (= merged polygons)
-for(m in unique(shp.t$meth[shp.t$Project == "maisD"])) {
-  for(d in unique(shp.t$detR[shp.t$Project == "maisD" & shp.t$meth == m])) {
+for(m in unique(shp.t$meth[shp.t$site == site])) {
+  for(d in unique(shp.t$detR[shp.t$site == site & shp.t$meth == m])) {
+    if(m %in% c("ab_ml", "ml_ml")) type <- "mono"
+    if(m %in% c("ab_ql", "in_ql")) type <- "quadro"
+    
     g <- ggplot() + 
-      geom_sf(data = shp.t[shp.t$Project == "maisD" & shp.t$ant == "1-8" & shp.t$meth == m & shp.t$detR == d,], 
-              aes(fill = median, color = median), lwd = 0.1) + 
-      geom_sf(data = df.stat[df.stat$station.project_id == "maisD",], 
-              aes(shape = plot), color = "black", fill = "white") +
-      coord_sf(xlim = c(dimD[1], dimD[3]), ylim = c(dimD[2], dimD[4]))
-    plot.display(g, leg = "median \ndistance \nerror")
+      geom_sf(data = shp.t[shp.t$site == site & shp.t$ant == ant & 
+                             shp.t$meth == m & shp.t$detR == d,], 
+              aes(fill = median, color = median), lwd = 0.1)
+    g <- plot.raster(g, leg = "median \nposition \nerror")
+    g <- plot.station(g, site = site, type = type, size = 2, stroke = 1)
+    print(plot.theme(g))      
+
   }
 }
 
@@ -630,15 +695,19 @@ for(m in unique(shp.t$meth[shp.t$Project == "maisD"])) {
 
 ```{r}
 ## plot raster (= merged polygons)
-for(m in unique(shp.t$meth[shp.t$Project == "maisD"])) {
-  for(d in unique(shp.t$detR[shp.t$Project == "maisD" & shp.t$meth == m])) {
+for(m in unique(shp.t$meth[shp.t$site == site])) {
+  for(d in unique(shp.t$detR[shp.t$site == site & shp.t$meth == m])) {
+    if(m %in% c("ab_ml", "ml_ml")) type <- "mono"
+    if(m %in% c("ab_ql", "in_ql")) type <- "quadro"
+    
     g <- ggplot() + 
-      geom_sf(data = shp.t[shp.t$Project == "maisD" & shp.t$ant == "1-8" & shp.t$meth == m & shp.t$detR == d,],  
-              aes(fill = sd, color = sd), lwd = 0.1) + 
-      geom_sf(data = df.stat[df.stat$station.project_id == "maisD",], 
-              aes(shape = plot), color = "black", fill = "white") +
-      coord_sf(xlim = c(dimD[1], dimD[3]), ylim = c(dimD[2], dimD[4]))
-    plot.display(g, leg = "sd \ndistance \nerror", lim = c(0, 100))
+      geom_sf(data = shp.t[shp.t$site == site & shp.t$ant == ant & 
+                             shp.t$meth == m & shp.t$detR == d,], 
+              aes(fill = sd, color = sd), lwd = 0.1)
+    g <- plot.raster(g, leg = "sd \nposition \nerror")
+    g <- plot.station(g, site = site, type = type, size = 2, stroke = 1)
+    print(plot.theme(g))      
+
   }
 }
 
@@ -648,15 +717,18 @@ for(m in unique(shp.t$meth[shp.t$Project == "maisD"])) {
 
 ```{r}
 ## plot raster (= merged polygons)
-for(m in unique(shp.t$meth[shp.t$Project == "maisD"])) {
-  for(d in unique(shp.t$detR[shp.t$Project == "maisD" & shp.t$meth == m])) {
+for(m in unique(shp.t$meth[shp.t$site == site])) {
+  for(d in unique(shp.t$detR[shp.t$site == site & shp.t$meth == m])) {
+    if(m %in% c("ab_ml", "ml_ml")) type <- "mono"
+    if(m %in% c("ab_ql", "in_ql")) type <- "quadro"
+    
     g <- ggplot() + 
-      geom_sf(data = shp.t[shp.t$Project == "maisD" & shp.t$ant == "1-8" & shp.t$meth == m & shp.t$detR == d,],  
-              aes(fill = N, color = N), lwd = 0.1) + 
-      geom_sf(data = df.stat[df.stat$station.project_id == "maisD",], 
-              aes(shape = plot), color = "black", fill = "white") +
-      coord_sf(xlim = c(dimD[1], dimD[3]), ylim = c(dimD[2], dimD[4]))
-    plot.display(g, leg = "N points", lim = c(0, 200))
+      geom_sf(data = shp.t[shp.t$site == site & shp.t$ant == ant & 
+                             shp.t$meth == m & shp.t$detR == d,], 
+              aes(fill = N, color = N), lwd = 0.1)
+    g <- plot.raster(g, leg = "N points")
+    g <- plot.station(g, site = site, type = type, size = 2, stroke = 0.8)
+    print(plot.theme(g))
   }
 }
 
