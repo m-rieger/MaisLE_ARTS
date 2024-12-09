@@ -1009,6 +1009,218 @@ dispersion_simulation <- function(data, modelTMB, response, predictor, n.sim) {
     plot1
   }
 
+#-----------------------#
+#** 6.2.1 Mean ----
+#-----------------------#
+
+mean_simulation <- function(data, modelTMB, response, predictor, n.sim) {
+  
+  data <- as.data.frame(data)
+  
+  sims <- simulate(modelTMB, nsim = n.sim, seed = 9) 
+  
+  if(!missing(predictor) && !is.null(predictor) && length(na.omit(predictor)) > 0) { 
+    
+    if(length(na.omit(predictor)) > 1) {warning(call. = F, "Multiple predictors detected: the first has been taken by default. Explicitly specify others if preferred.")}
+    
+    if(length(predictor) > 1) {
+      predictor <- na.omit(predictor)[1]
+    }
+    
+    if(sum(sapply(data[predictor], FUN = is.numeric)) == length(predictor))  {stop("ERROR: The predictor must be a factor.")} else {
+      
+      if (modelTMB$modelInfo$family[1] == "binomial" | modelTMB$modelInfo$family[1] == "betabinomial") {
+        list_sims <- lapply(sims, function(x) {
+          cbind("estimate" = x[,1]/(x[,1] + x[,2]), data %>% dplyr::select(!!sym(predictor)))
+        }
+        )}
+      else {
+        list_sims <- lapply(sims, function(x) { # lapply applies function to each vector and returns it as a list.
+          cbind("estimate" = x, data %>% dplyr::select(!!sym(predictor)))
+        }
+        )}
+      
+      sims_summary <- lapply(list_sims, function(x) {
+        as.data.frame(x %>% group_by(!!sym(predictor)) %>% 
+                        summarize(mean = round(mean(estimate), digits = 5)))
+      }
+      )
+      all_sims <- do.call(rbind, sims_summary)
+      temp <- data %>% group_by(!!sym(predictor)) %>% 
+        summarize(mean = mean(!!sym(response)))
+      
+      # The following checks the quantile of observed parameters against simulated ones.
+      # Depending on quantiles, observed vlines are coloured blue, orange, or red.
+      
+      grouped_sims <- cbind(all_sims, temp[2])
+      names(grouped_sims) <- c(predictor, "mean", "obs_mean")
+      
+      grouped_sims <- grouped_sims %>% group_by(!!sym(predictor))
+      
+    }}  else { # not grouped by a predictor
+      
+      if (modelTMB$modelInfo$family[1] == "binomial" | modelTMB$modelInfo$family[1] == "betabinomial") {
+        list_sims <- lapply(sims, function(x) {
+          "estimate" = x[,1]/(x[,1] + x[,2])
+        }
+        )}
+      else {
+        list_sims <- lapply(sims, function(x) {
+          "estimate" = x
+        }
+        )}
+      
+      sims_summary <- lapply(list_sims, function(x) {
+        as.data.frame(list(mean = round(mean(x), digits = 5)))
+      })
+      all_sims <- do.call(rbind, sims_summary) # do.call constructs and executes a function call from a name or 
+      temp <- data %>% summarize(mean = mean(!!sym(response)))
+      
+      # The following checks the quantile of observed parameters against simulated ones.
+      # Depending on quantiles, observed vlines are coloured blue, orange, or red.
+      
+      grouped_sims <- cbind(all_sims, temp)
+      names(grouped_sims) <- c("mean","obs_mean")
+    }
+  
+  prop <- as.data.frame(grouped_sims %>% summarize(extreme_mean = sum(mean > obs_mean)/n.sim, equal_mean = sum(mean == obs_mean)/n.sim))
+  
+  col.vline_mean <- ifelse(between(prop$extreme_mean, 0.05, 0.95) | prop$equal_mean > 0.1, "blue",  
+                               ifelse(between(prop$extreme_mean, 0.005, 0.995) | prop$equal_mean > 0.01, "orange", "red"))
+  
+  plot1 <- ggplot() + 
+    labs(x = "mean: simulated (bars) and observed (line)", y = "Frequency", title = "") +
+    geom_histogram(data = all_sims, aes(x = mean), col = "white", fill = "grey70", bins = 30) + 
+    geom_vline(data = temp, aes(xintercept = mean), col = col.vline_mean, linewidth = 1.5) +
+    plot0 +
+    if(!missing(predictor) && !is.null(predictor)  && length(na.omit(predictor)) > 0) {facet_wrap(as.formula(paste("~", predictor)), scales = "free")}
+  
+  if(sum(col.vline_mean == "blue")  == length(col.vline_mean)) {
+    message("OPTIMAL FIT: All observed means fall within central 90% of simulated data. No issues.")} else {
+      if(sum(col.vline_mean == "orange") == length(col.vline_mean)) {
+        warning(call. = F, "SUB-OPTIMAL FIT: All observed means (orange) fall marginal within central 99% of simulated data. Check if better model fit can be achieved.")} else {
+          if(sum(col.vline_mean == "red") == length(col.vline_mean)) {
+            warning(call. = F, "POOR FIT: All observed means (red) are outside the central 99% of simulated data. Your model likely provides insufficient fit to your data.")} else {
+              if(sum(col.vline_mean == "blue") + sum(col.vline_mean == "orange") == length(col.vline_mean)) {
+                warning(call. = F, "SUB-OPTIMAL FIT: Some observed means (orange) fall marginal within central 99% of simulated data. Check if better model fit can be achieved.")} else {
+                  if(sum(col.vline_mean == "blue") + sum(col.vline_mean == "red") == length(col.vline_mean)) {
+                    warning(call. = F, "POOR FIT: Some observed means (red) are outside the central 99% of simulated data. Your model likely provides insufficient fit to your data.")} else {
+                      if(sum(col.vline_mean == "orange") + sum(col.vline_mean == "red") == length(col.vline_mean)) {
+                        warning(call. = F, "SUB-OPTIMAL FIT: Some observed means (orange) fall marginal within central 99% of simulated data. Check if better model fit can be achieved.")
+                        warning(call. = F, "POOR FIT: Some observed means (red) are outside the central 99% of simulated data. Your model likely provides insufficient fit to your data.")} else {
+                          if(sum(col.vline_mean == "blue") + sum(col.vline_mean == "orange") + sum(col.vline_mean == "red") == length(col.vline_mean)) {   
+                            warning(call. = F, "SUB-OPTIMAL FIT: Some observed means (orange) fall marginal within central 99% of simulated data. Check if better model fit can be achieved.")
+                            warning(call. = F, "POOR FIT: Some observed means (red) are outside the central 99% of simulated data. Your model likely provides insufficient fit to your data.")
+                          }}}}}}}
+  plot1
+}
+
+#-----------------------#
+#** 6.2.1 SD ----
+#-----------------------#
+
+sd_simulation <- function(data, modelTMB, response, predictor, n.sim) {
+  
+  data <- as.data.frame(data)
+  
+  sims <- simulate(modelTMB, nsim = n.sim, seed = 9) 
+  
+  if(!missing(predictor) && !is.null(predictor) && length(na.omit(predictor)) > 0) { 
+    
+    if(length(na.omit(predictor)) > 1) {warning(call. = F, "Multiple predictors detected: the first has been taken by default. Explicitly specify others if preferred.")}
+    
+    if(length(predictor) > 1) {
+      predictor <- na.omit(predictor)[1]
+    }
+    
+    if(sum(sapply(data[predictor], FUN = is.numeric)) == length(predictor))  {stop("ERROR: The predictor must be a factor.")} else {
+      
+      if (modelTMB$modelInfo$family[1] == "binomial" | modelTMB$modelInfo$family[1] == "betabinomial") {
+        list_sims <- lapply(sims, function(x) {
+          cbind("estimate" = x[,1]/(x[,1] + x[,2]), data %>% dplyr::select(!!sym(predictor)))
+        }
+        )}
+      else {
+        list_sims <- lapply(sims, function(x) { # lapply applies function to each vector and returns it as a list.
+          cbind("estimate" = x, data %>% dplyr::select(!!sym(predictor)))
+        }
+        )}
+      
+      sims_summary <- lapply(list_sims, function(x) {
+        as.data.frame(x %>% group_by(!!sym(predictor)) %>% 
+                        summarize(sd = round(sd(estimate), digits = 5)))
+      }
+      )
+      all_sims <- do.call(rbind, sims_summary)
+      temp <- data %>% group_by(!!sym(predictor)) %>% 
+        summarize(sd = sd(!!sym(response)))
+      
+      # The following checks the quantile of observed parameters against simulated ones.
+      # Depending on quantiles, observed vlines are coloured blue, orange, or red.
+      
+      grouped_sims <- cbind(all_sims, temp[2])
+      names(grouped_sims) <- c(predictor, "sd", "obs_sd")
+      
+      grouped_sims <- grouped_sims %>% group_by(!!sym(predictor))
+      
+    }}  else { # not grouped by a predictor
+      
+      if (modelTMB$modelInfo$family[1] == "binomial" | modelTMB$modelInfo$family[1] == "betabinomial") {
+        list_sims <- lapply(sims, function(x) {
+          "estimate" = x[,1]/(x[,1] + x[,2])
+        }
+        )}
+      else {
+        list_sims <- lapply(sims, function(x) {
+          "estimate" = x
+        }
+        )}
+      
+      sims_summary <- lapply(list_sims, function(x) {
+        as.data.frame(list(sd = round(sd(x), digits = 5)))
+      })
+      all_sims <- do.call(rbind, sims_summary) # do.call constructs and executes a function call from a name or 
+      temp <- data %>% summarize(sd = sd(!!sym(response)))
+      
+      # The following checks the quantile of observed parameters against simulated ones.
+      # Depending on quantiles, observed vlines are coloured blue, orange, or red.
+      
+      grouped_sims <- cbind(all_sims, temp)
+      names(grouped_sims) <- c("sd","obs_sd")
+    }
+  
+  prop <- as.data.frame(grouped_sims %>% summarize(extreme_sd = sum(sd > obs_sd)/n.sim, equal_sd = sum(sd == obs_sd)/n.sim))
+  
+  col.vline_sd <- ifelse(between(prop$extreme_sd, 0.05, 0.95) | prop$equal_sd > 0.1, "blue",  
+                           ifelse(between(prop$extreme_sd, 0.005, 0.995) | prop$equal_sd > 0.01, "orange", "red"))
+  
+  plot1 <- ggplot() + 
+    labs(x = "sd: simulated (bars) and observed (line)", y = "Frequency", title = "") +
+    geom_histogram(data = all_sims, aes(x = sd), col = "white", fill = "grey70", bins = 30) + 
+    geom_vline(data = temp, aes(xintercept = sd), col = col.vline_sd, linewidth = 1.5) +
+    plot0 +
+    if(!missing(predictor) && !is.null(predictor)  && length(na.omit(predictor)) > 0) {facet_wrap(as.formula(paste("~", predictor)), scales = "free")}
+  
+  if(sum(col.vline_sd == "blue")  == length(col.vline_sd)) {
+    message("OPTIMAL FIT: All observed sds fall within central 90% of simulated data. No issues.")} else {
+      if(sum(col.vline_sd == "orange") == length(col.vline_sd)) {
+        warning(call. = F, "SUB-OPTIMAL FIT: All observed sds (orange) fall marginal within central 99% of simulated data. Check if better model fit can be achieved.")} else {
+          if(sum(col.vline_sd == "red") == length(col.vline_sd)) {
+            warning(call. = F, "POOR FIT: All observed sds (red) are outside the central 99% of simulated data. Your model likely provides insufficient fit to your data.")} else {
+              if(sum(col.vline_sd == "blue") + sum(col.vline_sd == "orange") == length(col.vline_sd)) {
+                warning(call. = F, "SUB-OPTIMAL FIT: Some observed sds (orange) fall marginal within central 99% of simulated data. Check if better model fit can be achieved.")} else {
+                  if(sum(col.vline_sd == "blue") + sum(col.vline_sd == "red") == length(col.vline_sd)) {
+                    warning(call. = F, "POOR FIT: Some observed sds (red) are outside the central 99% of simulated data. Your model likely provides insufficient fit to your data.")} else {
+                      if(sum(col.vline_sd == "orange") + sum(col.vline_sd == "red") == length(col.vline_sd)) {
+                        warning(call. = F, "SUB-OPTIMAL FIT: Some observed sds (orange) fall marginal within central 99% of simulated data. Check if better model fit can be achieved.")
+                        warning(call. = F, "POOR FIT: Some observed sds (red) are outside the central 99% of simulated data. Your model likely provides insufficient fit to your data.")} else {
+                          if(sum(col.vline_sd == "blue") + sum(col.vline_sd == "orange") + sum(col.vline_sd == "red") == length(col.vline_sd)) {   
+                            warning(call. = F, "SUB-OPTIMAL FIT: Some observed sds (orange) fall marginal within central 99% of simulated data. Check if better model fit can be achieved.")
+                            warning(call. = F, "POOR FIT: Some observed sds (red) are outside the central 99% of simulated data. Your model likely provides insufficient fit to your data.")
+                          }}}}}}}
+  plot1
+}
+
 
 #---------------------------#
 #** 6.2.2 Zero inflation ---- 

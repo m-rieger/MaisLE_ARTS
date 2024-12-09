@@ -12,63 +12,88 @@ rm(list = ls()) # OPTIONAL: Execute to remove previous objects from the global e
 
 # Activate the support 'functions file' for this routine:
 source("./R_model/Linear modelling workflow_support functions.R") 
-  # NOTE-1: The 'functions file' must be located in your current working directory.
-  # NOTE-2: At first use, all missing packages required for this routine are automatically installed.
-  # NOTE-3: "Step plot settings" in the functions file specifies the ggplot2 theme for the entire routine. 
-  #         Modify there as needed, leave it as default otherwise.
 library(sf)
-
-#-###########################-#
-# 2. Import the dataframe  ----
-#-###########################-#
-# Headers of this template match the respective section headers of the accompanying article. 
-# Consult the article for more detailed explanations of each section. 
+library(ggeffects) # to predict gams (in fast way)
 
 # Import data frame (example only. Any other import function of R can be used).
 dsn <- paste0("../data/data_cali/savedFiles/Data_cali_density.gpkg")
-df <- st_read(layer = 'density', dsn = dsn)
-df <-  df %>%
+dat <- st_read(layer = 'density', dsn = dsn)
+dat <-  dat %>%
   dplyr::mutate(lon = sf::st_coordinates(.)[,1],
                 lat = sf::st_coordinates(.)[,2]) %>%
   st_drop_geometry()
-df.m <- st_read(layer = 'density_mean', dsn = dsn)
-df.m <-  df.m %>%
+dat.m <- st_read(layer = 'density_mean', dsn = dsn)
+dat.m <-  dat.m %>%
   dplyr::mutate(lon = sf::st_coordinates(.)[,1],
                 lat = sf::st_coordinates(.)[,2]) %>%
   st_drop_geometry()
 
 ## change col names and merge
-df$pos <- "raw"
-df.m$pos <- "mean"
+dat$pos <- "raw"
+dat.m$pos <- "mean"
 
-df.m$lon.true <- df.m$lonT.m
-df.m$lat.true <- df.m$latT.m
-df.m$PE <- df.m$PE.m
+dat.m$lon.true <- dat.m$lonT.m
+dat.m$lat.true <- dat.m$latT.m
+dat.m$PE <- dat.m$PE.m
 
-df <- rbind(df[, c("site", "X_time", "Station.Count", "Antenna.Count", "Weight", 
+dat <- rbind(dat[, c("site", "X_time", "Station.Count", "Antenna.Count", "Weight", 
                    "Signal.max", "Individual", "detR", "ant", "meth", "pos",
                    "lon", "lat", "lon.true", "lat.true", "PE", "dens")],
-            df.m[, c("site", "X_time", "Station.Count", "Antenna.Count", "Weight", 
+            dat.m[, c("site", "X_time", "Station.Count", "Antenna.Count", "Weight", 
                    "Signal.max", "Individual", "detR", "ant", "meth", "pos",
                    "lon", "lat", "lon.true", "lat.true", "PE", "dens")])
+rm(dat.m)
 
 # Carefully check data structure, column names and vector classes. Change them as needed.
-str(df)
+str(dat)
 
-df$detR <- gsub('m', '', df$detR)
-df$detR <- as.numeric(df$detR)
+dat$detR <- gsub('m', '', dat$detR)
+dat$detR <- as.numeric(dat$detR)
 
+## PE as log (then it's normal)
+dat$PElog <- log10(dat$PE)
+
+## add tag height
+dat$tagheight_m[dat$Individual %in% c("TT090C", "TT241D")] <- 1.5
+dat$tagheight_m[dat$Individual %in% c("TT163C", "TT298D", "TT164D", "TT014D")] <- 1.0
+dat$tagheight_m[dat$Individual %in% c("TT240C", "TT090D")] <- 0.5
+dat$tagheight_m[dat$Individual %in% c("TT298C")] <- 2.0
+
+
+## create datasets for model 1-3 and maisC and D
+## model 1 (ab_ql to get best detR)
+df1C <- dat[dat$site == "maisC",]
+df1C <- df1C[df1C$meth == "ab_ql",]
+
+df1D <- dat[dat$site == "maisD",]
+df1D <- df1D[df1D$meth == "ab_ql",]
+
+## model 2 (best ab_ql and other meth)
+df2C <- dat[dat$site == "maisC",]
+df2C <- df2C[df2C$detR %in% c(NA, 800),]
+
+df2D <- dat[dat$site == "maisD",]
+df2D <- df2D[df2D$detR %in% c(NA, 800),]
+
+## model 3 (optimal pos. error estimation)
+df3C <- dat[dat$site == "maisC",]
+df3C <- df3C[df3C$detR == 800,]
+df3C <- df3C[df3C$meth == "ab_ql",]
+df3C <- df3C[df3C$pos == "mean",]
+
+df3D <- dat[dat$site == "maisD",]
+df3D <- df3D[df3D$detR == 800,]
+df3D <- df3D[df3D$meth == "ab_ql",]
+df3D <- df3D[df3D$pos == "mean",]
+
+## define dataset
+df <- df1D
+
+## get factors
 df$Individual <- as.factor(df$Individual)
 df$ant <- as.factor(df$ant)
 df$meth <- as.factor(df$meth)
 df$pos <- as.factor(df$pos)
-
-## PE as log (then it's normal)
-df$PElog <- log10(df$PE)
-
-## remove data
-df <- df[df$meth == "ab_ql",]
-df <- df[df$site == "maisC",]
 
 #-##############################-#
 # 3. Definition of variables  ----
@@ -78,20 +103,22 @@ df <- df[df$site == "maisC",]
 #================================#
 # * 3.1 ONE RESPONSE variable ----
 #================================#
-var_resp <- "PElog"                     # Replace with the name of the response variable.
+var_resp <- "PE"                     # Replace with the name of the response variable.
 
 
 #=============================================================================#
 # * 3.2 Fixed predictors: quantitative and categorical predictor variables ----
 #=============================================================================#
 # FACTOR PREDICTOR variable(s)
-var_fac <- c("pos")                              # assign default NA if missing.
-  # var_fac <- c("fac_1", "fac_2", ... )   # Template: replace entries with the name(s) of your factor predictor(s).
+var_fac <- c("meth", "pos")                              # assign default NA if missing.
+var_fac2 <- c("pos")                              # assign default NA if missing.
+# var_fac <- c("fac_1", "fac_2", ... )   # Template: replace entries with the name(s) of your factor predictor(s).
                                            # Assure all these are factors with at least two levels.
 
 # NUMERIC or INTEGER PREDICTOR variable(s) 
-var_num <- c("detR", "Weight", "Station.Count", "Antenna.Count", "dens")                              # assign default NA if missing.
-  # var_num <- c("num_1", "num_2", ... )   # Template: replace entries with the name(s) of your numeric predictor(s).
+var_num <- c("detR", "dens", "Station.Count", "Antenna.Count", "Signal.max", "tagheight_m", "Weight")                              # assign default NA if missing.
+var_num2 <- c("detR", "dens", "Station.Count", "Antenna.Count", "Signal.max", "Weight")                              # assign default NA if missing.
+# var_num <- c("num_1", "num_2", ... )   # Template: replace entries with the name(s) of your numeric predictor(s).
                                            # Assure all these are numeric or integer.
 
 #==============================================================#
@@ -118,7 +145,7 @@ var_time <- NA                          # assign default NA if missing.
     # var_time_groups <- "daytime.grouping" # Template: replace entry with the name of your temporal grouping variable.
 
 # NUMERIC or INTEGER COORDINATES (x, y) that specify spatial structure.
-  var_space <- c("lon", "lat")                         # assign NA if missing.
+  var_space <- NA                         # assign NA if missing.
     # var_space <- c("x_coord","y_coord") # Template: replace entry with the name of your variables that contain spatial coordinates.
 
   
@@ -135,7 +162,11 @@ df.pr <- remove_NAs(data = df, variables = c(var_num, var_fac, var_rand, var_res
   
 # Keep only complete cases in the dataset for further analysis: 
 df <- df.pr
+table(df$pos, df$meth, df$Individual)
 
+## for TESTING: only part of data
+samp <- 20000
+df <- df[sample(c(rep(TRUE, samp), rep(FALSE, nrow(df)-samp)), nrow(df) ,replace = F),]
 
 #-###############################-#
 # 4. Raw data exploration ----
@@ -206,7 +237,7 @@ coll_num_fac(data = df, predictors = c(var_num, var_fac))  # Swarm boxplots for 
 
 # *** 4.2.1.3: FACTOR predictors: Mosaic plots ----   
 # Skip this step if you have < 2 factor predictors.
-# coll_fac(data = df, predictors = var_fac)  # Pairwise mosaic plots for all factor predictors.
+coll_fac(data = df, predictors = var_fac)  # Pairwise mosaic plots for all factor predictors.
 # What should I look for?
 # >> All combinations of predictor levels should have roughly similar sample sizes.
 
@@ -214,13 +245,12 @@ coll_num_fac(data = df, predictors = c(var_num, var_fac))  # Swarm boxplots for 
 #------------------------------------------------#
 # ** 4.2.2: Variance Inflation Factors (VIFs) ----
 #------------------------------------------------#
-corvif(data = df, variables = c(var_num, var_fac))  # VIF are calculated for all fixed predictors potentially included in the model.
+corvif(data = df, variables = c(var_num2, var_fac2))  # VIF are calculated for all fixed predictors potentially included in the model.
 # Derived from Zuur, Ieno & Elphick (2010).
 
 # What should I look for?
 # >> Check column "GVIF": Entirely independent predictors yield GVIF = 1, while larger GVIF values indicate 
 #   increasing predictor collinearity (see article section 4.2.2 for details)
-
 
 #==========================================#
 #* 4.3 Predictor-response relationships ----
@@ -279,17 +309,45 @@ options(mc.cores = detectCores())
 #---------------------------------------#  
 # Implement the initial model.
 # See article section 5.2 for guidance to model formulation.
-mod <- glmmTMB(PElog ~ 
-                 poly(detR_z, 2) + poly(detR_z, 2):pos + 
-                 poly(Weight_z, 2) + poly(Weight_z, 2):pos + 
-                 poly(Antenna.Count_z, 2) + poly(Antenna.Count_z, 2):pos +
-                 poly(Station.Count_z, 2) + poly(Station.Count_z, 2):pos + 
-                 poly(dens_z, 2) + poly(dens_z, 2):pos + 
-                 pos + 
-                 (1|Individual),         
-               
+
+
+mod1 <- glmmTMB(PE ~
+                 poly(detR_z, 2) + poly(detR_z, 2):pos +
+                 Weight_z + Weight_z:pos +
+                 Antenna.Count_z + Antenna.Count_z:pos +
+                 Station.Count_z + Station.Count_z:pos +
+                 dens_z + dens_z:pos +
+                 pos +
+                 (1|Individual),
+
                data = df,                          # Name of dataframe.
-               family = gaussian(link = "identity"))     # Template: Replace with your distribution family and link.
+               family = Gamma(link = "log"))     # Template: Replace with your distribution family and link.
+mod <- mod1
+# mod2 <- glmmTMB(PE ~ 
+#                  meth + meth:pos +
+#                  dens_z + dens_z:meth +
+#                  Station.Count_z + Station.Count_z:meth +
+#                  Signal.max_z + Signal.max_z:meth +
+#                  # tagheight_m_z +
+#                  pos + 
+#                  (1|Individual),         
+#                
+#                data = df,                          # Name of dataframe.
+#                family = Gamma(link = "log"))     # Template: Replace with your distribution family and link.
+
+
+# mod.ln <- glmmTMB(PE ~ 
+#                  meth + meth:pos +
+#                  dens_z + dens_z:meth +
+#                  Station.Count_z + Station.Count_z:meth +
+#                  Signal.max_z + Signal.max_z:meth +
+#                  # tagheight_m_z +
+#                  pos + 
+#                  (1|Individual),         
+#                
+#                data = df,                          # Name of dataframe.
+#                family = lognormal(link = "log"))     # Template: Replace with your distribution family and link.
+
 
 # This formulation may need refinement (section 5.2.2 in manuscript) after model assessment (6.).
 
@@ -355,7 +413,7 @@ residual_plots_predictors(data = df,
 # Graphical displays of all 2-way predictor-response relationships.
 residual_plots_interactions(data = df, 
                             modelTMB = mod, 
-                            predictors = c(var_num, var_fac))      # All fixed predictors in the dataframe.
+                            predictors = c(var_num2, var_fac2))      # All fixed predictors in the dataframe.
 # NOTE-1: In numeric vs. numeric display panels, smoothing lines are added as a visual aid to detect non-linear relationships.
 # NOTE-2: Up to 9 plots are shown in the plot window. 
 #         If > 9 plots are present, they are saved in your working directory as "Two-ways_interactions.pdf".
@@ -400,7 +458,7 @@ residual_plots_random_slopes(data = df,                       # Name of datafram
 dispersion_simulation(data = df, 
                       modelTMB = mod,
                       response = var_resp,
-                      predictor = var_fac[1], # (optional, but recommended) - A SINGLE factor predictor to split this plot. Use a different index number as needed.
+                      predictor = var_fac2[1], # (optional, but recommended) - A SINGLE factor predictor to split this plot. Use a different index number as needed.
                       n.sim = 500)            # Number of simulations. Set to >2000 for final model assessment.
 
 # What should I look for?
@@ -411,24 +469,17 @@ dispersion_simulation(data = df,
 # >> Check if dispersion issues are connected to zero inflation (-> 6.2.2).
 # >> Look for a distribution family and link that better capture the observed data dispersion.
 
-#---------------------------#
-# ** 6.2.2 Zero inflation ---- 
-#---------------------------#
-# The function compares the observed number of zeros to the zero-distribution in model-simulated datasets. 
-zero_simulation(data = df, 
+mean_simulation(data = df, 
+                      modelTMB = mod,
+                      response = var_resp,
+                      predictor = var_fac2[1], # (optional, but recommended) - A SINGLE factor predictor to split this plot. Use a different index number as needed.
+                      n.sim = 500)            # Number of simulations. Set to >2000 for final model assessment.
+
+sd_simulation(data = df, 
                 modelTMB = mod,
                 response = var_resp,
-                predictor = var_fac[1], # (optional, but recommended) - A SINGLE factor predictor to split plots by levels.
-                n.sim = 500)              # Number of simulations, set to >2000 for final model assessment.
-
-# What should I look for?
-# >> Observed zero values should be roughly central within the simulated distributions.
-# >> Check the function's feedback messages in the R console window.
-
-# Resolving violations:
-# >> Look for a distribution family and/or link function that better capture your observed zero frequencies.
-# >> Add a zero-inflation term to your refined model (see article section 5.2.2).  
-
+                predictor = var_fac2[1], # (optional, but recommended) - A SINGLE factor predictor to split this plot. Use a different index number as needed.
+                n.sim = 500)            # Number of simulations. Set to >2000 for final model assessment.
 
 #-------------------------------#
 # ** 6.2.3 Data distribution ----
@@ -437,7 +488,7 @@ zero_simulation(data = df,
 ppcheck_fun(data = df,
             modelTMB = mod,
             response = var_resp,
-            predictor = var_fac[1],   # (optional, but recommended) - A SINGLE factor predictor to split this plot.
+            predictor = var_fac2[1],   # (optional, but recommended) - A SINGLE factor predictor to split this plot.
             n.sim = 500)                # Number of simulations, set to >2000 for final model assessment.
 
 # What should I look for?
@@ -446,31 +497,6 @@ ppcheck_fun(data = df,
 
 # Resolving violations:
 # >> Carefully re-evaluate the preceding steps of model assessment, and reformulate your model.
-
-
-#=================================#
-# * 6.3 Autocorrelation checks ---- 
-#=================================#
-# We check for spatial and temporal correlation patterns in model residuals (= autocorrelation) 
-# using standardised semivariograms.
-autocor_check(data = df, 
-              modelTMB = mod,
-              variable = var_time,       # Checking for TIME? => use var_time  | Checking for SPACE? => use var_space.
-              # grouping = var_time_groups, # (optional) - Grouping variable for multiple TIME series, only.
-              # maxlag = NA,             # (optional) - Sets the maximum distance between pairs of observations to be inspected for autocorrelation. 
-              n.sim = 500)               # Number of simulations, set to >2000 for final model assessment.
-
-# What should I look for?
-# >> Ideally, observed standardised semivariances should be WITHIN the pattern of permuted standardised 
-#    semivariances extracted from the model.
-# >> Autocorrelation typically shows when observed standardised semivariance falls clearly below 1 at 
-#    shorter distances (= towards the left).
-
-# Treating temporal/spatial autocorrelation? 
-# >> Add an autocorrelation structure to the model formulation (see article section 5.2.2).  
-# >> More detail on possible autocorrelation structures: 
-#    https://cran.r-project.org/web/packages/glmmTMB/vignettes/covstruct.html.
-
 
 #-###########################################-#
 # 7. Model results and parameter estimates ----
@@ -491,6 +517,46 @@ comp_int(modelTMB = mod,
 r2(model = mod) # Name of model
 # NOTE: this works for (G)LMMs, only, i.e., for models that include a random component.
 
+mod.r <- update(mod, .~
+                  detR_z + detR_z:pos +
+                  Weight_z + Weight_z:pos +
+                  Antenna.Count_z + Antenna.Count_z:pos +
+                  Station.Count_z + Station.Count_z:pos +
+                  dens_z + dens_z:pos +
+                  pos +
+                  (1|Individual))
+
+mod.wi <- update(mod, .~
+                  poly(detR_z, 2) + 
+                  Weight_z +
+                  Antenna.Count_z +
+                  Station.Count_z +
+                  dens_z + 
+                  pos +
+                  (1|Individual))
+
+mod.f <- update(mod, .~
+                  poly(detR_z, 2) + poly(detR_z, 2):pos +
+                  poly(Weight_z, 2) + poly(Weight_z, 2):pos +
+                  poly(Antenna.Count_z, 2) + poly(Antenna.Count_z, 2):pos +
+                  poly(Station.Count_z, 2) + poly(Station.Count_z, 2):pos +
+                  dens_z + dens_z:pos +
+                  pos +
+                  (1|Individual))
+
+mod.s <- update(mod, .~
+                  s(detR_z, k = 5) +
+                  Weight_z + Weight_z:pos +
+                  Antenna.Count_z + Antenna.Count_z:pos +
+                  Station.Count_z + Station.Count_z:pos +
+                  dens_z + dens_z:pos +
+                  pos +
+                  (1|Individual))
+mod.0 <- update(mod, .~
+                  poly(detR_z, 2) + poly(detR_z, 2):pos +
+                  pos +
+                  (1|Individual))
+r2(mod); r2(mod.r); r2(mod.s); r2(mod.0); r2(mod.f); r2(mod.wi)
 
 #=========================================#
 #* 7.2 Estimation of regression slopes ---- 
@@ -499,9 +565,33 @@ r2(model = mod) # Name of model
 # This function is useful to extract slope estimates within each level of a factor predictor that is also part of the model.
 slope_estimates(data = df,
                 modelTMB = mod,
-                num_predictor = var_num[1],  # Name of one numeric predictor for which to estimate slopes. Change index as needed.
-                fac_predictors = var_fac[1]) # # Name of one (or two!) factor predictor(s). Slope estimates will be given per level of this factors. Change index as needed. 
+                num_predictor = "detR_z",  # Name of one numeric predictor for which to estimate slopes. Change index as needed.
+                fac_predictors = var_fac2[1]) # # Name of one (or two!) factor predictor(s). Slope estimates will be given per level of this factors. Change index as needed. 
 
+slope_estimates(data = df,
+                modelTMB = mod,
+                num_predictor = "dens_z",  # Name of one numeric predictor for which to estimate slopes. Change index as needed.
+                fac_predictors = var_fac2[1]) # # Name of one (or two!) factor predictor(s). Slope estimates will be given per level of this factors. Change index as needed. 
+
+slope_estimates(data = df,
+                modelTMB = mod,
+                num_predictor = "Antenna.Count_z",  # Name of one numeric predictor for which to estimate slopes. Change index as needed.
+                fac_predictors = var_fac2[1]) # # Name of one (or two!) factor predictor(s). Slope estimates will be given per level of this factors. Change index as needed. 
+
+slope_estimates(data = df,
+                modelTMB = mod,
+                num_predictor = "Weight_z",  # Name of one numeric predictor for which to estimate slopes. Change index as needed.
+                fac_predictors = var_fac2[1]) # # Name of one (or two!) factor predictor(s). Slope estimates will be given per level of this factors. Change index as needed. 
+
+slope_estimates(data = df,
+                modelTMB = mod,
+                num_predictor = "Station.Count_z",  # Name of one numeric predictor for which to estimate slopes. Change index as needed.
+                fac_predictors = var_fac2[1]) # # Name of one (or two!) factor predictor(s). Slope estimates will be given per level of this factors. Change index as needed. 
+
+slope_estimates(data = df,
+                modelTMB = mod,
+                num_predictor = "Signal.max_z",  # Name of one numeric predictor for which to estimate slopes. Change index as needed.
+                fac_predictors = var_fac2[1]) # # Name of one (or two!) factor predictor(s). Slope estimates will be given per level of this factors. Change index as needed. 
 
 #==========================================================#
 # * 7.3 Estimation of differences between factor levels ---- 
@@ -525,10 +615,10 @@ pairwise_comparisons(data = df,
 # * 8.1 Specify variables for the final plot ---- 
 #==============================================#
 # Select ONE or TWO model predictor(s) for the final plot:
-plot_predictors <- c("dens_z", "pos")      # Template: Replace with the names of MAX 2 predictor variable(s).
+plot_predictors <- c("detR_z", "pos")      # Template: Replace with the names of MAX 2 predictor variable(s).
 
 # Select the random level of interest to display appropriate independent replicates of your raw data:
-plot_random <- c("TT090C")                             # Assign NA if missing.
+plot_random <- unique(df$Individual) #c("TT090C", "TT163C")                             # Assign NA if missing.
 # plot_random <- c("rand.1", "rand.2")        # Template: Replace with the names of your random term(s).
 
 
@@ -538,13 +628,27 @@ plot_random <- c("TT090C")                             # Assign NA if missing.
 # This function generates a grid for all possible predictor combinations. It derives model predictions 
 # averaged for the predictors to plot, and projects z-transformed predictors back to their raw scale.
 mod_predictions <- post_predict(data = df,
-                                modelTMB = mod,
+                                modelTMB = mod.f,
                                 plot_predictors = plot_predictors, # Name of predictors specified in 8.1.
                                 # offset = NA,                     # (optional) - Name of response offset variable, if present in the model. Default to NA.
                                 component = "all")                 # (optional) - Computes predictions for the conditional model ("cond"), zero-inflation part of the model ("zi"), or the default both ("all").
                            
-      
-                        
+ggplot(mod_predictions) + 
+  geom_ribbon(aes(x = detR, ymin = lower, ymax = upper, group = pos, fill = pos), 
+              alpha = 0.5, color = NA) +
+  geom_line(aes(x = detR, y = median, color = pos, group = pos), 
+            alpha = 0.8, lwd = 1) +
+  scale_color_viridis_d("method", end = 0.9, begin = 0.2, option = "rocket")+
+  scale_fill_viridis_d("method", end = 0.9, begin = 0.2, option = "rocket")+
+  
+  ylab("position error") +
+  
+  ylim(0, NA) +
+  
+  theme_light()       
+     
+#plot(ggpredict(mod.s, terms = c("detR_z [all]", "pos"), bias_correction = T))                   
+
 #============================#
 # * 8.3 Summarise raw data ---- 
 #============================#
@@ -557,56 +661,6 @@ data_summary <- display_raw(data = df,
                            # offset = NA,                     # (optional) - Name of response offset variable, if present in the model. Default to NA.
                            component = "all")                 # Computes predictions for the conditional model ("cond"), zero-inflation part of the model ("zi"), or the default both ("all").
 
-pred.detR <- post_predict(data = df,
-                          modelTMB = mod,
-                          plot_predictors = c("detR_z", "pos"), # Name of predictors specified in 8.1.
-                          # offset = NA,                     # (optional) - Name of response offset variable, if present in the model. Default to NA.
-                          component = "all")                 # (optional) - Computes predictions for the conditional model ("cond"), zero-inflation part of the model ("zi"), or the default both ("all").
-
-pred.dens <- post_predict(data = df,
-                                modelTMB = mod,
-                                plot_predictors = c("dens_z", "pos"), # Name of predictors specified in 8.1.
-                                # offset = NA,                     # (optional) - Name of response offset variable, if present in the model. Default to NA.
-                                component = "all")                 # (optional) - Computes predictions for the conditional model ("cond"), zero-inflation part of the model ("zi"), or the default both ("all").
-
-pred.NAnt <- post_predict(data = df,
-                          modelTMB = mod,
-                          plot_predictors = c("Antenna.Count_z", "pos"), # Name of predictors specified in 8.1.
-                          # offset = NA,                     # (optional) - Name of response offset variable, if present in the model. Default to NA.
-                          component = "all")                 # (optional) - Computes predictions for the conditional model ("cond"), zero-inflation part of the model ("zi"), or the default both ("all").
-
-pred.NStat <- post_predict(data = df,
-                          modelTMB = mod,
-                          plot_predictors = c("Station.Count_z", "pos"), # Name of predictors specified in 8.1.
-                          # offset = NA,                     # (optional) - Name of response offset variable, if present in the model. Default to NA.
-                          component = "all")                 # (optional) - Computes predictions for the conditional model ("cond"), zero-inflation part of the model ("zi"), or the default both ("all").
-
-pred.weight <- post_predict(data = df,
-                           modelTMB = mod,
-                           plot_predictors = c("Weight_z", "pos"), # Name of predictors specified in 8.1.
-                           # offset = NA,                     # (optional) - Name of response offset variable, if present in the model. Default to NA.
-                           component = "all")                 # (optional) - Computes predictions for the conditional model ("cond"), zero-inflation part of the model ("zi"), or the default both ("all").
-
-saveRDS(mod, "./R_model/lmm_poly.RDS")
-
-## merge predictions
-colnames(pred.detR)[1] <- "pred"
-pred.detR$pred.name <- "detR"
-colnames(pred.dens)[1] <- "pred"
-pred.dens$pred.name <- "dens"
-colnames(pred.NAnt)[1] <- "pred"
-pred.NAnt$pred.name <- "NAnt"
-colnames(pred.NStat)[1] <- "pred"
-pred.NStat$pred.name <- "NStat"
-colnames(pred.weight)[1] <- "pred"
-pred.weight$pred.name <- "weight"
-
-df.pred <- rbind(pred.detR, pred.dens)
-df.pred <- rbind(df.pred, pred.NAnt)
-df.pred <- rbind(df.pred, pred.NStat)
-df.pred <- rbind(df.pred, pred.weight)
-
-write.csv(df.pred, "./R_model/predictions_lmm_poly.csv", row.names = F)
 
 
 #============================#
@@ -641,6 +695,102 @@ final_plotting(data_summary = data_summary,       # Summary of the raw data calc
                leg.pos = "inside.top.left",      # (optional) Available for two predictors plot only. Replace with one among NULL, inside.top.right, inside.bottom.left, inside.bottom.right, outside.top, outside.left, outside.right, outside.bottom.
                leg.title = NULL,                 # (optional) Available for two predictors plots only. Replace with your legend title.
                A.ratio = NULL)                   # (optional) Define plot aspect ratio (default: 0.7).
+
+ggplot(mod_predictions) + 
+  geom_ribbon(aes(x = dens, ymin = lower, ymax = upper, group = meth, fill = meth), 
+              alpha = 0.5, color = NA) +
+  geom_line(aes(x = dens, y = median, color = meth, group = meth), 
+            alpha = 0.8, lwd = 1) +
+  scale_color_viridis_d("method", end = 0.9, begin = 0.2, option = "rocket")+
+  scale_fill_viridis_d("method", end = 0.9, begin = 0.2, option = "rocket")+
+  
+  ylab("position error") +
+
+  ylim(0, NA) +
+  
+  theme_light() 
+
+ggplot(mod_predictions) + 
+  geom_ribbon(aes(x = detR, ymin = lower, ymax = upper, group = pos, fill = pos), 
+              alpha = 0.5, color = NA) +
+  geom_line(aes(x = detR, y = median, color = pos, group = pos), 
+            alpha = 0.8, lwd = 1) +
+  scale_color_viridis_d("method", end = 0.9, begin = 0.2, option = "rocket")+
+  scale_fill_viridis_d("method", end = 0.9, begin = 0.2, option = "rocket")+
+  
+  ylab("position error") +
+  
+  ylim(0, NA) +
+  
+  theme_light() 
+
+ggplot(mod_predictions) + 
+  geom_errorbar(aes(x = pos, ymin = lower, ymax = upper, group = meth, color = meth), 
+              alpha = 0.5, color = NA) +
+  geom_point(aes(x = pos, y = median, color = meth, group = meth), 
+            alpha = 0.8, lwd = 1) +
+  scale_color_viridis_d("method", end = 0.9, begin = 0.2, option = "rocket")+
+  scale_fill_viridis_d("method", end = 0.9, begin = 0.2, option = "rocket")+
+  
+  ylab("position error") +
+  facet_wrap(~model) +
+  
+  ylim(0, NA) +
+  
+  theme_light() 
+
+
+pred.detR <- post_predict(data = df,
+                          modelTMB = mod,
+                          plot_predictors = c("detR_z", "pos"), # Name of predictors specified in 8.1.
+                          # offset = NA,                     # (optional) - Name of response offset variable, if present in the model. Default to NA.
+                          component = "all")                 # (optional) - Computes predictions for the conditional model ("cond"), zero-inflation part of the model ("zi"), or the default both ("all").
+
+pred.dens <- post_predict(data = df,
+                          modelTMB = mod,
+                          plot_predictors = c("dens_z", "pos"), # Name of predictors specified in 8.1.
+                          # offset = NA,                     # (optional) - Name of response offset variable, if present in the model. Default to NA.
+                          component = "all")                 # (optional) - Computes predictions for the conditional model ("cond"), zero-inflation part of the model ("zi"), or the default both ("all").
+
+pred.NAnt <- post_predict(data = df,
+                          modelTMB = mod,
+                          plot_predictors = c("Antenna.Count_z", "pos"), # Name of predictors specified in 8.1.
+                          # offset = NA,                     # (optional) - Name of response offset variable, if present in the model. Default to NA.
+                          component = "all")                 # (optional) - Computes predictions for the conditional model ("cond"), zero-inflation part of the model ("zi"), or the default both ("all").
+
+pred.NStat <- post_predict(data = df,
+                           modelTMB = mod,
+                           plot_predictors = c("Station.Count_z", "pos"), # Name of predictors specified in 8.1.
+                           # offset = NA,                     # (optional) - Name of response offset variable, if present in the model. Default to NA.
+                           component = "all")                 # (optional) - Computes predictions for the conditional model ("cond"), zero-inflation part of the model ("zi"), or the default both ("all").
+
+pred.weight <- post_predict(data = df,
+                            modelTMB = mod,
+                            plot_predictors = c("Weight_z", "pos"), # Name of predictors specified in 8.1.
+                            # offset = NA,                     # (optional) - Name of response offset variable, if present in the model. Default to NA.
+                            component = "all")                 # (optional) - Computes predictions for the conditional model ("cond"), zero-inflation part of the model ("zi"), or the default both ("all").
+
+saveRDS(mod, "./R_model/lmm_poly.RDS")
+
+## merge predictions
+colnames(pred.detR)[1] <- "pred"
+pred.detR$pred.name <- "detR"
+colnames(pred.dens)[1] <- "pred"
+pred.dens$pred.name <- "dens"
+colnames(pred.NAnt)[1] <- "pred"
+pred.NAnt$pred.name <- "NAnt"
+colnames(pred.NStat)[1] <- "pred"
+pred.NStat$pred.name <- "NStat"
+colnames(pred.weight)[1] <- "pred"
+pred.weight$pred.name <- "weight"
+
+df.pred <- rbind(pred.detR, pred.dens)
+df.pred <- rbind(df.pred, pred.NAnt)
+df.pred <- rbind(df.pred, pred.NStat)
+df.pred <- rbind(df.pred, pred.weight)
+
+write.csv(df.pred, "./R_model/predictions_lmm_poly.csv", row.names = F)
+
 
 for(p in unique(df.pred$pred.name)) {
   

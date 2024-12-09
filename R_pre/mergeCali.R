@@ -13,7 +13,7 @@ shp.GPS <- shp.GPS %>%
   st_drop_geometry()
 # round to t
 shp.GPS$X_time <- floor_date(shp.GPS$time, t)
-# if uneven, add 1 (since Jupyier data is uneven)
+# if uneven, add 1 (since Jupyter data is uneven)
 if(second(shp.GPS$X_time[1]) %% 2 == 0) shp.GPS$X_time <- shp.GPS$X_time + 1
 # summarize per X_time
 shp.GPS <- shp.GPS %>% group_by(X_time, site) %>%
@@ -30,7 +30,7 @@ if(READ) {
     dir.create(paste0("../data/data_", dtyp, "/savedFiles"))}
   
   ## exclude -mean files
-  df.Lm <- df.L[grep("-mean", df.L)]
+  # df.Lm <- df.L[grep("-mean", df.L)]
   df.L <- df.L[-grep("-mean", df.L)]
   
   df.L1 <- df.L[grep("antennabeams.gpkg", df.L)]
@@ -38,10 +38,10 @@ if(READ) {
   df.L3 <- df.L[grep("multilateration", df.L)]
   df.L4 <- df.L[grep("intersections", df.L)]
   
-  df.Lm1 <- df.Lm[grep("antennabeams-mean.gpkg", df.Lm)]
-  df.Lm2 <- df.Lm[grep("antennabeam_s-mean", df.Lm)]
-  df.Lm3 <- df.Lm[grep("multilateration-mean", df.Lm)]
-  df.Lm4 <- df.Lm[grep("intersections-mean", df.Lm)]
+  # df.Lm1 <- df.Lm[grep("antennabeams-mean.gpkg", df.Lm)]
+  # df.Lm2 <- df.Lm[grep("antennabeam_s-mean", df.Lm)]
+  # df.Lm3 <- df.Lm[grep("multilateration-mean", df.Lm)]
+  # df.Lm4 <- df.Lm[grep("intersections-mean", df.Lm)]
   
   #### 1.1) normal data --------------------------------------------------------
   ## antennabeam quadrologger
@@ -162,133 +162,129 @@ if(READ) {
     
   }
   
-  df <- rbind(df1, df2)
-  df <- rbind(df, df3)
-  df <- rbind(df, df4)
+  df <- do.call("rbind", list(df1, df2, df3, df4))
   rm(df1); rm(df2); rm(df3); rm(df4)
   
-  #### 1.2) mean data ----------------------------------------------------------
-  ## antennabeam quadrologger
-  df1 <- data.frame()
-  
-  for(i in df.Lm1) {
-    tmp <- st_read(paste0("../data/data_", dtyp, "/", i))
-    
-    ## transform crs to lon lat and save crs
-    tmp <- st_transform(tmp, crs = crsLL)
-    
-    ## get Individual and Transmitter
-    ind <- unique(tmp$Individual)
-    trans <- unique(tmp$Transmitter)
-    
-    ## get coordinates from geometry
-    tmp <- tmp %>%
-      dplyr::mutate(lon.m = sf::st_coordinates(.)[,1],
-                    lat.m = sf::st_coordinates(.)[,2]) %>%
-      st_drop_geometry()
-    
-    ## add cols
-    tmp$detR <- strsplit(i, "_")[[1]][2]
-    tmp$ant <- strsplit(i, "_")[[1]][3]
-    tmp$Distance..m..min <- NA
-    tmp$meth <- "ab_ql"
-    
-    df1 <- rbind(df1, tmp)
-    
-  }
-  
-  ## antennabeam monologger
-  df2 <- data.frame()
-  
-  for(i in df.Lm2) {
-    tmp <- st_read(paste0("../data/data_", dtyp, "/", i))
-    
-    ## transform crs to lon lat and save crs
-    tmp <- st_transform(tmp, crs = crsLL)
-    
-    ## get Individual and Transmitter
-    ind <- unique(tmp$Individual)
-    trans <- unique(tmp$Transmitter)
-    
-    ## get coordinates from geometry
-    tmp <- tmp %>%
-      dplyr::mutate(lon.m = sf::st_coordinates(.)[,1],
-                    lat.m = sf::st_coordinates(.)[,2]) %>%
-      st_drop_geometry()
-    
-    ## add cols
-    tmp$detR <- "no"
-    tmp$Distance..m..min <- NA
-    tmp$ant <- "1-10"
-    tmp$meth <- "ab_ml"
-    
-    df2 <- rbind(df2, tmp)
-    
-  }
-  
-  ## multilateration monologger
-  df3 <- data.frame()
-  
-  for(i in df.Lm3) {
-    tmp <- st_read(paste0("../data/data_", dtyp, "/", i))
-    
-    ## transform crs to lon lat and save crs
-    tmp <- st_transform(tmp, crs = crsLL)
-    
-    ## get Individual and Transmitter
-    ind <- unique(tmp$Individual)
-    trans <- unique(tmp$Transmitter)
-    
-    ## get coordinates from geometry
-    tmp <- tmp %>%
-      dplyr::mutate(lon.m = sf::st_coordinates(.)[,1],
-                    lat.m = sf::st_coordinates(.)[,2]) %>%
-      st_drop_geometry()
-    
-    ## add cols
-    tmp$detR <- "no"
-    tmp$Weight <- NA
-    tmp$ant <- "1-10"
-    tmp$Antenna.Count <- tmp$Station.Count
-    tmp$meth <- "ml_ml"
-    
-    df3 <- rbind(df3, tmp)
-    
-  }
-  
-  ## intersection quadrologger
-  df4 <- data.frame()
-  
-  for(i in df.Lm4) {
-    tmp <- st_read(paste0("../data/data_", dtyp, "/", i))
-    
-    ## transform crs to lon lat and save crs
-    tmp <- st_transform(tmp, crs = crsLL)
-
-    ## get Individual and Transmitter
-    ind <- unique(tmp$Individual)
-    trans <- unique(tmp$Transmitter)
-    
-    ## get coordinates from geometry
-    tmp <- tmp %>%
-      dplyr::mutate(lon.m = sf::st_coordinates(.)[,1],
-                    lat.m = sf::st_coordinates(.)[,2]) %>%
-      st_drop_geometry()
-    
-    ## add cols
-    tmp$detR <- "no"
-    tmp$Weight <- NA
-    tmp$Antenna.Count <- 2*tmp$Station.Count
-    tmp$ant <- strsplit(i, "_")[[1]][3]
-    tmp$meth <- "in_ql"
-    
-    df4 <- rbind(df4, tmp)
-    
-  }
-  dfm <- rbind(df1, df2)
-  dfm <- rbind(dfm, df3)
-  dfm <- rbind(dfm, df4)
-  rm(df1); rm(df2); rm(df3); rm(df4)
+  # #### 1.2) mean data ----------------------------------------------------------
+  # ## antennabeam quadrologger
+  # df1 <- data.frame()
+  # 
+  # for(i in df.Lm1) {
+  #   tmp <- st_read(paste0("../data/data_", dtyp, "/", i))
+  #   
+  #   ## transform crs to lon lat and save crs
+  #   tmp <- st_transform(tmp, crs = crsLL)
+  #   
+  #   ## get Individual and Transmitter
+  #   ind <- unique(tmp$Individual)
+  #   trans <- unique(tmp$Transmitter)
+  #   
+  #   ## get coordinates from geometry
+  #   tmp <- tmp %>%
+  #     dplyr::mutate(lon.m = sf::st_coordinates(.)[,1],
+  #                   lat.m = sf::st_coordinates(.)[,2]) %>%
+  #     st_drop_geometry()
+  #   
+  #   ## add cols
+  #   tmp$detR <- strsplit(i, "_")[[1]][2]
+  #   tmp$ant <- strsplit(i, "_")[[1]][3]
+  #   tmp$Distance..m..min <- NA
+  #   tmp$meth <- "ab_ql"
+  #   
+  #   df1 <- rbind(df1, tmp)
+  #   
+  # }
+  # 
+  # ## antennabeam monologger
+  # df2 <- data.frame()
+  # 
+  # for(i in df.Lm2) {
+  #   tmp <- st_read(paste0("../data/data_", dtyp, "/", i))
+  #   
+  #   ## transform crs to lon lat and save crs
+  #   tmp <- st_transform(tmp, crs = crsLL)
+  #   
+  #   ## get Individual and Transmitter
+  #   ind <- unique(tmp$Individual)
+  #   trans <- unique(tmp$Transmitter)
+  #   
+  #   ## get coordinates from geometry
+  #   tmp <- tmp %>%
+  #     dplyr::mutate(lon.m = sf::st_coordinates(.)[,1],
+  #                   lat.m = sf::st_coordinates(.)[,2]) %>%
+  #     st_drop_geometry()
+  #   
+  #   ## add cols
+  #   tmp$detR <- "no"
+  #   tmp$Distance..m..min <- NA
+  #   tmp$ant <- "1-10"
+  #   tmp$meth <- "ab_ml"
+  #   
+  #   df2 <- rbind(df2, tmp)
+  #   
+  # }
+  # 
+  # ## multilateration monologger
+  # df3 <- data.frame()
+  # 
+  # for(i in df.Lm3) {
+  #   tmp <- st_read(paste0("../data/data_", dtyp, "/", i))
+  #   
+  #   ## transform crs to lon lat and save crs
+  #   tmp <- st_transform(tmp, crs = crsLL)
+  #   
+  #   ## get Individual and Transmitter
+  #   ind <- unique(tmp$Individual)
+  #   trans <- unique(tmp$Transmitter)
+  #   
+  #   ## get coordinates from geometry
+  #   tmp <- tmp %>%
+  #     dplyr::mutate(lon.m = sf::st_coordinates(.)[,1],
+  #                   lat.m = sf::st_coordinates(.)[,2]) %>%
+  #     st_drop_geometry()
+  #   
+  #   ## add cols
+  #   tmp$detR <- "no"
+  #   tmp$Weight <- NA
+  #   tmp$ant <- "1-10"
+  #   tmp$Antenna.Count <- tmp$Station.Count
+  #   tmp$meth <- "ml_ml"
+  #   
+  #   df3 <- rbind(df3, tmp)
+  #   
+  # }
+  # 
+  # ## intersection quadrologger
+  # df4 <- data.frame()
+  # 
+  # for(i in df.Lm4) {
+  #   tmp <- st_read(paste0("../data/data_", dtyp, "/", i))
+  #   
+  #   ## transform crs to lon lat and save crs
+  #   tmp <- st_transform(tmp, crs = crsLL)
+  # 
+  #   ## get Individual and Transmitter
+  #   ind <- unique(tmp$Individual)
+  #   trans <- unique(tmp$Transmitter)
+  #   
+  #   ## get coordinates from geometry
+  #   tmp <- tmp %>%
+  #     dplyr::mutate(lon.m = sf::st_coordinates(.)[,1],
+  #                   lat.m = sf::st_coordinates(.)[,2]) %>%
+  #     st_drop_geometry()
+  #   
+  #   ## add cols
+  #   tmp$detR <- "no"
+  #   tmp$Weight <- NA
+  #   tmp$Antenna.Count <- 2*tmp$Station.Count
+  #   tmp$ant <- strsplit(i, "_")[[1]][3]
+  #   tmp$meth <- "in_ql"
+  #   
+  #   df4 <- rbind(df4, tmp)
+  #   
+  # }
+  # dfm <- do.call("rbind", list(df1, df2, df3, df4))
+  # rm(df1); rm(df2); rm(df3); rm(df4)
   
   
   #### 1.3) merge & add GT data, expand time -----------------------------------
@@ -323,12 +319,47 @@ if(READ) {
                   by = c("site", "X_time")) # many-to-many relationship?
   df <- unique(df)
   
+  ## add NAnt and NStat
+  # in_ql: nA >= 4, nS >= 2
+  # ab_ql: nA >= 1, nS >= 1
+  # ml_ml: nA >= 1, nS >= 1
+  # ab_ml: nA >= 1, nS >= 1
+  df$AcSc <- "ac1-sc1"
+  df$AcSc[df$meth == "in_ql"] <- "ac4-sc2"
+  
+  df21 <- df[df$Antenna.Count >= 2 & df$Station.Count >= 1 & df$meth != "in_ql" & df$meth != "ab_ml",]
+  df21$AcSc <- "ac2-sc1"
+  df31 <- df[df$Antenna.Count >= 3 & df$Station.Count >= 1 & df$meth != "in_ql" & df$meth != "ab_ml",]
+  df31$AcSc <- "ac3-sc1"
+  df41 <- df[df$Antenna.Count >= 4 & df$Station.Count >= 1 & df$meth != "in_ql" & df$meth != "ab_ml",]
+  df41$AcSc <- "ac4-sc1"
+  
+  df22 <- df[df$Antenna.Count >= 2 & df$Station.Count >= 2 & df$meth != "in_ql",]
+  df22$AcSc <- "ac2-sc2"
+  df32 <- df[df$Antenna.Count >= 3 & df$Station.Count >= 2 & df$meth != "in_ql" & df$meth != "ab_ml",]
+  df32$AcSc <- "ac3-sc2"
+  df42 <- df[df$Antenna.Count >= 4 & df$Station.Count >= 2 & df$meth != "in_ql" & df$meth != "ab_ml",]
+  df42$AcSc <- "ac4-sc2"
+  
+  df33 <- df[df$Antenna.Count >= 3 & df$Station.Count >= 3 & df$meth != "in_ql",]
+  df33$AcSc <- "ac3-sc3"
+  df43 <- df[df$Antenna.Count >= 4 & df$Station.Count >= 3 & df$meth != "in_ql" & df$meth != "ab_ml",]
+  df43$AcSc <- "ac4-sc3"
+  
+  df44 <- df[df$Antenna.Count >= 4 & df$Station.Count >= 4 & df$meth != "in_ql",]
+  df44$AcSc <- "ac4-sc4"
+  
+  df <- do.call("rbind", list(df, df21, df31, df41, df22, df32, df42, df33, df43, df44))
+  
+  
   #### 1.4) rolling mean positions ---------------------------------------------
-  df <- df %>% group_by(site, Individual, detR, ant, meth) %>%
-    mutate(lon.m = rmean(lon, width = rollM/2),
-           lat.m = rmean(lat, width = rollM/2),
-           lonT.m = rmean(lon.true, width = rollM/2),
-           latT.m = rmean(lat.true, width = rollM/2)) %>%
+  df <- df %>% group_by(site, Individual, detR, ant, meth, AcSc) %>%
+    mutate(
+      # lonT.m = rmean(lon.true, width = rollM/2), # not used in Jupyter
+      # latT.m = rmean(lat.true, width = rollM/2), # not used in Jupyter   
+      lon.m = rmean(lon, width = rollM/2),
+      lat.m = rmean(lat, width = rollM/2)
+      ) %>%
     ungroup()
 
   #### 1.5) position error -----------------------------------------------------
@@ -338,7 +369,7 @@ if(READ) {
     mutate(PE = distm(x = c(lon, lat),
                             y = c(lon.true, lat.true)),
            PE.m = distm(x = c(lon.m, lat.m),
-                            y = c(lonT.m, latT.m))) %>%
+                            y = c(lon.true, lat.true))) %>%
     ungroup()
   
   ## write df
