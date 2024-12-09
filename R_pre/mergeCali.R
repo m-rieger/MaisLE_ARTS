@@ -286,94 +286,99 @@ if(READ) {
   # dfm <- do.call("rbind", list(df1, df2, df3, df4))
   # rm(df1); rm(df2); rm(df3); rm(df4)
   
+  df <- dplyr::select(df, -c("Planner", "Transmitter", "Transmitter.Id"))
+  
+  
+  #### 1.2) add Ac and Sc ------------------------------------------------------
+  
+  # in_ql: Ac >= 4, Sc >= 2
+  # ab_ql: Ac >= 1, Sc >= 1
+  # ml_ml: Ac >= 1, Sc >= 1, Ac = Sc
+  # ab_ml: Ac >= 1, Sc >= 1, Ac = Sc
+  df$AcSc <- "ac1-sc1"
+  df$AcSc[df$meth == "in_ql"] <- "ac4-sc2"
+  
+  df.list <- list("df11" = df)
+  
+  df.list[["df21"]] <- df[df$Antenna.Count >= 2 & df$Station.Count >= 1 & df$meth == "ab_ql",]
+  df.list[["df21"]]$AcSc <- "ac2-sc1"
+  df.list[["df31"]] <- df[df$Antenna.Count >= 3 & df$Station.Count >= 1 & df$meth == "ab_ql",]
+  df.list[["df31"]]$AcSc <- "ac3-sc1"
+  df.list[["df41"]] <- df[df$Antenna.Count >= 4 & df$Station.Count >= 1 & df$meth == "ab_ql", ]
+  df.list[["df41"]]$AcSc <- "ac4-sc1"
+  
+  df.list[["df22"]] <- df[df$Antenna.Count >= 2 & df$Station.Count >= 2 & df$meth != "in_ql",]
+  df.list[["df22"]]$AcSc <- "ac2-sc2"
+  df.list[["df32"]] <- df[df$Antenna.Count >= 3 & df$Station.Count >= 2 & df$meth == "ab_ql",]
+  df.list[["df32"]]$AcSc <- "ac3-sc2"
+  df.list[["df42"]] <- df[df$Antenna.Count >= 4 & df$Station.Count >= 2 & df$meth == "ab_ql",]
+  df.list[["df42"]]$AcSc <- "ac4-sc2"
+  
+  df.list[["df33"]] <- df[df$Antenna.Count >= 3 & df$Station.Count >= 3 & df$meth != "in_ql",]
+  df.list[["df33"]]$AcSc <- "ac3-sc3"
+  df.list[["df43"]] <- df[df$Antenna.Count >= 4 & df$Station.Count >= 3 & df$meth == "ab_ql",]
+  df.list[["df43"]]$AcSc <- "ac4-sc3"
+  
+  df.list[["df44"]] <- df[df$Antenna.Count >= 4 & df$Station.Count >= 4 & df$meth != "in_ql",]
+  df.list[["df44"]]$AcSc <- "ac4-sc4"
   
   #### 1.3) merge & add GT data, expand time -----------------------------------
   ## add date (to filter each testtrack)
   shp.GPS$date <- as.Date(shp.GPS$X_time)
-
+  df$date <- as.Date(df$X_time)
+  colnames(df)[colnames(df) == "Project"] <- "site"
+  
   df.time <- data.frame()
-
-  ## expand time per testtrack
+  
+  ## expand time per testtrack, site, Individual, detR, ant, meth
   for(d in unique(shp.GPS$date)) {
-    tmp <- expand.grid(site = unique(shp.GPS$site[shp.GPS$date == d]),
-                      X_time = seq(from = min(shp.GPS$X_time[shp.GPS$date == d]), 
-                                   to = max(shp.GPS$X_time[shp.GPS$date == d]), by = t))
-
+    tmp <- merge(unique(df[df$date == d, c("site", "Individual", "detR", "ant", "meth")]),
+                       data.frame(X_time = seq(from = min(shp.GPS$X_time[shp.GPS$date == d]), 
+                                    to = max(shp.GPS$X_time[shp.GPS$date == d]), by = t)))
+    
     df.time <- rbind(df.time, tmp)
-
+    
   }
   
-  ## merge with df
-  df <- left_join(df.time, df, by = c("site" = "Project", "X_time"))
   
+  for(d in names(df.list)){
+    
+    ## merge with dfs
+    df.list[[d]] <- left_join(df.time, df.list[[d]], 
+                              by = c("site" = "Project", "X_time", "Individual", "detR", "ant", "meth"))
+    
+    ## merge GPS with df by site and time
+    df.list[[d]] <- left_join(df.list[[d]], 
+                    shp.GPS[, c("X_time", "lat.true", "lon.true", "site")],
+                    by = c("site", "X_time")) # many-to-many relationship?
+    df.list[[d]] <- unique(df.list[[d]])
+    
+    #### 1.4) rolling mean positions -------------------------------------------
+    ## here you need the full dataset (including all timestamps with NA lat and lon)
+    df.list[[d]] <- df.list[[d]] %>% group_by(site, Individual, detR, ant, meth, AcSc) %>%
+      mutate(
+        # lonT.m = rmean(lon.true, width = rollM/2), # not used in Jupyter
+        # latT.m = rmean(lat.true, width = rollM/2), # not used in Jupyter   
+        lon.m = rmean(lon, width = rollM/2),
+        lat.m = rmean(lat, width = rollM/2)
+        ) %>%
+      ungroup()   
+    
+    #### 1.5) position error ---------------------------------------------------
+    ## here you need only data != na in lon lat (to compute distances)
+    df.list[[d]] <- df.list[[d]][!is.na(df.list[[d]]$lon), ] %>% rowwise %>%
+      mutate(PE = distm(x = c(lon, lat),
+                              y = c(lon.true, lat.true)),
+             PE.m = distm(x = c(lon.m, lat.m),
+                              y = c(lon.true, lat.true))) %>%
+      ungroup()  
+  }
   
-  # df <- left_join(unique(df), unique(dfm[, c("lon.m", "lat.m", "Individual", 
-  #                                            "X_time", "ant", "detR", "meth")]),
-  #                 by = c("Individual", "X_time", "ant", "detR", "meth"))
-  
-  df <- dplyr::select(df, -c("Planner", "Transmitter", "Transmitter.Id"))
-  
-  ## merge GPS with df by site and time
-  df <- left_join(df, 
-                  shp.GPS[, c("X_time", "lat.true", "lon.true", "site")],
-                  by = c("site", "X_time")) # many-to-many relationship?
-  df <- unique(df)
-  
-  ## add NAnt and NStat
-  # in_ql: nA >= 4, nS >= 2
-  # ab_ql: nA >= 1, nS >= 1
-  # ml_ml: nA >= 1, nS >= 1
-  # ab_ml: nA >= 1, nS >= 1
-  df$AcSc <- "ac1-sc1"
-  df$AcSc[df$meth == "in_ql"] <- "ac4-sc2"
-  
-  df21 <- df[df$Antenna.Count >= 2 & df$Station.Count >= 1 & df$meth != "in_ql" & df$meth != "ab_ml",]
-  df21$AcSc <- "ac2-sc1"
-  df31 <- df[df$Antenna.Count >= 3 & df$Station.Count >= 1 & df$meth != "in_ql" & df$meth != "ab_ml",]
-  df31$AcSc <- "ac3-sc1"
-  df41 <- df[df$Antenna.Count >= 4 & df$Station.Count >= 1 & df$meth != "in_ql" & df$meth != "ab_ml",]
-  df41$AcSc <- "ac4-sc1"
-  
-  df22 <- df[df$Antenna.Count >= 2 & df$Station.Count >= 2 & df$meth != "in_ql",]
-  df22$AcSc <- "ac2-sc2"
-  df32 <- df[df$Antenna.Count >= 3 & df$Station.Count >= 2 & df$meth != "in_ql" & df$meth != "ab_ml",]
-  df32$AcSc <- "ac3-sc2"
-  df42 <- df[df$Antenna.Count >= 4 & df$Station.Count >= 2 & df$meth != "in_ql" & df$meth != "ab_ml",]
-  df42$AcSc <- "ac4-sc2"
-  
-  df33 <- df[df$Antenna.Count >= 3 & df$Station.Count >= 3 & df$meth != "in_ql",]
-  df33$AcSc <- "ac3-sc3"
-  df43 <- df[df$Antenna.Count >= 4 & df$Station.Count >= 3 & df$meth != "in_ql" & df$meth != "ab_ml",]
-  df43$AcSc <- "ac4-sc3"
-  
-  df44 <- df[df$Antenna.Count >= 4 & df$Station.Count >= 4 & df$meth != "in_ql",]
-  df44$AcSc <- "ac4-sc4"
-  
-  df <- do.call("rbind", list(df, df21, df31, df41, df22, df32, df42, df33, df43, df44))
-  
-  
-  #### 1.4) rolling mean positions ---------------------------------------------
-  df <- df %>% group_by(site, Individual, detR, ant, meth, AcSc) %>%
-    mutate(
-      # lonT.m = rmean(lon.true, width = rollM/2), # not used in Jupyter
-      # latT.m = rmean(lat.true, width = rollM/2), # not used in Jupyter   
-      lon.m = rmean(lon, width = rollM/2),
-      lat.m = rmean(lat, width = rollM/2)
-      ) %>%
-    ungroup()
-
-  #### 1.5) position error -----------------------------------------------------
-  
-  ## get position error
-  df <- df[!is.na(df$lon),] %>% rowwise %>%
-    mutate(PE = distm(x = c(lon, lat),
-                            y = c(lon.true, lat.true)),
-           PE.m = distm(x = c(lon.m, lat.m),
-                            y = c(lon.true, lat.true))) %>%
-    ungroup()
+  # merge dfs
+  df <- do.call("rbind", df.list)
   
   ## write df
-  df <- st_as_sf(df[!is.na(df$lon) & !is.na(df$lat),], coords = c("lon", "lat"), crs = crsLL)
+  df <- st_as_sf(df, coords = c("lon", "lat"), crs = crsLL)
   
   dsn <- paste0("../data/data_", dtyp, "/savedFiles/Data_cali_raw.gpkg")
   st_write(df, layer = 'unfiltered', append = F, dsn = dsn, 
@@ -519,7 +524,7 @@ if(READ) {
   df.m$dist <- df.m$PE.m # use PE of mean positions to true
   df.t$dist <- df.t$PE.m # use PE of mean positions to true
   
-  ## loop through Individuals, methods, detR, ant
+  ## loop through Individuals, methods, detR, AcSc
   shp <- NULL
   
   for(s in c("pos", "pos.mean", "pos.gps")) {
@@ -535,10 +540,10 @@ if(READ) {
         
         for(d in unique(dat$detR[dat$site == p & dat$meth == m])) {
           
-          for(a in unique(dat$ant[dat$site == p & dat$meth == m & dat$detR == d])) {
+          for(a in unique(dat$AcSc[dat$site == p & dat$meth == m & dat$detR == d])) {
             
             ## raster all individuals
-            tmp <- dat[dat$site == p & dat$meth == m & dat$detR == d & dat$ant == a,]
+            tmp <- dat[dat$site == p & dat$meth == m & dat$detR == d & dat$AcSc == a,]
             
             ## get attributes per raster cell (mean, median, sd, ..)
             r.mean   <- raster::rasterize(tmp, r, field = tmp$dist, fun = mean)
@@ -561,15 +566,15 @@ if(READ) {
             r.stack$Individual <- "all"
             r.stack$meth       <- m
             r.stack$detR       <- d
-            r.stack$ant        <- a
+            r.stack$AcSc        <- a
             
             ## merge with previous data
             shp <- rbind(shp, r.stack)
             
             ## raster per individual
-            for(i in unique(dat$Individual[dat$site == p & dat$meth == m & dat$detR == d & dat$ant == a])) {
+            for(i in unique(dat$Individual[dat$site == p & dat$meth == m & dat$detR == d & dat$AcSc == a])) {
                 
-              tmp <- dat[dat$site == p & dat$Individual == i & dat$meth == m & dat$detR == d & dat$ant == a,]
+              tmp <- dat[dat$site == p & dat$Individual == i & dat$meth == m & dat$detR == d & dat$AcSc == a,]
               
               ## get attributes per raster cell (mean, median, sd, ..)
               r.mean   <- raster::rasterize(tmp, r, field = tmp$dist, fun = mean)
@@ -592,7 +597,7 @@ if(READ) {
               r.stack$Individual <- i
               r.stack$meth       <- m
               r.stack$detR       <- d
-              r.stack$ant        <- a
+              r.stack$AcSc        <- a
               
               ## merge with previous data
               shp <- rbind(shp, r.stack)

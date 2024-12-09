@@ -22,9 +22,9 @@ plot.station <- function(g, site = NULL, type = NULL, size = NULL, stroke = NULL
     
     geom_sf(data = data[data$site.name %in% site & data$type %in% type,], 
             aes(pch = type.name, fill = type.name), color = "black", stroke = stroke, size = size, alpha = alpha) +
-    scale_shape_manual("station type", values = c("quadro" = 23, "mono" = 21),
+    scale_shape_manual("station type", values = c("direct" = 23, "omni" = 21),
                        guide = guide_legend(order = 2)) +
-    scale_fill_manual("station type", values = c("quadro" = "white", "mono" = "grey80"),
+    scale_fill_manual("station type", values = c("direct" = "white", "omni" = "grey80"),
                       guide = guide_legend(order = 2))
   
   return(g)

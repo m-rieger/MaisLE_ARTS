@@ -1,10 +1,3 @@
-#---------------------------------------------------#
-#  A versatile workflow for linear modelling in R
-#  Matteo Santon, Fraenzi Korner-Nievergelt, Nico Michiels, Nils Anthes
-#  Version date: 03 November 2023
-#  -> TEMPLATE
-#---------------------------------------------------#
-
 #-##############################################-#
 # 1. Source the support file for this routine ----
 #-##############################################-#
@@ -32,15 +25,13 @@ dat.m <-  dat.m %>%
 dat$pos <- "raw"
 dat.m$pos <- "mean"
 
-dat.m$lon.true <- dat.m$lonT.m
-dat.m$lat.true <- dat.m$latT.m
 dat.m$PE <- dat.m$PE.m
 
 dat <- rbind(dat[, c("site", "X_time", "Station.Count", "Antenna.Count", "Weight", 
-                   "Signal.max", "Individual", "detR", "ant", "meth", "pos",
+                   "Signal.max", "Individual", "detR", "ant", "meth", "pos", "AcSc",
                    "lon", "lat", "lon.true", "lat.true", "PE", "dens")],
             dat.m[, c("site", "X_time", "Station.Count", "Antenna.Count", "Weight", 
-                   "Signal.max", "Individual", "detR", "ant", "meth", "pos",
+                   "Signal.max", "Individual", "detR", "ant", "meth", "pos", "AcSc",
                    "lon", "lat", "lon.true", "lat.true", "PE", "dens")])
 rm(dat.m)
 
@@ -94,6 +85,9 @@ df$Individual <- as.factor(df$Individual)
 df$ant <- as.factor(df$ant)
 df$meth <- as.factor(df$meth)
 df$pos <- as.factor(df$pos)
+df$AcSc <- as.factor(df$AcSc)
+
+df$detR <- as.factor(df$detR)
 
 #-##############################-#
 # 3. Definition of variables  ----
@@ -110,14 +104,14 @@ var_resp <- "PE"                     # Replace with the name of the response var
 # * 3.2 Fixed predictors: quantitative and categorical predictor variables ----
 #=============================================================================#
 # FACTOR PREDICTOR variable(s)
-var_fac <- c("meth", "pos")                              # assign default NA if missing.
-var_fac2 <- c("pos")                              # assign default NA if missing.
+var_fac <- c("meth", "pos", "AcSc", "detR")                              # assign default NA if missing.
+var_fac2 <- c("pos", "AcSc", "detR")                              # assign default NA if missing.
 # var_fac <- c("fac_1", "fac_2", ... )   # Template: replace entries with the name(s) of your factor predictor(s).
                                            # Assure all these are factors with at least two levels.
 
 # NUMERIC or INTEGER PREDICTOR variable(s) 
-var_num <- c("detR", "dens", "Station.Count", "Antenna.Count", "Signal.max", "tagheight_m", "Weight")                              # assign default NA if missing.
-var_num2 <- c("detR", "dens", "Station.Count", "Antenna.Count", "Signal.max", "Weight")                              # assign default NA if missing.
+var_num <- c("dens", "Station.Count", "Antenna.Count", "Signal.max", "tagheight_m", "Weight")                              # assign default NA if missing.
+var_num2 <- c("dens", "Station.Count", "Antenna.Count", "Signal.max", "Weight")                              # assign default NA if missing.
 # var_num <- c("num_1", "num_2", ... )   # Template: replace entries with the name(s) of your numeric predictor(s).
                                            # Assure all these are numeric or integer.
 
@@ -162,7 +156,7 @@ df.pr <- remove_NAs(data = df, variables = c(var_num, var_fac, var_rand, var_res
   
 # Keep only complete cases in the dataset for further analysis: 
 df <- df.pr
-table(df$pos, df$meth, df$Individual)
+table(df$pos, df$AcSc, df$Individual)
 
 ## for TESTING: only part of data
 samp <- 20000
@@ -312,12 +306,13 @@ options(mc.cores = detectCores())
 
 
 mod1 <- glmmTMB(PE ~
-                 poly(detR_z, 2) + poly(detR_z, 2):pos +
+                 detR + detR:pos +
                  Weight_z + Weight_z:pos +
                  Antenna.Count_z + Antenna.Count_z:pos +
                  Station.Count_z + Station.Count_z:pos +
                  dens_z + dens_z:pos +
                  pos +
+                 AcSc +
                  (1|Individual),
 
                data = df,                          # Name of dataframe.
@@ -563,10 +558,6 @@ r2(mod); r2(mod.r); r2(mod.s); r2(mod.0); r2(mod.f); r2(mod.wi)
 #=========================================#
 # Extract slope estimates, their 95% compatibility intervals, and an estimate of (proportional) change from simulated data.
 # This function is useful to extract slope estimates within each level of a factor predictor that is also part of the model.
-slope_estimates(data = df,
-                modelTMB = mod,
-                num_predictor = "detR_z",  # Name of one numeric predictor for which to estimate slopes. Change index as needed.
-                fac_predictors = var_fac2[1]) # # Name of one (or two!) factor predictor(s). Slope estimates will be given per level of this factors. Change index as needed. 
 
 slope_estimates(data = df,
                 modelTMB = mod,
@@ -599,7 +590,7 @@ slope_estimates(data = df,
 # Extract pairwise comparisons among levels of specified factor predictors (means and 95% compatibility intervals).
 pairwise_comparisons(data = df,
                      modelTMB = mod,
-                     predictors = var_fac[1], # Name of one (or more!) factor predictor(s).
+                     predictors = var_fac2[3], # Name of one (or more!) factor predictor(s).
                      component = "cond",       # Returns differences for the conditional model ("cond"), or the zero-inflation part of the model ("zi").
                      dispScale = "response",  # "response" returns absolute differences for link identity models, and ratio or odds.ratios for log or logit link models 
                                               # "link" returns estimates on the link scale
@@ -615,7 +606,7 @@ pairwise_comparisons(data = df,
 # * 8.1 Specify variables for the final plot ---- 
 #==============================================#
 # Select ONE or TWO model predictor(s) for the final plot:
-plot_predictors <- c("detR_z", "pos")      # Template: Replace with the names of MAX 2 predictor variable(s).
+plot_predictors <- c("detR", "AcSc")      # Template: Replace with the names of MAX 2 predictor variable(s).
 
 # Select the random level of interest to display appropriate independent replicates of your raw data:
 plot_random <- unique(df$Individual) #c("TT090C", "TT163C")                             # Assign NA if missing.
@@ -628,15 +619,15 @@ plot_random <- unique(df$Individual) #c("TT090C", "TT163C")                     
 # This function generates a grid for all possible predictor combinations. It derives model predictions 
 # averaged for the predictors to plot, and projects z-transformed predictors back to their raw scale.
 mod_predictions <- post_predict(data = df,
-                                modelTMB = mod.f,
+                                modelTMB = mod,
                                 plot_predictors = plot_predictors, # Name of predictors specified in 8.1.
                                 # offset = NA,                     # (optional) - Name of response offset variable, if present in the model. Default to NA.
                                 component = "all")                 # (optional) - Computes predictions for the conditional model ("cond"), zero-inflation part of the model ("zi"), or the default both ("all").
                            
 ggplot(mod_predictions) + 
-  geom_ribbon(aes(x = detR, ymin = lower, ymax = upper, group = pos, fill = pos), 
+  geom_ribbon(aes(x = detR, ymin = lower, ymax = upper, group = AcSc, fill = AcSc), 
               alpha = 0.5, color = NA) +
-  geom_line(aes(x = detR, y = median, color = pos, group = pos), 
+  geom_line(aes(x = detR, y = median, color = AcSc, group = AcSc), 
             alpha = 0.8, lwd = 1) +
   scale_color_viridis_d("method", end = 0.9, begin = 0.2, option = "rocket")+
   scale_fill_viridis_d("method", end = 0.9, begin = 0.2, option = "rocket")+

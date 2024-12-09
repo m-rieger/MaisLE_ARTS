@@ -19,8 +19,8 @@ df.stat <- dplyr::select(df.stat, -c(analysis, station.hostname, station.wiregua
 ## get stations from analysis
 df.stat <- st_as_sf(df.stat, coords = c("station.lon", "station.lat"), crs = crsLL)
 
-df.stat$type <- "mono"
-df.stat$type[df.stat$station.type == "VHF Directional Station"] <- "quadro"
+df.stat$type <- "omni"
+df.stat$type[df.stat$station.type == "VHF Directional Station"] <- "direct"
 
 ## save as gpgk file
 st_write(df.stat, here("data", "Station.gpkg"), append = FALSE, 
