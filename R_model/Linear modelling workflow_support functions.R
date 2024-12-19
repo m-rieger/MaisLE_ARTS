@@ -1919,6 +1919,132 @@ post_predict <- function(data, modelTMB, plot_predictors, offset, component) {
 }
 
 
+#==================================#
+#* 8.2 Derive model predictions ---- 
+#==================================#
+
+# routine from Korner-Nievergelt et al. 2015; Brooks et al. 2017
+# More detail: https://stackoverflow.com/questions/61902110/extracting-posterior-modes-and-compatibility-intervals-from-glmmtmb-output
+
+post_predictN <- function(data, modelTMB, newdat, offset, component) { 
+  
+  if (missing(offset)) {offset <- NA}
+  
+  if(length(modelTMB$call$offset) > 0 && is.na(offset)) {
+    stop("ERROR: Your model contains an offset term. Please specify it in the function call.")}
+  
+  
+  # UPDATE 2023.10.27 (chr vectors in post_predict()) ----
+  # Make sure table comes as dataframe, and all character vectors are factors (sometimes this causes issues):
+  data <- as.data.frame(data)
+  data[sapply(data, is.character)] <- lapply(data[sapply(data, is.character)], 
+                                             as.factor)
+  
+  # First, we create a newdat...
+  
+  set.seed(99) # Just to make results reproducible
+  
+  formula <- paste(gsub(".~", "", formula(modelTMB, fixed.only = T))[3], collapse = "")
+  
+  temp <- unlist(str_split(formula, "\\+"))
+  temp <- unlist(str_split(temp, "\\*"))         # solves interaction if expressed with "\\*"
+  temp[grep("offset",temp)] <- offset
+  temp <- str_replace_all(temp, fixed(" "), "")  # remove ""
+  temp <- gsub("s\\(|\\)", "", temp)  # remove "s()
+
+  remove_me <- temp[str_detect(temp, pattern = (":"))] # extract interactions 
+  
+  if(length(remove_me) > 0) {
+    fixed.pred <- temp[-match(remove_me, temp)]
+  } else {
+    fixed.pred <- temp
+  }
+  
+  poly_form <- fixed.pred[str_detect(fixed.pred, pattern = "poly")] # find poly formula if present
+  
+  if(length(poly_form) > 0) {
+    
+    poly_col <- gsub(" ", "", gsub(",", "", gsub("poly\\(|\\)|x\\=|[[:digit:]])||degree = [[:digit:]],|,raw=TRUE|raw=T|raw=FALSE|raw=F,|, |degree=[[:digit:]],|, |[[:digit:]]", "", poly_form)))
+    
+    #OLD version: gsub(" ", "", gsub("poly\\(|\\)|x\\=|[[:digit:]])||degree = [[:digit:]],|,|degree=[[:digit:]],|, |[[:digit:]],|, raw=TRUE|raw=T|raw=FALSE|raw=F", "", poly_form))
+    
+    for (i in 1:length(poly_form)) {
+      fixed.pred <- str_replace_all(fixed.pred, fixed(poly_form[i]), poly_col[i])
+    }
+  } # change name of the formula to real column in list of fixed predictors
+  
+  # Now we generate model predictions from simulated data for data ranges defined in the newdat
+  # The procedure follows the one presented in GLMMTMB paper from Brooks 2017
+  
+  if (missing(component)) {component <- "all"}
+  
+  # Simulation for ALL model parts:
+  if (component == "all") {
+    bsim_cond <- mvrnorm(10000, 
+                         mu = fixef(modelTMB)$cond, 
+                         Sigma = vcov(modelTMB)$cond) # equivalent to sim from package arm.
+    
+    formula <- eval(str2expression(paste(gsub(".~","", formula(modelTMB, fixed.only = T))[c(1,3)], collapse = "")))
+    
+    
+    Xmat_cond <- model.matrix(formula, data = newdat)
+    fitmatrix_all <- modelTMB$modelInfo$family$linkinv(Xmat_cond %*% t(bsim_cond)) 
+    pred_mod  <- modelTMB$modelInfo$family$linkinv(Xmat_cond %*% fixef(modelTMB)$cond)
+    
+    # simulation for the zi-part of model, if present:
+    if (length(fixef(modelTMB)$zi != 0)) {
+      bsim_zi <- mvrnorm(10000, mu = fixef(modelTMB)$zi, Sigma = vcov(modelTMB)$zi)
+      Xmat_zi <- model.matrix(modelTMB$modelInfo$terms$zi$fixed, data = newdat)
+      fitmatrix_zi <- 1 - plogis((Xmat_zi %*% t(bsim_zi)))
+      fitmatrix_all <- fitmatrix_all * fitmatrix_zi
+      pred_mod <- modelTMB$modelInfo$family$linkinv(Xmat_cond %*% fixef(modelTMB)$cond) * (1- plogis(Xmat_zi %*% fixef(modelTMB)$zi))
+    }
+  }
+  
+  # Simulation just for the CONDITIONAL model part:
+  if (component == "cond") { 
+    bsim_cond <- mvrnorm(10000, 
+                         mu = fixef(modelTMB)$cond, 
+                         Sigma = vcov(modelTMB)$cond) # equivalent of sim from package arm
+    formula <- eval(str2expression(paste(gsub(".~","", formula(modelTMB, fixed.only = T))[c(1,3)], collapse = "")))
+    
+    Xmat_cond <- model.matrix(formula, data = newdat)
+    fitmatrix_all <- modelTMB$modelInfo$family$linkinv(Xmat_cond %*% t(bsim_cond)) 
+    pred_mod  <- modelTMB$modelInfo$family$linkinv(Xmat_cond %*% fixef(modelTMB)$cond)
+  }
+  
+  # Simulation just for ZI model part:
+  if (component == "zi") {
+    bsim_zi <- mvrnorm(10000, mu = fixef(modelTMB)$zi, Sigma = vcov(modelTMB)$zi)
+    Xmat_zi <- model.matrix(modelTMB$modelInfo$terms$zi$fixed, data = newdat)
+    fitmatrix_all <- 1 - plogis((Xmat_zi %*% t(bsim_zi)))
+    pred_mod <- 1 - plogis(Xmat_zi %*% fixef(modelTMB)$zi)
+  }
+  
+  newdat$median <- apply(fitmatrix_all, 1, quantile, prob = 0.5)  # extracts median
+  newdat$pred_mod <-  pred_mod
+  newdat$lower <- apply(fitmatrix_all, 1, quantile, prob = 0.025) # extracts lower compatibility interval
+  newdat$upper <- apply(fitmatrix_all, 1, quantile, prob = 0.975) # ... and the upper compatibility interval
+  newdat$SD <- apply(fitmatrix_all, 1, sd) # ... and the upper compatibility interval
+  
+  
+  # Project z-transformed predictors to raw scale:
+  if(length(grep("_z", names(newdat))) > 0) {
+    z_predictors <- names(newdat)[grep("_z", names(newdat))]
+    predictors <- str_replace_all(z_predictors[grep("_z", z_predictors)], fixed("_z"), "")
+    
+    temp2 <- NULL
+    for(i in 1:(length(predictors))) {
+      temp1 <- back_z_transform(data[,predictors[i]], newdat[,z_predictors[i]]) 
+      temp2 <- as.data.frame(cbind(temp2, temp1))
+    }
+    
+    newdat[, z_predictors] <- temp2
+    names(newdat) <- str_replace_all(names(newdat), fixed("_z"), "")
+  }
+  
+  return(newdat)
+}
 #============================#
 #* 8.3 Summarise raw data ---- 
 #============================#

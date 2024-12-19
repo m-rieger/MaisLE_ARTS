@@ -225,3 +225,58 @@ g <- gC + gD  # + plot_layout(guides = 'collect')
 g
 ggsave("./plots/plotTrack.pdf", plot = g, width = 30, height = 15, device = "pdf", units = "cm")
 
+## plot raster (station cover)
+
+## plot example for methods
+g1 <- ggplot() + 
+  geom_sf(aes(fill = as.character(dens)), color = NA, data = b700[[1]], lwd = 2) + 
+  geom_sf(aes(fill = as.character(dens)), color = NA, data = b600[[1]], lwd = 2) + 
+  geom_sf(aes(fill = as.character(dens)), color = NA, data = b500[[1]], lwd = 2) + 
+  geom_sf(aes(fill = as.character(dens)), color = NA, data = b400[[1]], lwd = 2) + 
+  geom_sf(aes(fill = as.character(dens)), color = NA, data = b300[[1]], lwd = 2) + 
+  geom_sf(aes(fill = as.character(dens)), color = NA, data = b200[[1]], lwd = 2) + 
+  geom_sf(aes(fill = as.character(dens)), color = NA, data = b100[[1]], lwd = 2) + 
+  geom_sf(data = shp.stat[shp.stat$station.id == "c1l1",], pch = 2, color = "white") + 
+  scale_fill_viridis_d("detection probability", direction = -1, option = "rocket", alpha = 0.4) +
+  annotation_scale(width_hint = 0.2, bar_cols = c("grey60", "white"), color = "grey60") +
+  theme_light()
+
+## plot example for methods
+g2 <- ggplot() + 
+  geom_sf(aes(fill = as.character(dens)), color = NA, data = b700[[1]], lwd = 2) + 
+  geom_sf(aes(fill = as.character(dens)), color = NA, data = b600[[1]], lwd = 2) + 
+  geom_sf(aes(fill = as.character(dens)), color = NA, data = b500[[1]], lwd = 2) + 
+  geom_sf(aes(fill = as.character(dens)), color = NA, data = b400[[1]], lwd = 2) + 
+  geom_sf(aes(fill = as.character(dens)), color = NA, data = b300[[1]], lwd = 2) + 
+  geom_sf(aes(fill = as.character(dens)), color = NA, data = b200[[1]], lwd = 2) + 
+  geom_sf(aes(fill = as.character(dens)), color = NA, data = b100[[1]], lwd = 2) + 
+  geom_sf(aes(fill = as.character(dens)), color = NA, data = b700[[2]], lwd = 2) + 
+  geom_sf(aes(fill = as.character(dens)), color = NA, data = b600[[2]], lwd = 2) + 
+  geom_sf(aes(fill = as.character(dens)), color = NA, data = b500[[2]], lwd = 2) + 
+  geom_sf(aes(fill = as.character(dens)), color = NA, data = b400[[2]], lwd = 2) + 
+  geom_sf(aes(fill = as.character(dens)), color = NA, data = b300[[2]], lwd = 2) + 
+  geom_sf(aes(fill = as.character(dens)), color = NA, data = b200[[2]], lwd = 2) + 
+  geom_sf(aes(fill = as.character(dens)), color = NA, data = b100[[2]], lwd = 2) + 
+  geom_sf(data = shp.stat[shp.stat$station.id == "c1l1",], pch = 2, color = "white") + 
+  geom_sf(data = shp.stat[shp.stat$station.id == "c2l1",], pch = 2, color = "white") + 
+  scale_fill_viridis_d("detection probability", direction = -1, option = "rocket", alpha = 0.4) +
+  annotation_scale(width_hint = 0.2, bar_cols = c("grey60", "white"), color = "grey60") +
+  theme_light()
+
+## clip raster to maisC
+df.rC <- st_intersection(st_transform(df.r, crs = crs), st_union(st_buffer(st_transform(shp.stat[shp.stat$station.project_id == "maisC",], crs = crs), dist = rast_buf)))
+
+## plot raster (= merged polygons)
+g3 <- ggplot() + 
+  geom_sf(aes(fill = dens, color = dens), data = df.rC, lwd = 0.1) + 
+  geom_sf(data = shp.stat[shp.stat$station.project_id == "maisC" & shp.stat$type == "direct",], pch = 2, color = "white") + 
+  # geom_sf(data = df[100000:100100,], pch = 1, color = "grey80", alpha = 0.5) + # check whether dimensions are correct
+  scale_fill_viridis_c("station density", direction = -1, option = "rocket", na.value = NA) +
+  scale_color_viridis_c("station density", direction = -1, option = "rocket", na.value = NA) +
+  annotation_scale(width_hint = 0.2, bar_cols = c("grey60", "white"), color = "grey60") +
+  theme_light()
+
+g <- g2 + g3  # + plot_layout(guides = 'collect')
+
+g
+ggsave("./plots/plotTrack.pdf", plot = g, width = 30, height = 15, device = "pdf", units = "cm")
