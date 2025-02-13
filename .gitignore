@@ -2,4 +2,6 @@
 .Rhistory
 .RData
 .Ruserdata
+plots
+output_model
 rosm.cache

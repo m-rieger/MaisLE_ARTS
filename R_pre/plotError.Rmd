@@ -100,24 +100,19 @@ ggplot() +
 ```{r}
 for(m in unique(df$meth[df$site == "maisC"])) {
   dat <- df[df$site == "maisC" & df$meth == m & df$ant == "1-10",]
-  dat.m <- df.m[df.m$site == "maisC" & df.m$meth == m & df.m$ant == "1-10",]
-  
-  for(a in unique(dat$AcSc)) {
 
-    print(ggplot(dat[dat$AcSc == a,]) +
-      # geom_point(aes(x = dens, y = dist, color = detR, group = detR),
-      #            pch = 1, alpha = 0.2,
-      #            position = position_dodge(width = 0.5)) +
-      geom_smooth(aes(x = dens, y = dist, group = detR, color = detR), method = "glm", formula = y ~ poly(x, 2)) +
-      geom_smooth(aes(x = dens, y = dist, group = detR, color = detR), method = "glm", formula = y ~ poly(x, 2), data = dat.m[dat.m$AcSc == a,], lty = "dashed") +
-      ggtitle(paste0(m, " - ", a), subtitle = "position error (solid), position error from mean positions (dashed)") +
-      ylab("position error [m]") +
-      ylim(0, NA) +
-      facet_wrap(~Individual, scales = "free_y") +
-      scale_color_viridis_d() +
-      theme_light())  
+  print(ggplot(dat) +
+    # geom_point(aes(x = dens, y = dist, color = detR, group = detR),
+    #            pch = 1, alpha = 0.2,
+    #            position = position_dodge(width = 0.5)) +
+    geom_smooth(aes(x = dens, y = dist, group = detR, color = detR), method = "glm", formula = y ~ poly(x, 2)) +
+    ggtitle(paste0(m), subtitle = "position error (solid)") +
+    ylab("position error [m]") +
+    ylim(0, NA) +
+    facet_wrap(~Individual, scales = "free_y") +
+    scale_color_viridis_d() +
+    theme_light())  
 
-  }
 }
 
 ```
@@ -127,80 +122,69 @@ for(m in unique(df$meth[df$site == "maisC"])) {
 ```{r}
 for(m in unique(df$meth[df$site == "maisD"])) {
   dat <- df[df$site == "maisD" & df$meth == m & df$ant == "1-8",]
-  dat.m <- df.m[df.m$site == "maisD" & df.m$meth == m & df.m$ant == "1-8",]
-  
-  for(a in unique(dat$AcSc)) {
 
-    print(ggplot(dat[dat$AcSc == a,]) +
-      # geom_point(aes(x = dens, y = dist, color = detR, group = detR),
-      #            pch = 1, alpha = 0.2,
-      #            position = position_dodge(width = 0.5)) +
-      geom_smooth(aes(x = dens, y = dist, group = detR, color = detR), method = "glm", formula = y ~ poly(x, 2)) +
-      geom_smooth(aes(x = dens, y = dist, group = detR, color = detR), method = "glm", formula = y ~ poly(x, 2), data = dat.m[dat.m$AcSc == a,], lty = "dashed") +
-      ggtitle(paste0(m, " - ", a), subtitle = "position error (solid), position error from mean positions (dashed)") +
-      ylab("position error [m]") +
-      ylim(0, NA) +
-      facet_wrap(~Individual, scales = "free_y") +
-      scale_color_viridis_d() +
-      theme_light())  
-
-  }
-}
-
-```
-
-
-## maisC (raw, mean)
-
-```{r}
-for(m in unique(df$meth[df$site == "maisC"])) {
-  dat.m <- df.m[df.m$site == "maisC" & df.m$meth == m & df.m$ant == "1-10",]
-  
-  for(a in unique(dat.m$AcSc)) {
-
-    print(ggplot(dat.m[dat.m$AcSc == a,]) +
-      geom_point(aes(x = dens, y = dist, color = detR, group = detR),
-                 pch = 1, alpha = 0.2,
-                 position = position_dodge(width = 0.5)) +
-      geom_smooth(aes(x = dens, y = dist, group = detR, color = detR), method = "glm", formula = y ~ poly(x, 2), lty = "dashed") +
-      ggtitle(paste0(m, " - ", a), subtitle = "position error from mean positions (dashed)") +
-      ylab("position error [m]") +
-      ylim(0, NA) +
-      facet_wrap(~Individual, scales = "free_y") +
-      scale_color_viridis_d() +
-      theme_light())  
-  }
-}
-
-```
-
-## maisD (raw, mean)
-
-```{r}
-for(m in unique(df$meth[df$site == "maisD"])) {
-  dat.m <- df.m[df.m$site == "maisD" & df.m$meth == m,]
-  
-  for(a in unique(dat.m$AcSc)) {
-
-  print(ggplot(dat.m) +
-    geom_point(aes(x = dens, y = dist, color = detR, group = detR),
-               pch = 1, alpha = 0.2,
-               position = position_dodge(width = 0.5)) +
-    geom_smooth(aes(x = dens, y = dist, group = detR, color = detR), method = "glm", formula = y ~ poly(x, 2), lty = "dashed") +
-    ggtitle(paste0(m, " - ", a), subtitle = "position error from mean positions (dashed)") +
+  print(ggplot(dat) +
+    # geom_point(aes(x = dens, y = dist, color = detR, group = detR),
+    #            pch = 1, alpha = 0.2,
+    #            position = position_dodge(width = 0.5)) +
+    geom_smooth(aes(x = dens, y = dist, group = detR, color = detR), method = "glm", formula = y ~ poly(x, 2)) +
+    ggtitle(paste0(m), subtitle = "position error (solid)") +
     ylab("position error [m]") +
     ylim(0, NA) +
     facet_wrap(~Individual, scales = "free_y") +
     scale_color_viridis_d() +
     theme_light())  
-  }
+
+}
+
+```
+
+
+## maisC (raw)
+
+```{r}
+for(m in unique(df$meth[df$site == "maisC"])) {
+  dat <- df[df$site == "maisC" & df$meth == m & df$ant == "1-10",]
+  
+    print(ggplot(dat) +
+      geom_point(aes(x = dens, y = dist, color = detR, group = detR),
+                 pch = 1, alpha = 0.2,
+                 position = position_dodge(width = 0.5)) +
+      geom_smooth(aes(x = dens, y = dist, group = detR, color = detR), method = "glm", formula = y ~ poly(x, 2), lty = "dashed") +
+      ggtitle(paste0(m), subtitle = "position error from est. positions (dashed)") +
+      ylab("position error [m]") +
+      ylim(0, NA) +
+      facet_wrap(~Individual, scales = "free_y") +
+      scale_color_viridis_d() +
+      theme_light())  
+}
+
+```
+
+## maisD (raw)
+
+```{r}
+for(m in unique(df$meth[df$site == "maisD"])) {
+  dat <- df[df$site == "maisD" & df$meth == m,]
+  
+    print(ggplot(dat) +
+      geom_point(aes(x = dens, y = dist, color = detR, group = detR),
+                 pch = 1, alpha = 0.2,
+                 position = position_dodge(width = 0.5)) +
+      geom_smooth(aes(x = dens, y = dist, group = detR, color = detR), method = "glm", formula = y ~ poly(x, 2), lty = "dashed") +
+      ggtitle(paste0(m), subtitle = "position error from est. positions (dashed)") +
+      ylab("position error [m]") +
+      ylim(0, NA) +
+      facet_wrap(~Individual, scales = "free_y") +
+      scale_color_viridis_d() +
+      theme_light())  
 }
 
 ```
 
 
 # raster
-These plots show summarized raster (`r rast_res*rast_inc`x`r rast_res*rast_inc` m resolution) based on positions from testtags with ground truth data (GPS data). Each plot is split by individual (= testtag, e.g. TT090C) and separate plots were made per method (*ab_ql* = antenna beams directional, *ab_ml* = antenna beams omnidirectional, *ml_ml* = mulitlateration omnidirectional, *in_ql* = intersection directional)  
+These plots show summarized raster (`r rast_res*rast_inc`x`r rast_res*rast_inc` m resolution) based on positions from testtags with ground truth data (GPS data). Each plot is split by individual (= testtag, e.g. TT090C) and separate plots were made per method (*direct.ab* = antenna beams directional, *omni.ab* = antenna beams omnidirectional, *omni.ml* = mulitlateration omnidirectional, *direct.in* = intersection directional)  
 
 **abbreviations in tabs:**  
 - *rp*: raw positions (no rolling mean applied)  
@@ -225,8 +209,8 @@ ant <- "1-10"
 ## plot raster (= merged polygons)
 for(m in unique(shp$meth[shp$site == site])) {
   for(d in unique(shp$detR[shp$site == site & shp$meth == m])) {
-    if(m %in% c("ab_ml", "ml_ml")) type <- "omni"
-    if(m %in% c("ab_ql", "in_ql")) type <- "direct"
+    if(m %in% c("omni.ab", "omni.ml")) type <- "omni"
+    if(m %in% c("direct.ab", "direct.in")) type <- "direct"
     
     g <- ggplot() + 
       geom_sf(data = shp[shp$site == site & shp$meth == m & shp$detR == d,], 
@@ -246,8 +230,8 @@ for(m in unique(shp$meth[shp$site == site])) {
 ## plot raster (= merged polygons)
 for(m in unique(shp$meth[shp$site == site])) {
   for(d in unique(shp$detR[shp$site == site & shp$meth == m])) {
-    if(m %in% c("ab_ml", "ml_ml")) type <- "omni"
-    if(m %in% c("ab_ql", "in_ql")) type <- "direct"
+    if(m %in% c("omni.ab", "omni.ml")) type <- "omni"
+    if(m %in% c("direct.ab", "direct.in")) type <- "direct"
     
     g <- ggplot() + 
       geom_sf(data = shp[shp$site == site & shp$meth == m & shp$detR == d,], 
@@ -266,8 +250,8 @@ for(m in unique(shp$meth[shp$site == site])) {
 ## plot raster (= merged polygons)
 for(m in unique(shp$meth[shp$site == site])) {
   for(d in unique(shp$detR[shp$site == site & shp$meth == m])) {
-    if(m %in% c("ab_ml", "ml_ml")) type <- "omni"
-    if(m %in% c("ab_ql", "in_ql")) type <- "direct"
+    if(m %in% c("omni.ab", "omni.ml")) type <- "omni"
+    if(m %in% c("direct.ab", "direct.in")) type <- "direct"
     
     g <- ggplot() + 
       geom_sf(data = shp[shp$site == site & shp$meth == m & shp$detR == d,], 
@@ -287,8 +271,8 @@ for(m in unique(shp$meth[shp$site == site])) {
 ## plot raster (= merged polygons)
 for(m in unique(shp$meth[shp$site == site])) {
   for(d in unique(shp$detR[shp$site == site & shp$meth == m])) {
-    if(m %in% c("ab_ml", "ml_ml")) type <- "omni"
-    if(m %in% c("ab_ql", "in_ql")) type <- "direct"
+    if(m %in% c("omni.ab", "omni.ml")) type <- "omni"
+    if(m %in% c("direct.ab", "direct.in")) type <- "direct"
     
     g <- ggplot() + 
       geom_sf(data = shp[shp$site == site & shp$meth == m & shp$detR == d,], 
@@ -302,93 +286,6 @@ for(m in unique(shp$meth[shp$site == site])) {
 
 ```
 
-### mean mp
-
-```{r}
-## plot raster (= merged polygons)
-for(m in unique(shp.m$meth[shp.m$site == site])) {
-  for(d in unique(shp.m$detR[shp.m$site == site & shp.m$meth == m])) {
-    if(m %in% c("ab_ml", "ml_ml")) type <- "omni"
-    if(m %in% c("ab_ql", "in_ql")) type <- "direct"
-    
-    g <- ggplot() + 
-      geom_sf(data = shp.m[shp.m$site == site & 
-                             shp.m$meth == m & shp.m$detR == d,], 
-              aes(fill = mean, color = mean), lwd = 0.1)
-    g <- plot.raster(g, leg = "mean \nposition \nerror")
-    g <- plot.station(g, site = site, type = type, size = 2, stroke = 1)
-    print(plot.theme(g))      
-
-  }
-}
-
-```
-
-### median mp
-
-```{r}
-## plot raster (= merged polygons)
-for(m in unique(shp.m$meth[shp.m$site == site])) {
-  for(d in unique(shp.m$detR[shp.m$site == site & shp.m$meth == m])) {
-    if(m %in% c("ab_ml", "ml_ml")) type <- "omni"
-    if(m %in% c("ab_ql", "in_ql")) type <- "direct"
-    
-    g <- ggplot() + 
-      geom_sf(data = shp.m[shp.m$site == site & 
-                             shp.m$meth == m & shp.m$detR == d,], 
-              aes(fill = median, color = median), lwd = 0.1)
-    g <- plot.raster(g, leg = "median \nposition \nerror")
-    g <- plot.station(g, site = site, type = type, size = 2, stroke = 1)
-    print(plot.theme(g))      
-
-  }
-}
-
-```
-
-### sd mp
-
-```{r}
-## plot raster (= merged polygons)
-for(m in unique(shp.m$meth[shp.m$site == site])) {
-  for(d in unique(shp.m$detR[shp.m$site == site & shp.m$meth == m])) {
-    if(m %in% c("ab_ml", "ml_ml")) type <- "omni"
-    if(m %in% c("ab_ql", "in_ql")) type <- "direct"
-    
-    g <- ggplot() + 
-      geom_sf(data = shp.m[shp.m$site == site & 
-                             shp.m$meth == m & shp.m$detR == d,], 
-              aes(fill = sd, color = sd), lwd = 0.1)
-    g <- plot.raster(g, leg = "sd \nposition \nerror")
-    g <- plot.station(g, site = site, type = type, size = 2, stroke = 1)
-    print(plot.theme(g))      
-
-  }
-}
-
-```
-
-### N mp
-
-```{r}
-## plot raster (= merged polygons)
-for(m in unique(shp.m$meth[shp.m$site == site])) {
-  for(d in unique(shp.m$detR[shp.m$site == site & shp.m$meth == m])) {
-    if(m %in% c("ab_ml", "ml_ml")) type <- "omni"
-    if(m %in% c("ab_ql", "in_ql")) type <- "direct"
-    
-    g <- ggplot() + 
-      geom_sf(data = shp.m[shp.m$site == site & 
-                             shp.m$meth == m & shp.m$detR == d,], 
-              aes(fill = N, color = N), lwd = 0.1)
-    g <- plot.raster(g, leg = "N points")
-    g <- plot.station(g, site = site, type = type, size = 2, stroke = 1)
-    print(plot.theme(g))      
-
-  }
-}
-
-```
 
 ### mean tp
 
@@ -396,8 +293,8 @@ for(m in unique(shp.m$meth[shp.m$site == site])) {
 ## plot raster (= merged polygons)
 for(m in unique(shp.t$meth[shp.t$site == site])) {
   for(d in unique(shp.t$detR[shp.t$site == site & shp.t$meth == m])) {
-    if(m %in% c("ab_ml", "ml_ml")) type <- "omni"
-    if(m %in% c("ab_ql", "in_ql")) type <- "direct"
+    if(m %in% c("omni.ab", "omni.ml")) type <- "omni"
+    if(m %in% c("direct.ab", "direct.in")) type <- "direct"
     
     g <- ggplot() + 
       geom_sf(data = shp.t[shp.t$site == site & 
@@ -419,8 +316,8 @@ for(m in unique(shp.t$meth[shp.t$site == site])) {
 ## plot raster (= merged polygons)
 for(m in unique(shp.t$meth[shp.t$site == site])) {
   for(d in unique(shp.t$detR[shp.t$site == site & shp.t$meth == m])) {
-    if(m %in% c("ab_ml", "ml_ml")) type <- "omni"
-    if(m %in% c("ab_ql", "in_ql")) type <- "direct"
+    if(m %in% c("omni.ab", "omni.ml")) type <- "omni"
+    if(m %in% c("direct.ab", "direct.in")) type <- "direct"
     
     g <- ggplot() + 
       geom_sf(data = shp.t[shp.t$site == site & 
@@ -441,8 +338,8 @@ for(m in unique(shp.t$meth[shp.t$site == site])) {
 ## plot raster (= merged polygons)
 for(m in unique(shp.t$meth[shp.t$site == site])) {
   for(d in unique(shp.t$detR[shp.t$site == site & shp.t$meth == m])) {
-    if(m %in% c("ab_ml", "ml_ml")) type <- "omni"
-    if(m %in% c("ab_ql", "in_ql")) type <- "direct"
+    if(m %in% c("omni.ab", "omni.ml")) type <- "omni"
+    if(m %in% c("direct.ab", "direct.in")) type <- "direct"
     
     g <- ggplot() + 
       geom_sf(data = shp.t[shp.t$site == site & 
@@ -463,8 +360,8 @@ for(m in unique(shp.t$meth[shp.t$site == site])) {
 ## plot raster (= merged polygons)
 for(m in unique(shp.t$meth[shp.t$site == site])) {
   for(d in unique(shp.t$detR[shp.t$site == site & shp.t$meth == m])) {
-    if(m %in% c("ab_ml", "ml_ml")) type <- "omni"
-    if(m %in% c("ab_ql", "in_ql")) type <- "direct"
+    if(m %in% c("omni.ab", "omni.ml")) type <- "omni"
+    if(m %in% c("direct.ab", "direct.in")) type <- "direct"
     
     g <- ggplot() + 
       geom_sf(data = shp.t[shp.t$site == site & 
@@ -491,8 +388,8 @@ ant <- "1-8"
 ## plot raster (= merged polygons)
 for(m in unique(shp$meth[shp$site == site])) {
   for(d in unique(shp$detR[shp$site == site & shp$meth == m])) {
-    if(m %in% c("ab_ml", "ml_ml")) type <- "omni"
-    if(m %in% c("ab_ql", "in_ql")) type <- "direct"
+    if(m %in% c("omni.ab", "omni.ml")) type <- "omni"
+    if(m %in% c("direct.ab", "direct.in")) type <- "direct"
     
     g <- ggplot() + 
       geom_sf(data = shp[shp$site == site & shp$meth == m & shp$detR == d,], 
@@ -512,8 +409,8 @@ for(m in unique(shp$meth[shp$site == site])) {
 ## plot raster (= merged polygons)
 for(m in unique(shp$meth[shp$site == site])) {
   for(d in unique(shp$detR[shp$site == site & shp$meth == m])) {
-    if(m %in% c("ab_ml", "ml_ml")) type <- "omni"
-    if(m %in% c("ab_ql", "in_ql")) type <- "direct"
+    if(m %in% c("omni.ab", "omni.ml")) type <- "omni"
+    if(m %in% c("direct.ab", "direct.in")) type <- "direct"
     
     g <- ggplot() + 
       geom_sf(data = shp[shp$site == site & shp$meth == m & shp$detR == d,], 
@@ -532,8 +429,8 @@ for(m in unique(shp$meth[shp$site == site])) {
 ## plot raster (= merged polygons)
 for(m in unique(shp$meth[shp$site == site])) {
   for(d in unique(shp$detR[shp$site == site & shp$meth == m])) {
-    if(m %in% c("ab_ml", "ml_ml")) type <- "omni"
-    if(m %in% c("ab_ql", "in_ql")) type <- "direct"
+    if(m %in% c("omni.ab", "omni.ml")) type <- "omni"
+    if(m %in% c("direct.ab", "direct.in")) type <- "direct"
     
     g <- ggplot() + 
       geom_sf(data = shp[shp$site == site & shp$meth == m & shp$detR == d,], 
@@ -553,8 +450,8 @@ for(m in unique(shp$meth[shp$site == site])) {
 ## plot raster (= merged polygons)
 for(m in unique(shp$meth[shp$site == site])) {
   for(d in unique(shp$detR[shp$site == site & shp$meth == m])) {
-    if(m %in% c("ab_ml", "ml_ml")) type <- "omni"
-    if(m %in% c("ab_ql", "in_ql")) type <- "direct"
+    if(m %in% c("omni.ab", "omni.ml")) type <- "omni"
+    if(m %in% c("direct.ab", "direct.in")) type <- "direct"
     
     g <- ggplot() + 
       geom_sf(data = shp[shp$site == site & shp$meth == m & shp$detR == d,], 
@@ -568,93 +465,6 @@ for(m in unique(shp$meth[shp$site == site])) {
 
 ```
 
-### mean mp
-
-```{r}
-## plot raster (= merged polygons)
-for(m in unique(shp.m$meth[shp.m$site == site])) {
-  for(d in unique(shp.m$detR[shp.m$site == site & shp.m$meth == m])) {
-    if(m %in% c("ab_ml", "ml_ml")) type <- "omni"
-    if(m %in% c("ab_ql", "in_ql")) type <- "direct"
-    
-    g <- ggplot() + 
-      geom_sf(data = shp.m[shp.m$site == site & 
-                             shp.m$meth == m & shp.m$detR == d,], 
-              aes(fill = mean, color = mean), lwd = 0.1)
-    g <- plot.raster(g, leg = "mean \nposition \nerror")
-    g <- plot.station(g, site = site, type = type, size = 2, stroke = 1)
-    print(plot.theme(g))      
-
-  }
-}
-
-```
-
-### median mp
-
-```{r}
-## plot raster (= merged polygons)
-for(m in unique(shp.m$meth[shp.m$site == site])) {
-  for(d in unique(shp.m$detR[shp.m$site == site & shp.m$meth == m])) {
-    if(m %in% c("ab_ml", "ml_ml")) type <- "omni"
-    if(m %in% c("ab_ql", "in_ql")) type <- "direct"
-    
-    g <- ggplot() + 
-      geom_sf(data = shp.m[shp.m$site == site & 
-                             shp.m$meth == m & shp.m$detR == d,], 
-              aes(fill = median, color = median), lwd = 0.1)
-    g <- plot.raster(g, leg = "median \nposition \nerror")
-    g <- plot.station(g, site = site, type = type, size = 2, stroke = 1)
-    print(plot.theme(g))      
-
-  }
-}
-
-```
-
-### sd mp
-
-```{r}
-## plot raster (= merged polygons)
-for(m in unique(shp.m$meth[shp.m$site == site])) {
-  for(d in unique(shp.m$detR[shp.m$site == site & shp.m$meth == m])) {
-    if(m %in% c("ab_ml", "ml_ml")) type <- "omni"
-    if(m %in% c("ab_ql", "in_ql")) type <- "direct"
-    
-    g <- ggplot() + 
-      geom_sf(data = shp.m[shp.m$site == site & 
-                             shp.m$meth == m & shp.m$detR == d,], 
-              aes(fill = sd, color = sd), lwd = 0.1)
-    g <- plot.raster(g, leg = "sd \nposition \nerror")
-    g <- plot.station(g, site = site, type = type, size = 2, stroke = 1)
-    print(plot.theme(g))      
-
-  }
-}
-
-```
-
-### N mp
-
-```{r}
-## plot raster (= merged polygons)
-for(m in unique(shp.m$meth[shp.m$site == site])) {
-  for(d in unique(shp.m$detR[shp.m$site == site & shp.m$meth == m])) {
-    if(m %in% c("ab_ml", "ml_ml")) type <- "omni"
-    if(m %in% c("ab_ql", "in_ql")) type <- "direct"
-    
-    g <- ggplot() + 
-      geom_sf(data = shp.m[shp.m$site == site & 
-                             shp.m$meth == m & shp.m$detR == d,], 
-              aes(fill = N, color = N), lwd = 0.1)
-    g <- plot.raster(g, leg = "N points")
-    g <- plot.station(g, site = site, type = type, size = 2, stroke = 1)
-    print(plot.theme(g))      
-
-  }
-}
-
-```
 
 ### mean tp
 
@@ -662,8 +472,8 @@ for(m in unique(shp.m$meth[shp.m$site == site])) {
 ## plot raster (= merged polygons)
 for(m in unique(shp.t$meth[shp.t$site == site])) {
   for(d in unique(shp.t$detR[shp.t$site == site & shp.t$meth == m])) {
-    if(m %in% c("ab_ml", "ml_ml")) type <- "omni"
-    if(m %in% c("ab_ql", "in_ql")) type <- "direct"
+    if(m %in% c("omni.ab", "omni.ml")) type <- "omni"
+    if(m %in% c("direct.ab", "direct.in")) type <- "direct"
     
     g <- ggplot() + 
       geom_sf(data = shp.t[shp.t$site == site & 
@@ -685,8 +495,8 @@ for(m in unique(shp.t$meth[shp.t$site == site])) {
 ## plot raster (= merged polygons)
 for(m in unique(shp.t$meth[shp.t$site == site])) {
   for(d in unique(shp.t$detR[shp.t$site == site & shp.t$meth == m])) {
-    if(m %in% c("ab_ml", "ml_ml")) type <- "omni"
-    if(m %in% c("ab_ql", "in_ql")) type <- "direct"
+    if(m %in% c("omni.ab", "omni.ml")) type <- "omni"
+    if(m %in% c("direct.ab", "direct.in")) type <- "direct"
     
     g <- ggplot() + 
       geom_sf(data = shp.t[shp.t$site == site & 
@@ -707,8 +517,8 @@ for(m in unique(shp.t$meth[shp.t$site == site])) {
 ## plot raster (= merged polygons)
 for(m in unique(shp.t$meth[shp.t$site == site])) {
   for(d in unique(shp.t$detR[shp.t$site == site & shp.t$meth == m])) {
-    if(m %in% c("ab_ml", "ml_ml")) type <- "omni"
-    if(m %in% c("ab_ql", "in_ql")) type <- "direct"
+    if(m %in% c("omni.ab", "omni.ml")) type <- "omni"
+    if(m %in% c("direct.ab", "direct.in")) type <- "direct"
     
     g <- ggplot() + 
       geom_sf(data = shp.t[shp.t$site == site & 
@@ -729,8 +539,8 @@ for(m in unique(shp.t$meth[shp.t$site == site])) {
 ## plot raster (= merged polygons)
 for(m in unique(shp.t$meth[shp.t$site == site])) {
   for(d in unique(shp.t$detR[shp.t$site == site & shp.t$meth == m])) {
-    if(m %in% c("ab_ml", "ml_ml")) type <- "omni"
-    if(m %in% c("ab_ql", "in_ql")) type <- "direct"
+    if(m %in% c("omni.ab", "omni.ml")) type <- "omni"
+    if(m %in% c("direct.ab", "direct.in")) type <- "direct"
     
     g <- ggplot() + 
       geom_sf(data = shp.t[shp.t$site == site & 

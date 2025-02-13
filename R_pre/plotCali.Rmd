@@ -14,11 +14,6 @@ tmp <- as.data.frame(df) %>% group_by(Individual, detR, ant, meth) %>%
          medianD = median(PE, na.rm = T), 
          meanD = mean(PE, na.rm = T),
          NPos = n(),
-         minD.m = min(PE.m, na.rm = T),
-         maxD.m = max(PE.m, na.rm = T),
-         medianD.m = median(PE.m, na.rm = T), 
-         meanD.m = mean(PE.m, na.rm = T),
-         NPos.m = sum(!is.na(PE.m)),
             .groups = "drop")
 tmp$NAnt <- 1
 tmp$NStat <- 1
@@ -34,11 +29,6 @@ tmp <- as.data.frame(df[df$Antenna.Count >= 2 & df$Station.Count >= 2,]) %>%
             medianD = median(PE, na.rm = T), 
             meanD = mean(PE, na.rm = T), 
             NPos = n(),
-         minD.m = min(PE.m, na.rm = T),
-         maxD.m = max(PE.m, na.rm = T),
-         medianD.m = median(PE.m, na.rm = T), 
-         meanD.m = mean(PE.m, na.rm = T),
-         NPos.m = sum(!is.na(PE.m)),
          .groups = "drop")
 tmp$NAnt <- 2
 tmp$NStat <- 2
@@ -53,11 +43,6 @@ tmp <- as.data.frame(df[df$Antenna.Count >= 3 & df$Station.Count >= 2,]) %>%
             medianD = median(PE, na.rm = T), 
             meanD = mean(PE, na.rm = T), 
             NPos = n(),
-         minD.m = min(PE.m, na.rm = T),
-         maxD.m = max(PE.m, na.rm = T),
-         medianD.m = median(PE.m, na.rm = T), 
-         meanD.m = mean(PE.m, na.rm = T),
-         NPos.m = sum(!is.na(PE.m)),
                      .groups = "drop")
 tmp$NAnt <- 3
 tmp$NStat <- 2
@@ -72,11 +57,6 @@ tmp <- as.data.frame(df[df$Signal.max >= -80,]) %>%
             medianD = median(PE, na.rm = T), 
             meanD = mean(PE, na.rm = T), 
             NPos = n(),
-         minD.m = min(PE.m, na.rm = T),
-         maxD.m = max(PE.m, na.rm = T),
-         medianD.m = median(PE.m, na.rm = T), 
-         meanD.m = mean(PE.m, na.rm = T),
-         NPos.m = sum(!is.na(PE.m)),
                      .groups = "drop")
 tmp$NAnt <- 1
 tmp$NStat <- 1
@@ -92,11 +72,6 @@ tmp <- as.data.frame(df[df$Antenna.Count >= 2 & df$Station.Count >= 2 & df$Signa
             medianD = median(PE, na.rm = T), 
             meanD = mean(PE, na.rm = T), 
             NPos = n(),
-         minD.m = min(PE.m, na.rm = T),
-         maxD.m = max(PE.m, na.rm = T),
-         medianD.m = median(PE.m, na.rm = T), 
-         meanD.m = mean(PE.m, na.rm = T),
-         NPos.m = sum(!is.na(PE.m)),
                      .groups = "drop")
 tmp$NAnt <- 2
 tmp$NStat <- 2
@@ -111,11 +86,6 @@ tmp <- as.data.frame(df[df$Antenna.Count >= 3 & df$Station.Count >= 2 & df$Signa
             medianD = median(PE, na.rm = T), 
             meanD = mean(PE, na.rm = T), 
             NPos = n(),
-         minD.m = min(PE.m, na.rm = T),
-         maxD.m = max(PE.m, na.rm = T),
-         medianD.m = median(PE.m, na.rm = T), 
-         meanD.m = mean(PE.m, na.rm = T),
-         NPos.m = sum(!is.na(PE.m)),
                      .groups = "drop")
 tmp$NAnt <- 3
 tmp$NStat <- 2
@@ -149,23 +119,6 @@ for(i in unique(df$Individual)) {
     ggtitle(paste0(i, " - NStat 1, NAnt 1")) +
     theme_light(base_size = 0.8*bs)
   
-  ggDetRm <- ggplot(df[df$Individual == i & df$Antenna.Count >= 1,]) + 
-    stat_halfeye(aes(x = detR, y = PE.m, fill = ant, color = ant),
-                 alpha = 0.3) +
-    geom_text(aes(x = detR, y = 400, label = paste0(round(medianD.m, 2), " \n(", NPos.m, ")"), color = ant), 
-              data = Dsum[Dsum$Individual == i & Dsum$ant == ant & Dsum$NAnt == 1 & Dsum$NStat == 1 & Dsum$SigTresh == -90,]) +
-    geom_text(aes(x = detR, y = 600, label = paste0(round(medianD.m, 2), " \n(", NPos.m, ")"), color = ant), 
-              data = Dsum[Dsum$Individual == i & Dsum$ant == "1-6" & Dsum$NAnt == 1 & Dsum$NStat == 1 & Dsum$SigTresh == -90,]) +
-    facet_wrap(~meth, scales = "free_x") +
-    xlab("det. range") +
-    ylab("position error [m]") +
-    
-    scale_fill_viridis_d("Stations included", end = 0.9) +
-    scale_color_viridis_d("Stations included", end = 0.9) +
-  
-    ggtitle(paste0(i, " - NStat 1, NAnt 1 - rollMean")) +
-    theme_light(base_size = 0.8*bs)
-  
   
   ggDetR2 <- ggplot(df[df$Individual == i & df$Antenna.Count >= 2,]) + 
     stat_halfeye(aes(x = detR, y = PE, fill = ant, color = ant),
@@ -182,23 +135,6 @@ for(i in unique(df$Individual)) {
     scale_color_viridis_d("Stations included", end = 0.9) +
     
     ggtitle(paste0(i, " - NStat 2, NAnt 2")) +
-    theme_light(base_size = 0.8*bs)
-  
-  ggDetR2m <- ggplot(df[df$Individual == i & df$Antenna.Count >= 2,]) + 
-    stat_halfeye(aes(x = detR, y = PE.m, fill = ant, color = ant),
-                 alpha = 0.3) +
-    geom_text(aes(x = detR, y = 400, label = paste0(round(medianD.m, 2), " \n(", NPos.m, ")"), color = ant), 
-              data = Dsum[Dsum$Individual == i & Dsum$ant == ant & Dsum$NAnt == 2 & Dsum$NStat == 2 & Dsum$SigTresh == -90,]) +
-    geom_text(aes(x = detR, y = 600, label = paste0(round(medianD.m, 2), " \n(", NPos.m, ")"), color = ant), 
-              data = Dsum[Dsum$Individual == i & Dsum$ant == "1-6" & Dsum$NAnt == 2 & Dsum$NStat == 2 & Dsum$SigTresh == -90,]) +
-    facet_wrap(~meth, scales = "free_x") +
-    xlab("det. range") +
-    ylab("position error [m]") +
-    
-    scale_fill_viridis_d("Stations included", end = 0.9) +
-    scale_color_viridis_d("Stations included", end = 0.9) +
-    
-    ggtitle(paste0(i, " - NStat 2, NAnt 2 - rollMean")) +
     theme_light(base_size = 0.8*bs)
   
   
@@ -219,23 +155,6 @@ for(i in unique(df$Individual)) {
     ggtitle(paste0(i, " - NStat 2, NAnt 3")) +
     theme_light(base_size = 0.8*bs)
   
-  ggDetR3m <- ggplot(df[df$Individual == i & df$Antenna.Count >= 3,]) + 
-    stat_halfeye(aes(x = detR, y = PE.m, fill = ant, color = ant),
-                 alpha = 0.3) +
-    geom_text(aes(x = detR, y = 400, label = paste0(round(medianD.m, 2), " \n(", NPos.m, ")"), color = ant), 
-              data = Dsum[Dsum$Individual == i & Dsum$ant == ant & Dsum$NAnt == 3 & Dsum$NStat == 2 & Dsum$SigTresh == -90,]) +
-    geom_text(aes(x = detR, y = 600, label = paste0(round(medianD.m, 2), " \n(", NPos.m, ")"), color = ant), 
-              data = Dsum[Dsum$Individual == i & Dsum$ant == "1-6" & Dsum$NAnt == 3 & Dsum$NStat == 2 & Dsum$SigTresh == -90,]) +
-    facet_wrap(~meth, scales = "free_x") +
-    xlab("det. range") +
-    ylab("position error [m]") +
-    
-    scale_fill_viridis_d("Stations included", end = 0.9) +
-    scale_color_viridis_d("Stations included", end = 0.9) +
-    
-    ggtitle(paste0(i, " - NStat 2, NAnt 3 - rollMean")) +
-    theme_light(base_size = 0.8*bs)
-  
   ggNAnt <- ggplot(df[df$Individual == i & df$Antenna.Count >= 1 & df$detR %in% c("800m", "no") & df$ant ==  ant,]) + 
     stat_halfeye(aes(x = Antenna.Count, y = PE),
                alpha = 0.3) +
@@ -244,15 +163,6 @@ for(i in unique(df$Individual)) {
     ylab("position error [m]") +
     ggtitle(paste0(i, " - detR 800m, NStat 1, Stat ", ant)) +
     theme_light(base_size = 0.8*bs)
-  
-  ggNAntm <- ggplot(df[df$Individual == i & df$Antenna.Count >= 1 & df$detR %in% c("800m", "no") & df$ant ==  ant,]) + 
-    stat_halfeye(aes(x = Antenna.Count, y = PE.m),
-               alpha = 0.3) +
-    facet_wrap(~meth, scales = "free_x") +
-    xlab("Antenna Count") +
-    ylab("position error [m]") +
-    ggtitle(paste0(i, " - detR 800m, NStat 1, Stat ", ant, " - rollMean")) +
-    theme_light(base_size = 0.8*bs)  
   
   ggNStat <- ggplot(df[df$Individual == i & df$Station.Count >= 1 & df$detR %in% c("800m", "no") & df$ant ==  ant,]) + 
     stat_halfeye(aes(x = Station.Count, y = PE),
@@ -263,16 +173,6 @@ for(i in unique(df$Individual)) {
     ggtitle(paste0(i, " - detR 800m, NAnt 1, Stat ", ant)) +
     theme_light(base_size = 0.8*bs)
   
-  ggNStatm <- ggplot(df[df$Individual == i & df$Station.Count >= 1 & df$detR %in% c("800m", "no") & df$ant ==  ant,]) + 
-    stat_halfeye(aes(x = Station.Count, y = PE.m),
-                 alpha = 0.3) +
-    facet_wrap(~meth, scales = "free_x") +
-    xlab("Station Count") +
-    ylab("position error [m]") +
-    ggtitle(paste0(i, " - detR 800m, NAnt 1, Stat ", ant, " - rollMean")) +
-    theme_light(base_size = 0.8*bs)  
-  
-  
   ggSigMax <- ggplot(df[df$Individual == i & df$Antenna.Count >= 1 & df$detR %in% c("800m", "no") & df$ant ==  ant,]) + 
     geom_point(aes(x = Signal.max, y = PE),
                alpha = 0.3, pch = 1) +
@@ -282,15 +182,7 @@ for(i in unique(df$Individual)) {
     ggtitle(paste0(i, " - detR 800m, NAnt 1, NStat 1, Stat ", ant)) +
     theme_light(base_size = 0.8*bs)
   
-  ggSigMaxm <- ggplot(df[df$Individual == i & df$Antenna.Count >= 1 & df$detR %in% c("800m", "no") & df$ant ==  ant,]) + 
-    geom_point(aes(x = Signal.max, y = PE.m),
-               alpha = 0.3, pch = 1) +
-    facet_wrap(~meth, scales = "free_x") +
-    xlab("max. Signal") +
-    ylab("position error [m]") +
-    ggtitle(paste0(i, " - detR 800m, NAnt 1, NStat 1, Stat ", ant, " - rollMean")) +
-    theme_light(base_size = 0.8*bs)  
-  
+
   ggWeight <- ggplot(df[df$Individual == i & df$Antenna.Count >= 1 & df$detR %in% c("800m", "no") & df$ant ==  ant,]) + 
     geom_point(aes(x = Weight, y = PE),
                alpha = 0.3, pch = 1) +
@@ -300,31 +192,14 @@ for(i in unique(df$Individual)) {
     ggtitle(paste0(i, " - detR 800m, NAnt 1, NStat 1, Stat ", ant)) +
     theme_light(base_size = 0.8*bs)
   
-  ggWeightm <- ggplot(df[df$Individual == i & df$Antenna.Count >= 1 & df$detR %in% c("800m", "no") & df$ant ==  ant,]) + 
-    geom_point(aes(x = Weight, y = PE.m),
-               alpha = 0.3, pch = 1) +
-    facet_wrap(~meth, scales = "free_x") +
-    xlab("Weight") +
-    ylab("position error [m]") +
-    ggtitle(paste0(i, " - detR 800m, NAnt 1, NStat 1, Stat ", ant, " - rollMean")) +
-    theme_light(base_size = 0.8*bs)  
-  
-  
   print(ggDetR)
-  print(ggDetRm)
   print(ggDetR2)
-  print(ggDetR2m)
   print(ggDetR3)
-  print(ggDetR3m)
   print(ggSigMax)
-  print(ggSigMaxm)
   print(ggWeight)
-  print(ggWeightm)
   print(ggNStat)
-  print(ggNStatm)
   print(ggNAnt)
-  print(ggNAntm)
-  
+
 }
 
 

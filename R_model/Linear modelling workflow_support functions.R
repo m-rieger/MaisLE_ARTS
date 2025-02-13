@@ -907,7 +907,7 @@ residual_plots_random_slopes <- function(data, modelTMB, fixed_eff, random_eff) 
 #** 6.2.1 Dispersion ----
 #-----------------------#
 
-dispersion_simulation <- function(data, modelTMB, response, predictor, n.sim) {
+disp.sim <- function(data, modelTMB, response, predictor, n.sim) {
   
   data <- as.data.frame(data)
   
@@ -1006,14 +1006,14 @@ dispersion_simulation <- function(data, modelTMB, response, predictor, n.sim) {
                 warning(call. = F, "SUB-OPTIMAL FIT: Some observed variances (orange) fall marginal within central 99% of simulated data. Check if better model fit can be achieved.")
                 warning(call. = F, "POOR FIT: Some observed variances (red) are outside the central 99% of simulated data. Your model likely provides insufficient fit to your data.")
                 }}}}}}}
-    plot1
+    print(plot1)
   }
 
 #-----------------------#
 #** 6.2.1 Mean ----
 #-----------------------#
 
-mean_simulation <- function(data, modelTMB, response, predictor, n.sim) {
+mean.sim <- function(data, modelTMB, response, predictor, n.sim) {
   
   data <- as.data.frame(data)
   
@@ -1112,14 +1112,122 @@ mean_simulation <- function(data, modelTMB, response, predictor, n.sim) {
                             warning(call. = F, "SUB-OPTIMAL FIT: Some observed means (orange) fall marginal within central 99% of simulated data. Check if better model fit can be achieved.")
                             warning(call. = F, "POOR FIT: Some observed means (red) are outside the central 99% of simulated data. Your model likely provides insufficient fit to your data.")
                           }}}}}}}
-  plot1
+  print(plot1)
+  
+}
+
+#-----------------------#
+#** 6.2.1 median ----
+#-----------------------#
+
+median.sim <- function(data, modelTMB, response, predictor, n.sim) {
+  
+  data <- as.data.frame(data)
+  
+  sims <- simulate(modelTMB, nsim = n.sim, seed = 9) 
+  
+  if(!missing(predictor) && !is.null(predictor) && length(na.omit(predictor)) > 0) { 
+    
+    if(length(na.omit(predictor)) > 1) {warning(call. = F, "Multiple predictors detected: the first has been taken by default. Explicitly specify others if preferred.")}
+    
+    if(length(predictor) > 1) {
+      predictor <- na.omit(predictor)[1]
+    }
+    
+    if(sum(sapply(data[predictor], FUN = is.numeric)) == length(predictor))  {stop("ERROR: The predictor must be a factor.")} else {
+      
+      if (modelTMB$modelInfo$family[1] == "binomial" | modelTMB$modelInfo$family[1] == "betabinomial") {
+        list_sims <- lapply(sims, function(x) {
+          cbind("estimate" = x[,1]/(x[,1] + x[,2]), data %>% dplyr::select(!!sym(predictor)))
+        }
+        )}
+      else {
+        list_sims <- lapply(sims, function(x) { # lapply applies function to each vector and returns it as a list.
+          cbind("estimate" = x, data %>% dplyr::select(!!sym(predictor)))
+        }
+        )}
+      
+      sims_summary <- lapply(list_sims, function(x) {
+        as.data.frame(x %>% group_by(!!sym(predictor)) %>% 
+                        summarize(median = round(median(estimate), digits = 5)))
+      }
+      )
+      all_sims <- do.call(rbind, sims_summary)
+      temp <- data %>% group_by(!!sym(predictor)) %>% 
+        summarize(median = median(!!sym(response)))
+      
+      # The following checks the quantile of observed parameters against simulated ones.
+      # Depending on quantiles, observed vlines are coloured blue, orange, or red.
+      
+      grouped_sims <- cbind(all_sims, temp[2])
+      names(grouped_sims) <- c(predictor, "median", "obs_median")
+      
+      grouped_sims <- grouped_sims %>% group_by(!!sym(predictor))
+      
+    }}  else { # not grouped by a predictor
+      
+      if (modelTMB$modelInfo$family[1] == "binomial" | modelTMB$modelInfo$family[1] == "betabinomial") {
+        list_sims <- lapply(sims, function(x) {
+          "estimate" = x[,1]/(x[,1] + x[,2])
+        }
+        )}
+      else {
+        list_sims <- lapply(sims, function(x) {
+          "estimate" = x
+        }
+        )}
+      
+      sims_summary <- lapply(list_sims, function(x) {
+        as.data.frame(list(median = round(median(x), digits = 5)))
+      })
+      all_sims <- do.call(rbind, sims_summary) # do.call constructs and executes a function call from a name or 
+      temp <- data %>% summarize(median = median(!!sym(response)))
+      
+      # The following checks the quantile of observed parameters against simulated ones.
+      # Depending on quantiles, observed vlines are coloured blue, orange, or red.
+      
+      grouped_sims <- cbind(all_sims, temp)
+      names(grouped_sims) <- c("median","obs_median")
+    }
+  
+  prop <- as.data.frame(grouped_sims %>% summarize(extreme_median = sum(median > obs_median)/n.sim, equal_median = sum(median == obs_median)/n.sim))
+  
+  col.vline_median <- ifelse(between(prop$extreme_median, 0.05, 0.95) | prop$equal_median > 0.1, "blue",  
+                         ifelse(between(prop$extreme_median, 0.005, 0.995) | prop$equal_median > 0.01, "orange", "red"))
+  
+  plot1 <- ggplot() + 
+    labs(x = "median: simulated (bars) and observed (line)", y = "Frequency", title = "") +
+    geom_histogram(data = all_sims, aes(x = median), col = "white", fill = "grey70", bins = 30) + 
+    geom_vline(data = temp, aes(xintercept = median), col = col.vline_median, linewidth = 1.5) +
+    plot0 +
+    if(!missing(predictor) && !is.null(predictor)  && length(na.omit(predictor)) > 0) {facet_wrap(as.formula(paste("~", predictor)), scales = "free")}
+  
+  if(sum(col.vline_median == "blue")  == length(col.vline_median)) {
+    message("OPTIMAL FIT: All observed medians fall within central 90% of simulated data. No issues.")} else {
+      if(sum(col.vline_median == "orange") == length(col.vline_median)) {
+        warning(call. = F, "SUB-OPTIMAL FIT: All observed medians (orange) fall marginal within central 99% of simulated data. Check if better model fit can be achieved.")} else {
+          if(sum(col.vline_median == "red") == length(col.vline_median)) {
+            warning(call. = F, "POOR FIT: All observed medians (red) are outside the central 99% of simulated data. Your model likely provides insufficient fit to your data.")} else {
+              if(sum(col.vline_median == "blue") + sum(col.vline_median == "orange") == length(col.vline_median)) {
+                warning(call. = F, "SUB-OPTIMAL FIT: Some observed medians (orange) fall marginal within central 99% of simulated data. Check if better model fit can be achieved.")} else {
+                  if(sum(col.vline_median == "blue") + sum(col.vline_median == "red") == length(col.vline_median)) {
+                    warning(call. = F, "POOR FIT: Some observed medians (red) are outside the central 99% of simulated data. Your model likely provides insufficient fit to your data.")} else {
+                      if(sum(col.vline_median == "orange") + sum(col.vline_median == "red") == length(col.vline_median)) {
+                        warning(call. = F, "SUB-OPTIMAL FIT: Some observed medians (orange) fall marginal within central 99% of simulated data. Check if better model fit can be achieved.")
+                        warning(call. = F, "POOR FIT: Some observed medians (red) are outside the central 99% of simulated data. Your model likely provides insufficient fit to your data.")} else {
+                          if(sum(col.vline_median == "blue") + sum(col.vline_median == "orange") + sum(col.vline_median == "red") == length(col.vline_median)) {   
+                            warning(call. = F, "SUB-OPTIMAL FIT: Some observed medians (orange) fall marginal within central 99% of simulated data. Check if better model fit can be achieved.")
+                            warning(call. = F, "POOR FIT: Some observed medians (red) are outside the central 99% of simulated data. Your model likely provides insufficient fit to your data.")
+                          }}}}}}}
+  print(plot1)
+  
 }
 
 #-----------------------#
 #** 6.2.1 SD ----
 #-----------------------#
 
-sd_simulation <- function(data, modelTMB, response, predictor, n.sim) {
+sd.sim <- function(data, modelTMB, response, predictor, n.sim) {
   
   data <- as.data.frame(data)
   
@@ -1218,7 +1326,8 @@ sd_simulation <- function(data, modelTMB, response, predictor, n.sim) {
                             warning(call. = F, "SUB-OPTIMAL FIT: Some observed sds (orange) fall marginal within central 99% of simulated data. Check if better model fit can be achieved.")
                             warning(call. = F, "POOR FIT: Some observed sds (red) are outside the central 99% of simulated data. Your model likely provides insufficient fit to your data.")
                           }}}}}}}
-  plot1
+  print(plot1)
+  
 }
 
 
@@ -1226,7 +1335,7 @@ sd_simulation <- function(data, modelTMB, response, predictor, n.sim) {
 #** 6.2.2 Zero inflation ---- 
 #---------------------------#
 
-zero_simulation <- function(data, modelTMB, response, predictor, n.sim) {
+zero.sim <- function(data, modelTMB, response, predictor, n.sim) {
   
   data <- as.data.frame(data)
   
@@ -1336,8 +1445,9 @@ zero_simulation <- function(data, modelTMB, response, predictor, n.sim) {
    if(family(modelTMB)[1] %in% c("gaussian")) {
      warning(call. = F, "NOTE: Model uses GAUSSIAN family, where simulated data will almost never contain true zeros. Warnings for 'poor fit' may here be ignored if observed zeros fall well within the entire raw data range. Check carefully.")
    }
-    plot.output
-  }
+    print(plot.output)
+}
+
 
 
 #------------------------------#
@@ -1395,8 +1505,8 @@ ppcheck_fun <- function(data, modelTMB, response, predictor, n.sim) {
   if(!missing(predictor) && !is.null(predictor) && length(na.omit(predictor)) > 0) {
     plot.output <- plot.output + facet_wrap(as.formula(paste("~", predictor)), scales = "free")
   }
-  plot.output
-  }
+  print(plot.output)
+}
 
 
 #================================#
@@ -1926,10 +2036,10 @@ post_predict <- function(data, modelTMB, plot_predictors, offset, component) {
 # routine from Korner-Nievergelt et al. 2015; Brooks et al. 2017
 # More detail: https://stackoverflow.com/questions/61902110/extracting-posterior-modes-and-compatibility-intervals-from-glmmtmb-output
 
-post_predictN <- function(data, modelTMB, newdat, offset, component) { 
+post_predictN <- function(data, modelTMB, newdat, offset, component, sims = F, nsim = 10000, DISP = F) { 
   
   if (missing(offset)) {offset <- NA}
-  
+
   if(length(modelTMB$call$offset) > 0 && is.na(offset)) {
     stop("ERROR: Your model contains an offset term. Please specify it in the function call.")}
   
@@ -1980,20 +2090,30 @@ post_predictN <- function(data, modelTMB, newdat, offset, component) {
   
   # Simulation for ALL model parts:
   if (component == "all") {
-    bsim_cond <- mvrnorm(10000, 
+    if(DISP) {
+      bsim_disp <- mvrnorm(nsim, 
+                           mu = fixef(modelTMB)$disp, 
+                           Sigma = vcov(modelTMB)$disp) # equivalent to sim from package arm.
+      formula <- formula(modelTMB$modelInfo$allForm$dispformula)
+      
+      Xmat_disp <- model.matrix(formula, data = newdat)
+      fitmatrix_disp <- modelTMB$modelInfo$family$linkinv(Xmat_disp %*% t(bsim_disp)) 
+      pred_disp  <- modelTMB$modelInfo$family$linkinv(Xmat_disp %*% fixef(modelTMB)$disp)
+    }
+        
+    bsim_cond <- mvrnorm(nsim, 
                          mu = fixef(modelTMB)$cond, 
                          Sigma = vcov(modelTMB)$cond) # equivalent to sim from package arm.
-    
     formula <- eval(str2expression(paste(gsub(".~","", formula(modelTMB, fixed.only = T))[c(1,3)], collapse = "")))
     
-    
+
     Xmat_cond <- model.matrix(formula, data = newdat)
     fitmatrix_all <- modelTMB$modelInfo$family$linkinv(Xmat_cond %*% t(bsim_cond)) 
     pred_mod  <- modelTMB$modelInfo$family$linkinv(Xmat_cond %*% fixef(modelTMB)$cond)
     
     # simulation for the zi-part of model, if present:
     if (length(fixef(modelTMB)$zi != 0)) {
-      bsim_zi <- mvrnorm(10000, mu = fixef(modelTMB)$zi, Sigma = vcov(modelTMB)$zi)
+      bsim_zi <- mvrnorm(nsim, mu = fixef(modelTMB)$zi, Sigma = vcov(modelTMB)$zi)
       Xmat_zi <- model.matrix(modelTMB$modelInfo$terms$zi$fixed, data = newdat)
       fitmatrix_zi <- 1 - plogis((Xmat_zi %*% t(bsim_zi)))
       fitmatrix_all <- fitmatrix_all * fitmatrix_zi
@@ -2001,32 +2121,23 @@ post_predictN <- function(data, modelTMB, newdat, offset, component) {
     }
   }
   
-  # Simulation just for the CONDITIONAL model part:
-  if (component == "cond") { 
-    bsim_cond <- mvrnorm(10000, 
-                         mu = fixef(modelTMB)$cond, 
-                         Sigma = vcov(modelTMB)$cond) # equivalent of sim from package arm
-    formula <- eval(str2expression(paste(gsub(".~","", formula(modelTMB, fixed.only = T))[c(1,3)], collapse = "")))
-    
-    Xmat_cond <- model.matrix(formula, data = newdat)
-    fitmatrix_all <- modelTMB$modelInfo$family$linkinv(Xmat_cond %*% t(bsim_cond)) 
-    pred_mod  <- modelTMB$modelInfo$family$linkinv(Xmat_cond %*% fixef(modelTMB)$cond)
-  }
-  
-  # Simulation just for ZI model part:
-  if (component == "zi") {
-    bsim_zi <- mvrnorm(10000, mu = fixef(modelTMB)$zi, Sigma = vcov(modelTMB)$zi)
-    Xmat_zi <- model.matrix(modelTMB$modelInfo$terms$zi$fixed, data = newdat)
-    fitmatrix_all <- 1 - plogis((Xmat_zi %*% t(bsim_zi)))
-    pred_mod <- 1 - plogis(Xmat_zi %*% fixef(modelTMB)$zi)
-  }
-  
   newdat$median <- apply(fitmatrix_all, 1, quantile, prob = 0.5)  # extracts median
   newdat$pred_mod <-  pred_mod
-  newdat$lower <- apply(fitmatrix_all, 1, quantile, prob = 0.025) # extracts lower compatibility interval
-  newdat$upper <- apply(fitmatrix_all, 1, quantile, prob = 0.975) # ... and the upper compatibility interval
+  newdat$lwr <- apply(fitmatrix_all, 1, quantile, prob = 0.025) # extracts lower compatibility interval
+  newdat$lwr25 <- apply(fitmatrix_all, 1, quantile, prob = 0.25) # extracts lower compatibility interval
+  newdat$upr75 <- apply(fitmatrix_all, 1, quantile, prob = 0.75) # ... and the upper compatibility interval
+  newdat$upr <- apply(fitmatrix_all, 1, quantile, prob = 0.975) # ... and the upper compatibility interval
   newdat$SD <- apply(fitmatrix_all, 1, sd) # ... and the upper compatibility interval
   
+  if(DISP) {
+    newdat$medianD <- apply(fitmatrix_disp, 1, quantile, prob = 0.5)  # extracts median
+    newdat$pred_modD <-  pred_disp
+    newdat$lwrD <- apply(fitmatrix_disp, 1, quantile, prob = 0.025) # extracts lower compatibility interval
+    newdat$lwr25D <- apply(fitmatrix_disp, 1, quantile, prob = 0.25) # extracts lower compatibility interval
+    newdat$upr75D <- apply(fitmatrix_disp, 1, quantile, prob = 0.75) # ... and the upper compatibility interval
+    newdat$uprD <- apply(fitmatrix_disp, 1, quantile, prob = 0.975) # ... and the upper compatibility interval
+    newdat$SDD <- apply(fitmatrix_disp, 1, sd) # ... and the upper compatibility interval
+  }
   
   # Project z-transformed predictors to raw scale:
   if(length(grep("_z", names(newdat))) > 0) {
@@ -2043,8 +2154,59 @@ post_predictN <- function(data, modelTMB, newdat, offset, component) {
     names(newdat) <- str_replace_all(names(newdat), fixed("_z"), "")
   }
   
+  if(sims & DISP) mod.sims <<- list(fitmatrix_all, fitmatrix_disp)
+  if(sims & !DISP) mod.sims <<- list(fitmatrix_all)
+  
   return(newdat)
+  
 }
+
+## simulate raw data to get quantiles for newdat (e.g., median, 65%)
+quant.rlnorm <- function(m, # matrix with mean
+                   sd, # matrix with sd
+                   probs = 0.5, # quantile to calculate (0.5, 0.65, 0.75, ...)
+                   nsim = 1000, # number of simulations for rlnorm
+                   SPEED = F # do you want to speed up the process using parallelization (TRUE)?
+                   ) {
+  
+  if(length(probs) > 1) {
+    warning("There is more than one value for 'probs'. The first one will be selected for further calculations.")
+    probs <- probs[1]
+  }
+  
+  # v <- sd^2
+  # phi <- sqrt(v+m^2)
+  # mu <- log(m^2/phi)
+  sigma <- sqrt(log(1+sd^2/m^2))
+  mu <- log(m)-0.5*sigma^2 # identisch zu oberem mu
+  
+  quant.rlnorm2 <- function(mus) {
+    set.seed(3171)
+    quantile(rlnorm(nsim, mus[1], mus[2]), probs = probs)  # change to rnorm, rpois, etc. if needed
+  }
+  
+  if(SPEED) {
+    require(future.apply)
+    plan(multicore, workers = parallel::detectCores())
+    q <- matrix(future_apply(cbind(as.vector(mu), as.vector(sigma)), 1, 
+                             quant.rlnorm2, future.seed = 3171), 
+                            nrow = nrow(mu))
+    
+    plan(sequential)
+    
+  }
+  
+  if(!SPEED) {
+    q <- matrix(apply(cbind(as.vector(mu), as.vector(sigma)), 1, 
+                      quant.rlnorm2), 
+                nrow = nrow(mu))
+    
+  } 
+  
+  return(q)
+  
+}
+
 #============================#
 #* 8.3 Summarise raw data ---- 
 #============================#

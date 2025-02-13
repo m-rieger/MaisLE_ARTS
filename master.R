@@ -1,7 +1,7 @@
 #### master script ####
 
 rm(list = ls())
-
+#install.packages("raster")
 #### 1) packages ---------------------------------------------------------------
 library(ggdist)
 library(tidyverse)
@@ -71,3 +71,5 @@ rmean <- function(x, width) {
                  FUN = mean, fill = NA, na.rm = T, partial = TRUE)
 }
 
+#### 5) run analysis
+source("./R_pre/mergeCali.R")
