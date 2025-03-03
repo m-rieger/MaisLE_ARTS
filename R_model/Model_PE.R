@@ -19,6 +19,7 @@ library(caret) # kfold
 library(zoo) #rollM
 library(geosphere) # distm()
 library(ggspatial)
+library(lubridate)
 
 ## global options
 theme_set(theme_light()) # ggplot theme 
@@ -1136,90 +1137,142 @@ crsLL <- 4326
 df.r <- st_read(dsn = "../data/data_cali/savedFiles/Data_cali_raster.gpkg", layer = "shp_raster")
 df.r <- st_transform(df.r, crs = crsLL)
 
-dsn <- "../data/data_test/GT10_R1_S1_Test.antennabeams.gpkg"
-#dsn = "../data/data_test/GT13_R2_S1_Test.antennabeams.gpkg"
-df.t <- st_read(dsn = dsn)
-df.t <- st_read(dsn = dsn, layer = "PA")
+## get model and raw data
+mod <- readRDS(paste0("./output_model/model_m5_maisC_direct.ab.RDS"))
+df <- read.csv("./output_model/data_m5_maisC_direct.ab.csv")
 
+df.bird <- read.csv("../data/data_test/GTdata_full_bird.csv")
+df.bird$date_start <- as.POSIXct(df.bird$date_start, tz = "UTC")
+df.bird$date_start <- with_tz(df.bird$date_start, "CET")
+df.bird$date_stop <- as.POSIXct(df.bird$date_stop, tz = "UTC")
+df.bird$date_stop <- with_tz(df.bird$date_stop, "CET")
+colnames(df.bird)[colnames(df.bird) %in% c("lon", "lat")] <- c("lon.true", "lat.true")
 
-df.t <- st_transform(df.t, crs = crsLL)
+## summarize df.bird by ID and transform to sf
+shp.bird <- df.bird %>% group_by(lon.true, lat.true, ID, Testtag) %>%
+  summarize(date_start = mean(date_start), .groups = "drop")
+shp.bird <- st_as_sf(shp.bird, coords = c("lat.true", "lon.true"), crs = crsLL)
 
-# merge using sf objects
-df.t <- st_join(df.t, df.r)
+## loop through individuals
+fL <- list.files(path = "../data/data_test/", pattern = "antennabeams.gpkg")
 
-# using a raster
-# df.t$cover   <- extract(df.r2, df.t)
+for(f in fL) {
+  dsn <- paste0("../data/data_test/", f)
+  #dsn = "../data/data_test/GT13_R2_S1_Test.antennabeams.gpkg"
+  df.t <- st_read(dsn = dsn)
+  # df.t <- st_read(dsn = dsn, layer = "PA")
+  
+  df.t <- st_transform(df.t, crs = crsLL)
+  
+  # merge using sf objects
+  df.t <- st_join(df.t, df.r)
+  
+  # get original positions from manual tracking
+  df.t <- left_join(df.t, df.bird[, c("Testtag", "date_start", "lat.true", "lon.true", "ID")], 
+                    by = c("Individual" = "Testtag", "X_time" = "date_start"))
+  
+  # using a raster
+  # df.t$cover   <- extract(df.r2, df.t)
+  
+  ## change colnames
+  colnames(df.t)[colnames(df.t) %in% c("Station.Count", "Antenna.Count", "Signal.max", "dens")] <- c("Sc", "Ac", "maxSig", "cover")
+  
+  ## scale numeric values
+  newdat <- data.frame(tagID = rep(NA, nrow(df.t)))
+  newdat$Sc_z <- (df.t$Sc-mean(df$Sc)) / sd(df$Sc)
+  newdat$Ac_z <- (df.t$Ac-mean(df$Ac)) / sd(df$Ac)
+  newdat$maxSig_z <- (df.t$maxSig-mean(df$maxSig)) / sd(df$maxSig)
+  newdat$cover_z <- (df.t$cover-mean(df$cover)) / sd(df$cover)
+  newdat$Weight_z <- (df.t$Weight-mean(df$Weight)) / sd(df$Weight)
+  
+  tmp.pred <- post_predictN(data = df, modelTMB = mod,
+                            sims = TRUE, nsim = 1000,
+                            newdat = newdat,
+                            DISP = T,
+                            component = "all")
+  
+  
+  # ## simulate raw data an get quantile (here: median)
+  # q50 <- quant.rlnorm(m = mod.sims[[1]], sd = mod.sims[[2]], probs = 0.5, nsim = 1000)
+  # tmp.pred$q50 <- rowMeans(q50)
+  # tmp.pred$lwrq50 <- apply(q50, 1, quantile, probs = 0.025)
+  # tmp.pred$uprq50 <- apply(q50, 1, quantile, probs = 0.975)
+  # 
+  # q65 <- quant.rlnorm(m = mod.sims[[1]], sd = mod.sims[[2]], probs = 0.65, nsim = 1000)
+  # tmp.pred$q65 <- rowMeans(q65)
+  # tmp.pred$lwrq65 <- apply(q65, 1, quantile, probs = 0.025)
+  # tmp.pred$uprq65 <- apply(q65, 1, quantile, probs = 0.975)
+  
+  
+  ## get size of CI for plotting
+  tmp.pred$diffCI <- tmp.pred$upr - tmp.pred$lwr
+  # tmp.pred$diffCIq50 <- tmp.pred$uprq50 - tmp.pred$lwrq50
+  # tmp.pred$diffCIq65 <- tmp.pred$uprq65 - tmp.pred$lwrq65
+  
+  df.t$PA <- tmp.pred$pred_mod
+  # df.t$PA50 <- tmp.pred$q50
+  # df.t$PA65 <- tmp.pred$q65
+  
+  ## save data
+  st_write(df.t, dsn = dsn, layer = "PA", append = F)
+  
+  shp.tmp <- shp.bird[shp.bird$Testtag == unique(df.t$Individual) &
+                        shp.bird$date_start >= min(df.t$X_time) &
+                        shp.bird$date_start <= max(df.t$X_time),]
+  
+  dim <- st_bbox(df.t)
+  
+  print(ggplot(df.t[!is.na(df.t$lon.true),]) + 
+    annotation_map_tile(type = "osm") +
+    geom_sf(aes(color = PA), alpha = 0.5, size = 3, pch = 1) +
+    coord_sf(xlim = c(dim[1], dim[3]), ylim = c(dim[2], dim[4])) +
+    annotation_scale(height = unit(0.4, "cm"), text_cex = 1, width_hint = 0.4, bar_cols = c("grey60", "white")) +
+    scale_color_viridis_c(option = "rocket", limits = c(0, NA), na.value = "#FAEBDDFF") +
+    ggtitle(f) +
+    theme_void(base_size = 15))
+  
+  print(ggplot(df.t[!is.na(df.t$lon.true),]) + 
+    annotation_map_tile(type = "osm") +
+    geom_sf(aes(size = PA, color = X_time), alpha = 0.5, pch = 1) +
+    geom_sf(aes(fill = date_start, color = date_start, shape = "23"), alpha = 0.5, size = 10, color = "black",
+            data = shp.tmp) +
+    scale_size_continuous("PA est. points",range = c(2, 10)) +
+    coord_sf(xlim = c(dim[1], dim[3]), ylim = c(dim[2], dim[4])) +
+    annotation_scale(height = unit(0.4, "cm"), text_cex = 1, width_hint = 0.4, bar_cols = c("grey60", "white")) +
+    scale_color_viridis_c("time", option = "inferno", end = 0.8, begin = 0.1,
+                          limits = c(min(df.t$X_time, shp.tmp$date_start), max(df.t$X_time, shp.tmp$date_start))) +
+    scale_fill_viridis_c("time", option = "inferno", end = 0.8, begin = 0.1,
+                         limits = c(min(df.t$X_time, shp.tmp$date_start), max(df.t$X_time, shp.tmp$date_start))) +
+    ggtitle(f) +
+    theme_void(base_size = 15) +
+      guides(shape = guide_legend(override.aes = list(color = "black"))) + 
+      scale_shape_manual(name = "'ground truth' \npoints", values = c(23), labels = c(" ")))
 
-## change colnames
-colnames(df.t)[colnames(df.t) %in% c("Station.Count", "Antenna.Count", "Signal.max", "dens")] <- c("Sc", "Ac", "maxSig", "cover")
-
-## scale numeric values
-newdat <- data.frame(tagID = rep(NA, nrow(df.t)))
-newdat$Sc_z <- (df.t$Sc-mean(df$Sc)) / sd(df$Sc)
-newdat$Ac_z <- (df.t$Ac-mean(df$Ac)) / sd(df$Ac)
-newdat$maxSig_z <- (df.t$maxSig-mean(df$maxSig)) / sd(df$maxSig)
-newdat$cover_z <- (df.t$cover-mean(df$cover)) / sd(df$cover)
-newdat$Weight_z <- (df.t$Weight-mean(df$Weight)) / sd(df$Weight)
-
-tmp.pred <- post_predictN(data = df, modelTMB = mod,
-                          sims = TRUE, nsim = 1000, # does not save model simulations in mod.sims
-                          newdat = newdat,
-                          DISP = T,
-                          component = "all")
-
-
-## simulate raw data an get quantile (here: median)
-q50 <- quant.rlnorm(m = mod.sims[[1]], sd = mod.sims[[2]], probs = 0.5, nsim = 1000)
-tmp.pred$q50 <- rowMeans(q50)
-tmp.pred$lwrq50 <- apply(q50, 1, quantile, probs = 0.025)
-tmp.pred$uprq50 <- apply(q50, 1, quantile, probs = 0.975)
-
-q65 <- quant.rlnorm(m = mod.sims[[1]], sd = mod.sims[[2]], probs = 0.65, nsim = 1000)
-tmp.pred$q65 <- rowMeans(q65)
-tmp.pred$lwrq65 <- apply(q65, 1, quantile, probs = 0.025)
-tmp.pred$uprq65 <- apply(q65, 1, quantile, probs = 0.975)
-
-
-## get size of CI for plotting
-tmp.pred$diffCI <- tmp.pred$upr - tmp.pred$lwr
-tmp.pred$diffCIq50 <- tmp.pred$uprq50 - tmp.pred$lwrq50
-tmp.pred$diffCIq65 <- tmp.pred$uprq65 - tmp.pred$lwrq65
-
-df.t$PA <- tmp.pred$pred_mod
-df.t$PA50 <- tmp.pred$q50
-df.t$PA65 <- tmp.pred$q65
-
-## save data
-st_write(df.t, dsn = dsn, layer = "PA", append = F)
-
-dim <- st_bbox(df.t)
-
-ggplot(df.t) + 
-  annotation_map_tile(type = "osm") +
-  geom_sf(aes(color = PA), alpha = 0.5, size = 3, pch = 1) +
-  scale_size_continuous(range = c(2, 10)) +
-  coord_sf(xlim = c(dim[1], dim[3]), ylim = c(dim[2], dim[4])) +
-  scale_color_viridis_c(option = "rocket", limits = c(0, NA), na.value = "#FAEBDDFF")
-
-ggplot(df.t[df.t$Ac > df.t$Sc,]) + 
-  annotation_map_tile(type = "osm") +
-  geom_sf(aes(color = PA), alpha = 0.5, size = 3, pch = 1) +
-  scale_size_continuous(range = c(2, 10)) +
-  coord_sf(xlim = c(dim[1], dim[3]), ylim = c(dim[2], dim[4])) +
-  scale_color_viridis_c(option = "rocket", limits = c(0, NA), na.value = "#FAEBDDFF")
-
-ggplot(df.t[df.t$Ac > 1.5*df.t$Sc,]) + 
-  annotation_map_tile(type = "osm") +
-  geom_sf(aes(color = PA), alpha = 0.5, size = 3, pch = 1) +
-  scale_size_continuous(range = c(2, 10)) +
-  coord_sf(xlim = c(dim[1], dim[3]), ylim = c(dim[2], dim[4])) +
-  scale_color_viridis_c(option = "rocket", limits = c(0, NA), na.value = "#FAEBDDFF")
-
-ggplot(df.t) + geom_point(aes(x = Ac, y = Sc), alpha = 0.01, size = 3)
-
-nrow(df.t)/nrow(df.t)
-nrow(df.t[df.t$Ac > df.t$Sc,])/nrow(df.t)
-nrow(df.t[df.t$Ac > 1.5*df.t$Sc,])/nrow(df.t)
+  # ggplot(df.t[df.t$Ac > df.t$Sc,]) + 
+  #   annotation_map_tile(type = "osm") +
+  #   geom_sf(aes(color = PA), alpha = 0.5, size = 3, pch = 1) +
+  #   scale_size_continuous(range = c(2, 10)) +
+  #   coord_sf(xlim = c(dim[1], dim[3]), ylim = c(dim[2], dim[4])) +
+  #   annotation_scale(height = unit(0.4, "cm"), text_cex = 1, width_hint = 0.4, bar_cols = c("grey60", "white")) +
+  #   scale_color_viridis_c(option = "rocket", limits = c(0, NA), na.value = "#FAEBDDFF") +
+  #   theme_void(base_size = 15)
+  # 
+  # ggplot(df.t[df.t$Ac > 1.5*df.t$Sc,]) + 
+  #   annotation_map_tile(type = "osm") +
+  #   geom_sf(aes(color = PA), alpha = 0.5, size = 3, pch = 1) +
+  #   scale_size_continuous(range = c(2, 10)) +
+  #   coord_sf(xlim = c(dim[1], dim[3]), ylim = c(dim[2], dim[4])) +
+  #   annotation_scale(height = unit(0.4, "cm"), text_cex = 1, width_hint = 0.4, bar_cols = c("grey60", "white")) +
+  #   scale_color_viridis_c(option = "rocket", limits = c(0, NA), na.value = "#FAEBDDFF") +
+  #   theme_void(base_size = 15)
+  # 
+  # ggplot(df.t) + geom_point(aes(x = Ac, y = Sc), alpha = 0.01, size = 3)
+  
+  nrow(df.t)/nrow(df.t)
+  nrow(df.t[df.t$Ac > df.t$Sc,])/nrow(df.t)
+  nrow(df.t[df.t$Ac > 1.5*df.t$Sc,])/nrow(df.t)
+  
+}
 
 
 #### 5) m5 to get position accuracy (PA) maisD -----------------------------####

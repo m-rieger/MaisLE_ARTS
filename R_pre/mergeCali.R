@@ -262,6 +262,18 @@ for(i in 1:length(stations)) {
   
 }
 
+b100 <- do.call(rbind, Map(cbind, b100, station = names(b100), buffer = 100))
+b200 <- do.call(rbind, Map(cbind, b200, station = names(b200), buffer = 200))
+b300 <- do.call(rbind, Map(cbind, b300, station = names(b300), buffer = 300))
+b400 <- do.call(rbind, Map(cbind, b400, station = names(b400), buffer = 400))
+b500 <- do.call(rbind, Map(cbind, b500, station = names(b500), buffer = 500))
+b600 <- do.call(rbind, Map(cbind, b600, station = names(b600), buffer = 600))
+b700 <- do.call(rbind, Map(cbind, b700, station = names(b700), buffer = 700))
+bfull <- do.call(rbind, list(b100, b200, b300, b400, b500, b600, b700))
+
+st_write(bfull, layer = 'circles', append = F, 
+         dsn = paste0("../data/data_", dtyp, "/savedFiles/Data_cali_circles.gpkg"))
+
 ## transform to sf object and crs to lat-lon
 df.r2 <- df.r
 dsn <- paste0("../data/data_", dtyp, "/savedFiles/Data_cali_raster.gpkg")

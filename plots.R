@@ -74,6 +74,9 @@ shp.l <- st_read(here("data", "Testtracks_lines.gpkg"))
 shp.r <- st_read(dsn = "../data/data_cali/savedFiles/Data_cali_raster.gpkg", layer = "shp_raster")
 shp.r <- st_transform(shp.r, crs = crsPlot)
 
+## circles (for raster)
+shp.circ <- st_read(dsn = "../data/data_cali/savedFiles/Data_cali_circles.gpkg")
+
 # model results and dfs
 df.pred1 <- read.csv(here("output_model", "model-predictions_m1.csv"))
 df.sim1  <- read.csv(here("output_model", "model-simulations_m1.csv"))
@@ -90,6 +93,23 @@ df.coef5ab <- read.csv(here("output_model", "model-coefficients_m5_direct.ab.csv
 df.pred5in <- read.csv(here("output_model", "model-predictions_m5_direct.in.csv"))
 df.sim5in  <- read.csv(here("output_model", "model-simulations_m5_direct.in.csv"))
 df.coef5in <- read.csv(here("output_model", "model-coefficients_m5_direct.in.csv"))
+
+df.pred5ml <- read.csv(here("output_model", "model-predictions_m5_omni.ml.csv"))
+df.sim5ml  <- read.csv(here("output_model", "model-simulations_m5_omni.ml.csv"))
+df.coef5ml <- read.csv(here("output_model", "model-coefficients_m5_omni.ml.csv"))
+
+df.pred5oab <- read.csv(here("output_model", "model-predictions_m5_omni.ab.csv"))
+df.sim5oab  <- read.csv(here("output_model", "model-simulations_m5_omni.ab.csv"))
+df.coef5oab <- read.csv(here("output_model", "model-coefficients_m5_omni.ab.csv"))
+
+df.pred5ab$meth <- df.sim5ab$meth <- df.coef5ab$meth <- "direct ab"
+df.pred5in$meth <- df.sim5in$meth <- df.coef5in$meth <- "direct in"
+df.pred5ml$meth <- df.sim5ml$meth <- df.coef5ml$meth <- "omni ml"
+df.pred5oab$meth <- df.sim5oab$meth <- df.coef5oab$meth <- "omni ab"
+
+df.pred5 <- do.call(bind_rows, list(df.pred5ab, df.pred5in, df.pred5ml, df.pred5oab))
+df.sim5 <- do.call(bind_rows, list(df.sim5ab, df.sim5in, df.sim5ml, df.sim5oab))
+df.coef5 <- do.call(bind_rows, list(df.coef5ab, df.coef5in, df.coef5ml, df.coef5oab))
 
 ## model/method validation
 df.meth <- data.frame(meth = c("direct.ab", "direct.ab", "direct.in", "direct.in", "omni.ab", "omni.ml"),
@@ -234,9 +254,9 @@ sum.p <- left_join(st_drop_geometry(sum.p),
 ## add trackID to shp.p
 shp.p <- left_join(shp.p, sum.p[, c("date", "trackID")], by = "date")
 
-sum.p <- sum.p[, c("site", "trackID", "date", "duration_h", "length_km", "N points")]
+sum.p <- sum.p[, c("trackID", "date", "duration_h", "length_km", "N points")]
 sum.p <- sum.p[order(sum.p$trackID),]
-sum.p[, "N tag"] <- c(3, 4, 4, 4, 3, 3, 3, 3)
+sum.p[, "N tags"] <- c(3, 4, 4, 4, 3, 3, 3, 3)
 
 write.csv(sum.p, "./data/tabTesttracks.csv", row.names = F)            
 
@@ -294,7 +314,7 @@ ggsave("./plots/plotTrack.pdf", plot = g, width = 30, height = 15, device = "pdf
 
 
 ## plot raster (= merged polygons)
-g <- ggplot(shp.r) +
+gC <- ggplot(shp.r) +
   annotation_map_tile(type = "osm") +
   geom_sf(aes(fill = dens, color = dens), lwd = 0.1) +
   scale_fill_viridis_c("station cover", direction = -1, option = "rocket", na.value = NA, limits = c(0.1, NA)) +
@@ -311,13 +331,38 @@ g <- ggplot(shp.r) +
   # geom_sf(data = df[100000:100100,], pch = 1, color = "grey80", alpha = 0.5) + # check whether dimensions are correct
   coord_sf(xlim = c(dimC2[1], dimC2[3]), ylim = c(dimC2[2], dimC2[4]), expand = F) +
   annotation_scale(height = unit(0.4, "cm"), text_cex = 1, width_hint = 0.4, bar_cols = c("grey60", "white")) +
+  facet_wrap(~"maisC") +
   theme_void(base_size = 15) +
   theme(legend.position = "right",
         strip.background = element_rect(fill = "grey60", color = "grey60"),
         strip.text = element_text(size = 30, colour="white"))
 
-g
-ggsave("./plots/plotCover.pdf", plot = g, width = 18, height = 15, device = "pdf", units = "cm")
+gD <- ggplot(shp.r) +
+  annotation_map_tile(type = "osm") +
+  geom_sf(aes(fill = dens, color = dens), lwd = 0.1) +
+  scale_fill_viridis_c("station cover", direction = -1, option = "rocket", na.value = NA, limits = c(0.1, NA)) +
+  scale_color_viridis_c("station cover", direction = -1, option = "rocket", na.value = NA, limits = c(0.1, NA)) +
+  
+  new_scale_fill() +
+  
+  geom_sf(data = df.stat[df.stat$station.project_id == "maisD" & df.stat$type == "direct",], 
+          aes(pch = type, fill = type), color = "black", stroke = 1.2, size = 3, alpha = 0.7) +
+  scale_shape_manual("station type", values = c("direct" = 23, "omni" = 21),
+                     guide = guide_legend(order = 2)) +
+  scale_fill_manual("station type", values = c("direct" = "white", "omni" = "grey60"),
+                    guide = guide_legend(order = 2)) +
+  # geom_sf(data = df[100000:100100,], pch = 1, color = "grey80", alpha = 0.5) + # check whether dimensions are correct
+  coord_sf(xlim = c(dimD2[1], dimD2[3]), ylim = c(dimD2[2], dimD2[4]), expand = F) +
+  annotation_scale(height = unit(0.4, "cm"), text_cex = 1, width_hint = 0.4, bar_cols = c("grey60", "white")) +
+  facet_wrap(~"maisD") +
+  theme_void(base_size = 15) +
+  theme(legend.position = "none",
+        strip.background = element_rect(fill = "grey60", color = "grey60"),
+        strip.text = element_text(size = 30, colour="white"))
+
+g <- gC + gD
+ggsave("./plots/plotCover.pdf", plot = gC, width = 18, height = 15, device = "pdf", units = "cm")
+ggsave("./plots/plotCoverSupp.pdf", plot = g, width = 30, height = 15, device = "pdf", units = "cm")
 
 #### 4) plot results -----------------------------------------------------------
 ## m1-4
@@ -463,8 +508,36 @@ g4c <- ggplot(data = df.m4, aes(x = meth2, y = cover, fill = allM, color = allM)
 
 g5 <- ggplot(df.pred5ab) +
   geom_point(aes(y = Sc, x = Ac, color = pred_mod, fill = pred_mod, size = diffCI2), pch = 22) +
-  scale_color_viridis_c("est. mean \nPE (m)", option = "rocket", limits = c(0, NA), na.value = "#FAEBDDFF") +
-  scale_fill_viridis_c("est. mean \nPE (m)", option = "rocket", limits = c(0, NA), na.value = "#FAEBDDFF") +
+  scale_color_viridis_c("est. mean \nPE (m)", option = "rocket", limits = c(1, NA), na.value = "#FAEBDDFF") +
+  scale_fill_viridis_c("est. mean \nPE (m)", option = "rocket", limits = c(1, NA), na.value = "#FAEBDDFF") +
+  scale_size_discrete("range CI") +
+  xlab("number of antennas") +
+  ylab("number of stations") +
+  facet_wrap(~site, ncol = 2, strip.position = "top") +
+  scale_x_continuous(breaks = c(4, 8, 12, 16, 20, 24, 28, 32)) +
+  scale_y_continuous(breaks = c(2, 4, 6, 8, 10)) +
+  theme_light(base_size = 16) +
+  theme(strip.background = element_rect(fill = "grey60", color = "grey60"),
+        strip.text = element_text(size = 22, colour="white"))
+
+g5log10 <- ggplot(df.pred5ab) +
+  geom_point(aes(y = Sc, x = Ac, color = log10(pred_mod), fill = log10(pred_mod), size = diffCI2), pch = 22) +
+  scale_color_viridis_c("est. mean \nPE (m)", option = "rocket", limits = c(0.9, NA), na.value = "black", breaks = c(1, 1.7, 2, 2.47), labels = c(10, 50, 100, 300)) +
+  scale_fill_viridis_c("est. mean \nPE (m)", option = "rocket", limits = c(0.9, NA), na.value = "black", breaks = c(1, 1.7, 2, 2.47), labels = c(10, 50, 100, 300)) +
+  scale_size_discrete("range CI") +
+  xlab("number of antennas") +
+  ylab("number of stations") +
+  facet_wrap(~site, ncol = 2, strip.position = "top") +
+  scale_x_continuous(breaks = c(4, 8, 12, 16, 20, 24, 28, 32)) +
+  scale_y_continuous(breaks = c(2, 4, 6, 8, 10)) +
+  theme_light(base_size = 16) +
+  theme(strip.background = element_rect(fill = "grey60", color = "grey60"),
+        strip.text = element_text(size = 22, colour="white"))
+
+g5log2 <- ggplot(df.pred5ab) +
+  geom_point(aes(y = Sc, x = Ac, color = log2(pred_mod), fill = log2(pred_mod), size = diffCI2), pch = 22) +
+  scale_color_viridis_c("est. mean \nPE (m)", option = "rocket", limits = c(3, NA), na.value = "black", breaks = c(4, 6, 8), labels = c(16, 64, 256)) +
+  scale_fill_viridis_c("est. mean \nPE (m)", option = "rocket", limits = c(3, NA), na.value = "black", breaks = c(4, 6, 8), labels = c(16, 64, 256)) +
   scale_size_discrete("range CI") +
   xlab("number of antennas") +
   ylab("number of stations") +
@@ -502,60 +575,48 @@ g5in <- ggplot(df.pred5in) +
   scale_size_discrete("range CI") +
   xlab("number of antennas") +
   ylab("number of stations") +
-  facet_wrap(~site, ncol = 1, strip.position = "right") +
+  facet_wrap(~site, ncol = 2) +
   scale_x_continuous(breaks = c(4, 8, 12, 16, 20, 24, 28, 32)) +
   scale_y_continuous(breaks = c(2, 4, 6, 8, 10)) +
-  theme_light(base_size = 16)
+  theme_light(base_size = 16) +
+  theme(strip.background = element_rect(fill = "grey60", color = "grey60"),
+        strip.text = element_text(size = 22, colour="white"))
 
 ggplot(df.m4[df.m4$meth2 == "direct \nin",]) + geom_histogram(aes(x = PE, fill = site)) + facet_wrap(~Sc)
-g5in.2 <- ggplot(df.m4[df.m4$meth2 == "direct \nin",]) + 
-  # geom_split_violin(aes(x = as.factor(Sc), y = PE, fill = site, color = site),
-  #                   alpha = 0.4, trim = F, scale = "area") +
-  stat_halfeye(aes(x = as.factor(Sc), y = PE, fill = site, thickness = after_stat(pdf*n)),
-                    alpha = 0.4, scale = 0.7) +
-  geom_linerange(aes(x = as.factor(Sc), y = pred_mod, ymin = lwr, ymax = upr,
-                     group = as.factor(Sc), color = as.factor(Sc)),
-                 lwd = 1, alpha = 0.5, data = df.pred5in,
-                 position = position_dodge(width = 0.5)) +
-  # geom_point(aes(x = Ac+0.2, y = pred_mod, group = as.factor(Sc), color = as.factor(Sc)),
-  #           size = 3, alpha = 0.5) + 
-  # geom_point(aes(x = Ac, y = pred_mod, group = as.factor(Sc), color = as.factor(Sc)),
-  #                size = 1, alpha = 0.5, position = position_dodge(width = 0.3)) + 
-  scale_color_viridis_d("Sc", option = "viridis") +
-  scale_fill_viridis_d("Sc", option = "viridis") +
-  facet_wrap(~site, ncol = 2, strip.position = "top") +
-  xlab("number of antennas") +
-  ylab("est. mean PE (m) and 95% CI") +
-  # ylim(0, 500) +
-  # scale_x_continuous(breaks = c(2, 4, 6, 8, 10, 12, 14, 16, 18)) +
-  theme_light(base_size = 16) +
-  theme(strip.background = element_rect(fill = "grey60", color = "grey60"),
-        strip.text = element_text(size = 22, colour="white")); g5in.2
 
-g5in.2 <- ggplot(df.m4[df.m4$meth2 == "direct \nab",]) + 
-  # geom_split_violin(aes(x = as.factor(Sc), y = PE, fill = site, color = site),
-  #                   alpha = 0.4, trim = F, scale = "area") +
-  stat_halfeye(aes(x = as.factor(Ac), y = PE, thickness = after_stat(pdf*n)),
-               alpha = 0.4, scale = 0.7) +
+## add dummy sites to have violins one same side
+tmp.sim <- unique(df.sim5[, c("site", "meth", "Ac")])
+tmp.sim$Sc <- 0
+df.sim5 <- bind_rows(df.sim5, tmp.sim)
+
+df.sim5$Sc <- as.factor(df.sim5$Sc)
+df.pred5$Sc <- as.factor(df.pred5$Sc)
+
+g5in.2 <- ggplot(df.pred5[df.pred5$meth == "direct in",]) + 
+  # geom_point(aes(x = Ac, y = PE, group = as.factor(Sc), color = as.factor(Sc)),
+  #            data = df.m4[df.m4$meth2 == "direct \nab",],
+  #            size = 0.5, alpha = 0.2, pch = 1, position = position_dodge(width = 0.3)) +
+  geom_split_violin(aes(x = as.factor(Ac), y = sim.m, fill = Sc, color = Sc),
+                    alpha = 0.4, trim = TRUE, scale = "count", width = 2, 
+                    data = df.sim5[df.sim5$meth == "direct in",]) +
+  
+  geom_point(aes(x = as.factor(Ac), y = pred_mod, group = Sc, color = Sc),
+            size = 3.5, alpha = 0.8) + 
   geom_linerange(aes(x = as.factor(Ac), y = pred_mod, ymin = lwr, ymax = upr,
-                     group = as.factor(Sc), color = as.factor(Sc)),
-                 lwd = 1, alpha = 0.5, data = df.pred5ab,
-                 position = position_dodge(width = 0.5)) +
-  # geom_point(aes(x = Ac+0.2, y = pred_mod, group = as.factor(Sc), color = as.factor(Sc)),
-  #           size = 3, alpha = 0.5) + 
+                     group = Sc, color = Sc),
+                 lwd = 1.5, alpha = 0.8) + 
   # geom_point(aes(x = Ac, y = pred_mod, group = as.factor(Sc), color = as.factor(Sc)),
   #                size = 1, alpha = 0.5, position = position_dodge(width = 0.3)) + 
   scale_color_viridis_d("Sc", option = "viridis") +
   scale_fill_viridis_d("Sc", option = "viridis") +
-  facet_wrap(~site, ncol = 2, strip.position = "top") +
+  facet_wrap(~meth + site, ncol = 2, strip.position = "top") +
   xlab("number of antennas") +
   ylab("est. mean PE (m) and 95% CI") +
   # ylim(0, 500) +
-  # scale_x_continuous(breaks = c(2, 4, 6, 8, 10, 12, 14, 16, 18)) +
+  # scale_x_continuous(breaks = c(4, 8, 12, 16, 20, 24, 28, 32)) +
   theme_light(base_size = 16) +
   theme(strip.background = element_rect(fill = "grey60", color = "grey60"),
-        strip.text = element_text(size = 22, colour="white")); g5in.2
-
+        strip.text = element_text(size = 22, colour="white"))
 
 layout <- "
 AABCC
@@ -572,6 +633,8 @@ g
 ggsave("./plots/plotModel.pdf", plot = g, width = 30, height = 18, device = "pdf", units = "cm")
 
 ggsave("./plots/plotPA.pdf", plot = g5, width = 34, height = 12, device = "pdf", units = "cm")
+ggsave("./plots/plotPAlog10.pdf", plot = g5log10, width = 34, height = 12, device = "pdf", units = "cm")
+ggsave("./plots/plotPAlog2.pdf", plot = g5log2, width = 34, height = 12, device = "pdf", units = "cm")
 ggsave("./plots/plotPA2.pdf", plot = g5.2, width = 34, height = 12, device = "pdf", units = "cm")
 
 gPE <- ggplot(df.pred5ab) + 
@@ -679,6 +742,7 @@ gsc <- ggplot(df.m4[df.m4$meth2 == "direct \nab",]) +
 ggsave("./plots/plotmaxSig_cover.pdf", plot = gsc, width = 34, height = 12, device = "pdf", units = "cm")
 
 ####5) table kfold -------------------------------------------------------------
+## function for pseudo R2
 pR2 <- function(model, resp) {
   1 - sum((resp - predict(model, type = "response"))^2)/
     sum((resp - mean(resp))^2)
@@ -689,9 +753,10 @@ for(i in df.meth$ID) {
   df.meth$R2[df.meth$ID == i] <- round(pR2(model = Lm[[i]], resp = Lm[[i]]$frame$PE)*100, 2)
   df.meth$MAE[df.meth$ID == i] <- round(mean(Lk[[i]]$mfull2), 2)
   Ld[[i]]$ID <- paste0(Ld[[i]]$site, "_", Ld[[i]]$meth)
-  Ld[[i]] <- left_join(Ld[[i]], df.m4[df.m4$ID == i, c("X_time", "tagID", "allM", "ID")], by = c("X_time", "tagID", "ID"))
+  Ld[[i]] <- left_join(Ld[[i]], df.m4[df.m4$ID == i, c("X_time", "tagID", "allM", "thresh", "ID")], by = c("X_time", "tagID", "ID"))
   df.meth$MAE2[df.meth$ID == i] <- mean(abs(predict(Lm[[i]], newdata = Ld[[i]], type = "response")-Ld[[i]]$PE))
   df.meth$MAE3[df.meth$ID == i] <- mean(abs(predict(Lm[[i]], newdata = Ld[[i]][Ld[[i]]$allM == "yes",], type = "response")-Ld[[i]]$PE[Ld[[i]]$allM == "yes"]))
+  df.meth$MAE4[df.meth$ID == i] <- mean(abs(predict(Lm[[i]], newdata = Ld[[i]][Ld[[i]]$thresh == "yes",], type = "response")-Ld[[i]]$PE[Ld[[i]]$thresh == "yes"]))
 }
 
 df.meth <- left_join(df.meth,
@@ -699,17 +764,28 @@ df.meth <- left_join(df.meth,
                  by = c("site", "meth"))
 
 df.meth <- left_join(df.meth,
-                     df.m4[df.m4$allM == "yes",] %>% group_by(site, meth) %>% summarize(nP = n(), .groups = "drop"), 
+                     df.m4[df.m4$allM == "yes",] %>% group_by(site, meth) %>% summarize(nPallM = n(), .groups = "drop"), 
                      by = c("site", "meth"))
 
 df.meth <- left_join(df.meth,
-                     sum.p %>% group_by(site) %>% summarize(nPtot = sum(`N points` * `N tag`), .groups = "drop"), 
+                     df.m4[df.m4$thresh == "yes",] %>% group_by(site, meth) %>% summarize(nPthresh = n(), .groups = "drop"), 
+                     by = c("site", "meth"))
+
+df.meth <- left_join(df.meth,
+                     sum.p %>% group_by(site) %>% summarize(nPtot = sum(`N points` * `N tags`), .groups = "drop"), 
                      by = c("site"))
 
-df.meth$propPfull <- round(df.meth$nPfull/df.meth$nPtot*100, 2)
-df.meth$propP <- round(df.meth$nP/df.meth$nPtot*100, 2)
+df.meth$propPfull <- round(df.meth$nPfull/df.meth$nPtot*100, 0)
+df.meth$propPallM <- round(df.meth$nPallM/df.meth$nPtot*100, 0)
+df.meth$propPthresh <- round(df.meth$nPthresh/df.meth$nPtot*100, 0)
 
-df.meth[, c("MAE2", "MAE3", "MAE")] <- round(df.meth[, c("MAE2", "MAE3", "MAE")], 0)
+df.meth[, c("MAE2", "MAE3", "MAE4")] <- round(df.meth[, c("MAE2", "MAE3", "MAE4")], 0)
+
+df.meth$full <- paste0(df.meth$MAE2, " (", df.meth$propPfull, ")")
+df.meth$allM <- paste0(df.meth$MAE3, " (", df.meth$propPallM, ")")
+df.meth$thresh <- paste0(df.meth$MAE4, " (", df.meth$propPthresh, ")")
+
+df.meth <- df.meth[order(df.meth$site),]
 
 write.csv(df.meth, "./plots/tabMeth.csv", row.names = F)
 
@@ -719,21 +795,34 @@ dist_C <- 0.5*800
 dist_D <- 0.5*900
 
 tmp <- st_transform(df.stat[df.stat$station.project_id == "maisC" & df.stat$type == "direct",], crs = crs)
-pointCd <- tmp %>%
+pointCdab <- tmp %>%
   mutate(geometry = st_geometry(.) + c(dist_C, 0))
-pointCd <- rbind(pointCd,
+pointCdab <- rbind(pointCdab,
                  tmp %>% mutate(geometry = st_geometry(.) + c(-dist_C, 0)))
-pointCd <- rbind(pointCd,
+pointCdab <- rbind(pointCdab,
                  tmp %>% mutate(geometry = st_geometry(.) + c(0, dist_C)))
-pointCd <- rbind(pointCd,
+pointCdab <- rbind(pointCdab,
                  tmp %>% mutate(geometry = st_geometry(.) + c(0, -dist_C)))
-pointCd <- st_set_crs(pointCd, st_crs(tmp))
+pointCdab <- st_set_crs(pointCdab, st_crs(tmp))
 
-polyCd <- st_convex_hull(st_union(pointCd))
+polyCdab <- st_convex_hull(st_union(pointCdab))
+
+tmp <- st_transform(df.stat[df.stat$station.project_id == "maisD" & df.stat$type == "direct",], crs = crs)
+pointDdab <- tmp %>%
+  mutate(geometry = st_geometry(.) + c(dist_D, 0))
+pointDdab <- rbind(pointDdab,
+                   tmp %>% mutate(geometry = st_geometry(.) + c(-dist_D, 0)))
+pointDdab <- rbind(pointDdab,
+                   tmp %>% mutate(geometry = st_geometry(.) + c(0, dist_D)))
+pointDdab <- rbind(pointDdab,
+                   tmp %>% mutate(geometry = st_geometry(.) + c(0, -dist_D)))
+pointDdab <- st_set_crs(pointDdab, st_crs(tmp))
+
+polyDdab <- st_convex_hull(st_union(pointDdab))
 
 
-pointCo <- df.stat[df.stat$station.project_id == "maisC" & df.stat$type == "omni",]
-polyCo <- st_convex_hull(st_union(pointCo))
+pointCoab <- df.stat[df.stat$station.project_id == "maisC" & df.stat$type == "omni",]
+polyCoab <- st_convex_hull(st_union(pointCoab))
 
 
 gC <- ggplot() + 
@@ -745,8 +834,8 @@ gC <- ggplot() +
   scale_fill_manual("station type", values = c("direct" = "white", "omni" = "grey60"),
                     guide = guide_legend(order = 2)) +
   
-  geom_sf(data = polyCo, alpha = 0.2, fill = "grey60") +
-  geom_sf(data = polyCd, alpha = 0.2, fill = "white") +
+  geom_sf(data = polyCoab, alpha = 0.2, fill = "grey60") +
+  geom_sf(data = polyCdab, alpha = 0.2, fill = "white") +
   annotation_scale(height = unit(0.4, "cm"), text_cex = 1, width_hint = 0.4, bar_cols = c("grey60", "white")) +
   coord_sf(xlim = c(dimC[1], dimC[3]), ylim = c(dimC[2], dimC[4]), expand = F) +
   facet_grid(~"maisC") +
@@ -755,3 +844,117 @@ gC <- ggplot() +
         strip.background = element_rect(fill = "grey60", color = "grey60"),
         strip.text = element_text(size = 30, colour="white"))
 gC
+
+gD <- ggplot() + 
+  annotation_map_tile(type = "osm") +
+  geom_sf(data = df.stat[df.stat$station.project_id == "maisD",], 
+          aes(pch = type, fill = type), color = "black", stroke = 1.2, size = 3, alpha = 0.7) +
+  scale_shape_manual("station type", values = c("direct" = 23, "omni" = 21),
+                     guide = guide_legend(order = 2)) +
+  scale_fill_manual("station type", values = c("direct" = "white", "omni" = "grey60"),
+                    guide = guide_legend(order = 2)) +
+  
+  #geom_sf(data = polyCoab, alpha = 0.2, fill = "grey60") +
+  geom_sf(data = polyDdab, alpha = 0.2, fill = "white") +
+  annotation_scale(height = unit(0.4, "cm"), text_cex = 1, width_hint = 0.4, bar_cols = c("grey60", "white")) +
+  coord_sf(xlim = c(dimD[1], dimD[3]), ylim = c(dimD[2], dimD[4]), expand = F) +
+  facet_grid(~"maisC") +
+  theme_void(base_size = 15) +
+  theme(legend.position = "right",
+        strip.background = element_rect(fill = "grey60", color = "grey60"),
+        strip.text = element_text(size = 30, colour="white"))
+gD
+
+## plot test data --------------------------------------------------------------
+#dsn = "../data/data_test/GT13_R2_S1_Test.antennabeams.gpkg"
+df.t1 <- st_read(dsn = "../data/data_test/GT07_R1_S1.antennabeams.gpkg", layer = "PA")
+df.t2 <- st_read(dsn = "../data/data_test/GT07_R1_S3.antennabeams.gpkg", layer = "PA")
+df.t1 <- st_read(dsn = "../data/data_test/GT11_S_S1.antennabeams.gpkg", layer = "PA")
+df.t2 <- st_read(dsn = "../data/data_test/GT11_S_S2.antennabeams.gpkg", layer = "PA")
+df.t3 <- st_read(dsn = "../data/data_test/GT11_S_S3.antennabeams.gpkg", layer = "PA")
+df.t <- rbind(df.t1, df.t2)
+df.t <- rbind(df.t, df.t3)
+print(ggplot(df.t[df.t$Ac > df.t$Sc,]) + 
+        annotation_map_tile(type = "osm") +
+        geom_sf(aes(color = X_time), alpha = 0.2, pch = 1, size = 5) +
+        geom_sf(data = df.stat[df.stat$station.project_id == "maisC" & df.stat$type == "direct",], 
+                color = "black", fill = "grey", stroke = 1.2, size = 5, alpha = 0.7, aes(shape = "21")) +
+        scale_shape_manual(name = "Station", values = c(21), labels = c(" ")) +
+        # geom_sf(aes(fill = date_start, color = date_start, shape = "23"), alpha = 0.5, size = 10, color = "black",
+        #         data = shp.tmp) +
+        # scale_size_continuous("PA est. points",range = c(2, 10)) +
+        # coord_sf(xlim = c(dim[1], dim[3]), ylim = c(dim[2], dim[4])) +
+        annotation_scale(height = unit(0.4, "cm"), text_cex = 1, width_hint = 0.4, bar_cols = c("grey60", "white")) +
+        scale_color_viridis_c("Zeit", option = "inferno", end = 0.8, begin = 0.1,
+                              # labels = c("08:00", "12:00", "16:00"), breaks = c(1697004000, 1697018400, 1697032800)) +
+                              labels = c("08:00", "12:00", "16:00"), breaks = c(1697090400, 1697104800, 1697119200)) +
+  # scale_fill_viridis_c("time", option = "inferno", end = 0.8, begin = 0.1,
+        #                      limits = c(min(df.t$X_time, shp.tmp$date_start), max(df.t$X_time, shp.tmp$date_start))) +
+        theme_void(base_size = 15))
+
+
+df.t1 <- st_read(dsn = "../data/data_test/GT11_S_S1.antennabeams.gpkg", layer = "PA")
+df.t2 <- st_read(dsn = "../data/data_test/GT11_S_S2.antennabeams.gpkg", layer = "PA")
+df.t3 <- st_read(dsn = "../data/data_test/GT11_S_S3.antennabeams.gpkg", layer = "PA")
+df.t <- rbind(df.t1, df.t2)
+df.t <- rbind(df.t, df.t3)
+df.t1 <- st_read(dsn = "../data/data_test/RO08_R1_S1.antennabeams.gpkg", layer = "PA")
+df.t2 <- st_read(dsn = "../data/data_test/RO08_R1_S2.antennabeams.gpkg", layer = "PA")
+df.t3 <- st_read(dsn = "../data/data_test/RO08_R1_S3.antennabeams.gpkg", layer = "PA")
+df.tr <- rbind(df.t1, df.t2)
+df.tr <- rbind(df.tr, df.t3)
+
+df.t$time <- as.numeric(format(df.t$X_time, "%H")) + as.numeric(format(df.t$X_time, "%M"))/60
+df.tr$time <- as.numeric(format(df.tr$X_time, "%H")) + as.numeric(format(df.tr$X_time, "%M"))/60
+
+g1 <- ggplot() + 
+  geom_sf(aes(color = "A"), alpha = 1, pch = 1, size = 5, stroke = 1, data = df.t[1,]) +
+  geom_sf(aes(color = "B"), alpha = 1, pch = 1, size = 5, stroke = 1, data = df.tr[1,]) +        
+  annotation_map_tile(type = "osm") +
+  geom_sf(aes(color = "A"), alpha = 0.2, pch = 1, size = 5, df.t[df.t$Ac > df.t$Sc,]) +
+  geom_sf(aes(color = "B"), alpha = 0.2, pch = 1, size = 5, df.tr[df.tr$Ac > df.tr$Sc,]) +
+  geom_sf(data = df.stat[df.stat$station.project_id == "maisC" & df.stat$type == "direct",], 
+          color = "black", fill = "grey", stroke = 1.2, size = 5, alpha = 0.7, aes(shape = "21")) +
+  scale_shape_manual(name = "Station", values = c(21), labels = c(" ")) +
+  # geom_sf(aes(fill = date_start, color = date_start, shape = "23"), alpha = 0.5, size = 10, color = "black",
+  #         data = shp.tmp) +
+  # scale_size_continuous("PA est. points",range = c(2, 10)) +
+  # coord_sf(xlim = c(dim[1], dim[3]), ylim = c(dim[2], dim[4])) +
+  annotation_scale(height = unit(0.4, "cm"), text_cex = 1, width_hint = 0.4, bar_cols = c("grey60", "white")) +
+  scale_color_viridis_d("Art", option = "inferno", end = 0.8, begin = 0.1,
+                        # labels = c("08:00", "12:00", "16:00"), breaks = c(1697004000, 1697018400, 1697032800)) +
+                        labels = c("Kohlmeise", "Rotkehlchen")) +
+  scale_fill_viridis_d("Art", option = "inferno", end = 0.8, begin = 0.1,
+                        # labels = c("08:00", "12:00", "16:00"), breaks = c(1697004000, 1697018400, 1697032800)) +
+                        labels = c("Kohlmeise", "Rotkehlchen")) +
+  # scale_fill_viridis_c("time", option = "inferno", end = 0.8, begin = 0.1,
+  #                      limits = c(min(df.t$X_time, shp.tmp$date_start), max(df.t$X_time, shp.tmp$date_start))) +
+  theme_void(base_size = 20) +
+  theme(legend.position = "bottom")
+
+g2 <- ggplot() + 
+  geom_sf(aes(shape = "B"), alpha = 0.7, size = 5, stroke = 1, data = df.t[1,]) +
+  geom_sf(aes(shape = "C"), alpha = 0.7, size = 5, stroke = 1, data = df.tr[1,]) +        
+  annotation_map_tile(type = "osm") +
+  geom_sf(aes(color = time, shape = "B"), alpha = 0.2, size = 5, df.t[df.t$Ac > df.t$Sc,]) +
+  geom_sf(aes(color = time, shape = "C"), alpha = 0.2, size = 5, df.tr[df.tr$Ac > df.tr$Sc,]) +
+  geom_sf(data = df.stat[df.stat$station.project_id == "maisC" & df.stat$type == "direct",], 
+          color = "black", fill = "grey", stroke = 1.2, size = 5, alpha = 0.7, aes(shape = "A")) +
+  scale_shape_manual(name = " ", values = c(21, 1, 2), labels = c("Station", "Kohlmeise", "Rotkehlchen")) +
+  # geom_sf(aes(fill = date_start, color = date_start, shape = "23"), alpha = 0.5, size = 10, color = "black",
+  #         data = shp.tmp) +
+  # scale_size_continuous("PA est. points",range = c(2, 10)) +
+  # coord_sf(xlim = c(dim[1], dim[3]), ylim = c(dim[2], dim[4])) +
+  annotation_scale(height = unit(0.4, "cm"), text_cex = 1, width_hint = 0.4, bar_cols = c("grey60", "white")) +
+  scale_color_viridis_c("Zeit", option = "inferno", end = 0.8, begin = 0.1,
+                       labels = c("08:00", "12:00", "16:00"), breaks = c(8, 12, 16)) +
+  # scale_fill_viridis_c("time", option = "inferno", end = 0.8, begin = 0.1,
+  #                      limits = c(min(df.t$X_time, shp.tmp$date_start), max(df.t$X_time, shp.tmp$date_start))) +
+  theme_void(base_size = 20)
+ggsave("./plots/plotAnimal1.pdf", plot = g1, width = 34, height = 18, device = "pdf", units = "cm")
+ggsave("./plots/plotAnimal2.pdf", plot = g2, width = 34, height = 18, device = "pdf", units = "cm")
+
+## run markdown for supplement -------------------------------------------------
+rmarkdown::render(input = here("supplement.Rmd"))
+
+

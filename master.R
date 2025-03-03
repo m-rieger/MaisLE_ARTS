@@ -22,7 +22,7 @@ library(zoo) # roll mean
 ####  2) variables -------------------------------------------------------------
 ## 2a) data --------------------------------------------------------------------
 ## should data be read in new (TRUE) or loaded (FALSE)
-READ <- TRUE # read in or load data
+READ <- FALSE # read in or load data
 # chose data type (animal data or testtag data)
 dtyp <- "cali" # "animal", "testtag" or "cali"
 # chose time interval in Jupyter data (usually 2 sec)
