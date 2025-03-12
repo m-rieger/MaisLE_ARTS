@@ -4,6 +4,7 @@ rm(list = ls())
 
 ## packages
 library(tidyverse)
+library(glmmTMB)
 library(sf)
 library(basemaps) # for loading OSM background maps
 library(here)
@@ -17,9 +18,13 @@ library(ggdist) # plot densities
 # devtools::install_github("psyteachr/introdataviz")
 library(introdataviz)
 
+source("./R_model/Linear modelling workflow_support functions.R") 
+source("./help_functions.R") 
+
 ## variables
 crs <- 31467 # Gauss Krüger in m
 crsPlot <- 3857
+crsLL <- 4326 # lon lat in degree
 
 #### 0) load data --------------------------------------------------------------
 ## station
@@ -32,6 +37,9 @@ df.stat$plot <- "station" # to add the shape to legend
 df.stat$type <- "omni"
 df.stat$type[df.stat$station.type == "VHF Directional Station"] <- "direct"
 df.stat <- st_transform(df.stat, crs = crsPlot) 
+
+# df.stat <- df.stat %>% group_by(station.project_id, type) %>%
+#   mutate(minDist = min(st_distance(geometry))) %>% ungroup()
 
 ## get dimensions for plotting
 ## get plotting dimensions
@@ -114,7 +122,7 @@ df.coef5 <- do.call(bind_rows, list(df.coef5ab, df.coef5in, df.coef5ml, df.coef5
 ## model/method validation
 df.meth <- data.frame(meth = c("direct.ab", "direct.ab", "direct.in", "direct.in", "omni.ab", "omni.ml"),
                       site = c("maisC", "maisD", "maisC", "maisD", "maisC", "maisC"),
-                      R2 = NA, MAE = NA)
+                      R2 = NA)
 df.meth$ID <- paste0(df.meth$site, "_", df.meth$meth)
 
 Lk <- Lm <- Ld <- list()
@@ -132,32 +140,11 @@ fileL <- list.files(here("output_model"), pattern = "data_m4")
 df.m4 <- data.frame()
 for(f in fileL) df.m4 <- rbind(df.m4, read.csv(here("output_model", f)))
 
+fileL <- list.files(here("output_model"), pattern = "data_test_m5")
+df.t5 <- data.frame()
+for(f in fileL) df.t5 <- rbind(df.t5, read.csv(here("output_model", f)))
+
 #### 1) plot sites -------------------------------------------------------------
-## using basemaps
-# set defaults for the basemap
-# set_defaults(map_service = "osm", map_type = "topographic")
-# 
-# ggplot() + 
-#   basemap_gglayer(st_buffer(df.stat[df.stat$station.project_id == "maisC",], dist = 800)) +
-#   scale_fill_identity() + 
-#   geom_sf(data = df.stat[df.stat$station.project_id == "maisC",], 
-#           aes(pch = station.type, color = station.type), stroke = 1.2) +
-#   coord_sf() +
-#   scale_shape_manual("station type", values = c(3, 16)) +
-#   scale_color_manual("station type", values = c("black", "grey50")) +
-#   # annotation_scale(width_hint = 0.2, bar_cols = c("grey60", "white"), color = "grey60") +
-#   theme_classic()
-# 
-# ggplot() + 
-#   basemap_gglayer(st_buffer(df.stat[df.stat$station.project_id == "maisD",], dist = 800)) +
-#   scale_fill_identity() + 
-#   geom_sf(data = df.stat[df.stat$station.project_id == "maisD",], 
-#           aes(pch = station.type, color = station.type), stroke = 1.2) +
-#   coord_sf() +
-#   scale_shape_manual("station type", values = c(3, 16)) +
-#   scale_color_manual("station type", values = c("black", "grey50")) +
-#   # annotation_scale(width_hint = 0.2, bar_cols = c("grey60", "white"), color = "grey60") +
-#   theme_classic()
 
 ## using ggspatial (better)
 
@@ -181,7 +168,7 @@ gC <- ggplot() +
         strip.background = element_rect(fill = "grey60", color = "grey60"),
         strip.text = element_text(size = 25, colour="white")) +
   guides(shape = guide_legend(position = "right"),
-         fill = guide_legend(position = "right")); gC
+         fill = guide_legend(position = "right"))
 
 gD <- ggplot() + 
   annotation_map_tile(type = "osm") +
@@ -204,8 +191,6 @@ gD <- ggplot() +
         strip.text = element_text(size = 25, colour="white")) +
   guides(shape = "none",
          fill = "none")
-
-g <- grid.arrange(gC, gD, nrow = 1)
 
 gA <- ggplot() + 
   # annotation_map_tile(type = "osm") +
@@ -239,6 +224,7 @@ ggsave("./plots/plotSite.pdf", plot = g, width = 30, height = 12, device = "pdf"
 ## plot testtracks and generate table
 shp.l$length_km <- round(as.vector(st_length(shp.l))/1000, 2)
 
+shp.p$time <- round(shp.p$time, 0)
 shp.p <- shp.p[second(shp.p$time) %% 2 != 0, ]
 
 # summarize shp.p
@@ -246,7 +232,7 @@ sum.p <- shp.p %>% group_by(date, area, site) %>%
   summarise("N points" = n(),
             "duration_h" = round(as.numeric(max(time) - min(time), units = "hours"), 2), 
             .groups = "drop")
-sum.p$trackID <- paste0(sum.p$area, c(1, 2, 3, 4, 1, 2, 3, 4))
+sum.p$trackID <- paste0(sum.p$area, c(1, "test", 2, 3, 1, 2, 3, "test"))
 
 sum.p <- left_join(st_drop_geometry(sum.p), 
                    st_drop_geometry(shp.l), by = c("date", "area", "site"))
@@ -254,7 +240,7 @@ sum.p <- left_join(st_drop_geometry(sum.p),
 ## add trackID to shp.p
 shp.p <- left_join(shp.p, sum.p[, c("date", "trackID")], by = "date")
 
-sum.p <- sum.p[, c("trackID", "date", "duration_h", "length_km", "N points")]
+sum.p <- sum.p[, c("trackID", "date", "duration_h", "length_km", "N points", "site")]
 sum.p <- sum.p[order(sum.p$trackID),]
 sum.p[, "N tags"] <- c(3, 4, 4, 4, 3, 3, 3, 3)
 
@@ -281,7 +267,6 @@ gC <- ggplot() +
   theme(legend.position = "right",
         strip.background = element_rect(fill = "grey60", color = "grey60"),
         strip.text = element_text(size = 30, colour="white"))
-gC
 
 gD <- ggplot() + 
   annotation_map_tile(type = "osm") +
@@ -303,7 +288,6 @@ gD <- ggplot() +
   theme(legend.position = "right",
         strip.background = element_rect(fill = "grey60", color = "grey60"),
         strip.text = element_text(size = 30, colour="white"))
-gD
 
 g <- gC + gD  # + plot_layout(guides = 'collect')
 
@@ -377,7 +361,9 @@ df.m4$allM <- "no"
 df.m4$allM[df.m4$site == "maisC" & df.m4$Nmeth == 4] <- "yes"
 df.m4$allM[df.m4$site == "maisD" & df.m4$Nmeth == 2] <- "yes"
 
-df.m4$allM <- factor(df.m4$allM, levels = c("yes", "no"))
+df.m4$allM <- factor(df.m4$allM, levels = c("no", "yes"))
+df.m4$allM2 <- factor(df.m4$allM, levels = c("yes", "no"))
+df.m4$allM.site <- factor(paste0(df.m4$allM, " ", df.m4$site), levels = c("yes maisC", "no maisC", "yes maisD", "no maisD"))
 
 ## add column to indicate whether position is kept due to thresholds
 df.m4$thresh <- "yes"
@@ -389,10 +375,20 @@ df.m4$thresh[df.m4$meth == "omni.ab" & df.m4$site == "maisC" & df.m4$Ac == 1] <-
 df.m4$group <- paste0(df.m4$site, " \n", df.m4$meth)
 df.m4$ID <- paste0(df.m4$site, "_", df.m4$meth)
 df.m4$meth2 <- df.m4$meth
-df.m4$meth2[df.m4$meth2 == "direct.ab"] <- "direct \nab"
-df.m4$meth2[df.m4$meth2 == "direct.in"] <- "direct \nin"
-df.m4$meth2[df.m4$meth2 == "omni.ab"] <- "omni \nab"
-df.m4$meth2[df.m4$meth2 == "omni.ml"] <- "omni \nml"
+df.m4$meth2[df.m4$meth2 == "direct.ab"] <- "direct ab"
+df.m4$meth2[df.m4$meth2 == "direct.in"] <- "direct in"
+df.m4$meth2[df.m4$meth2 == "omni.ab"] <- "omni ab"
+df.m4$meth2[df.m4$meth2 == "omni.ml"] <- "omni ml"
+df.m4$meth3 <- df.m4$meth
+df.m4$meth3[df.m4$meth3 == "direct.ab"] <- "direct \nab"
+df.m4$meth3[df.m4$meth3 == "direct.in"] <- "direct \nin"
+df.m4$meth3[df.m4$meth3 == "omni.ab"] <- "omni \nab"
+df.m4$meth3[df.m4$meth3 == "omni.ml"] <- "omni \nml"
+df.m4$group2 <- paste0(df.m4$meth3, " \n", df.m4$site)
+
+# get n per group
+df.m4 <- df.m4 %>% group_by(site, allM2, meth) %>%
+  mutate(N = n()) %>% ungroup()
 
 df.sim1$detR <- factor(df.sim1$detR, ordered = T)
 
@@ -400,10 +396,16 @@ tmp.m1 <- subset(df.sim1, model == "m1" & meth == "direct.ab")
 #tmp.m3 <- subset(df.sim, model == "m3" & meth == "ab_ql")
 tmp.m4 <- subset(df.sim4, model == "m4")
 tmp.m4$meth2 <- tmp.m4$meth
-tmp.m4$meth2[tmp.m4$meth2 == "direct.ab"] <- "direct \nab"
-tmp.m4$meth2[tmp.m4$meth2 == "direct.in"] <- "direct \nin"
-tmp.m4$meth2[tmp.m4$meth2 == "omni.ab"] <- "omni \nab"
-tmp.m4$meth2[tmp.m4$meth2 == "omni.ml"] <- "omni \nml"
+tmp.m4$meth2[tmp.m4$meth2 == "direct.ab"] <- "direct ab"
+tmp.m4$meth2[tmp.m4$meth2 == "direct.in"] <- "direct in"
+tmp.m4$meth2[tmp.m4$meth2 == "omni.ab"] <- "omni ab"
+tmp.m4$meth2[tmp.m4$meth2 == "omni.ml"] <- "omni ml"
+tmp.m4$meth3 <- tmp.m4$meth
+tmp.m4$meth3[tmp.m4$meth3 == "direct.ab"] <- "direct \nab"
+tmp.m4$meth3[tmp.m4$meth3 == "direct.in"] <- "direct \nin"
+tmp.m4$meth3[tmp.m4$meth3 == "omni.ab"] <- "omni \nab"
+tmp.m4$meth3[tmp.m4$meth3 == "omni.ml"] <- "omni \nml"
+tmp.m4$group2 <- paste0(tmp.m4$meth3, " \n", tmp.m4$site)
 #tmp.m2 <- subset(df.pred, model == "m2" & meth == "ab_ql")
 
 df.pred5ab$diffCI2 <- ifelse(df.pred5ab$diffCI <= 10, "0-10",
@@ -432,84 +434,283 @@ df.pred5in$diffCIq652 <- ifelse(df.pred5in$diffCIq65 <= 10, "0-10",
                                        ifelse(df.pred5in$diffCIq65 <= 50, "25-50",
                                               ifelse(df.pred5in$diffCIq65 <= 75, "50-75", paste0("75-", floor(max(df.pred5in$diffCIq65)))))))
 
+## get prop Points per method
+df.points <- df.m4 %>% group_by(site, meth, group2, allM2) %>%
+  summarise(nP = n(), .groups = "drop")
+df.points <- left_join(df.points,
+                     sum.p %>% group_by(site) %>% 
+                       summarize(nPtot = sum(`N points` * `N tags`), .groups = "drop"), 
+                     by = c("site"))
 
-g1 <- ggplot(tmp.m1) +
-  stat_halfeye(aes(x = detR, y = sim.m,
-                   linewidth = after_stat(.width)), # needed for linewidth
-               .width = c(0.5, 0.95),
-               #color = "black",
-               fatten_point = 3,
-               normalize = "panels", scale = 0.7) +
-  scale_linewidth_continuous(range = c(15, 5)) + # Define range of linewidths (reverse!!)
- # scale_color_viridis_d("site", end = 0.5) +
-  xlab("detection range (m)") +
-  ylab("est. mean PE (m)") +
-  ylim(30, 130) +
-  #ggtitle("m1") +
-  facet_wrap(~site, ncol = 1, scales = "free_y", strip.position = "left") +
-  theme_light(base_size = 16) +
-  theme(legend.position = "none",
-        strip.text = element_blank(),
-        strip.background = element_blank())
+df.points$propP <- round(df.points$nP/df.points$nPtot*100, 0)
 
 
-# g3 <- ggplot(tmp.m3) + 
-#   stat_halfeye(aes(x = pos, y = sim,
-#                    linewidth = after_stat(.width), color = site), # needed for linewidth
+# ## model output vertical
+# g1 <- ggplot(tmp.m1) +
+#   stat_halfeye(aes(x = detR, y = sim.m,
+#                    linewidth = after_stat(.width)), # needed for linewidth
 #                .width = c(0.5, 0.95),
 #                #color = "black",
 #                fatten_point = 3,
-#                normalize = "panels", scale = 0.7, strip.position = "right") +
+#                normalize = "panels", scale = 0.7) +
 #   scale_linewidth_continuous(range = c(15, 5)) + # Define range of linewidths (reverse!!)
-#   scale_color_viridis_d("site", end = 0.5) +
-#   xlab("position") +
-#   ylab("est. mean PE (m)") +
-#   #ggtitle("m3") +
-#   facet_wrap(~site, ncol = 1, scales = "free_y", strip.position = "right") +
-#   theme_light(base_size = 14) +
+#  # scale_color_viridis_d("site", end = 0.5) +
+#   xlab("detection range [m]") +
+#   ylab("est. mean PE [m]") +
+#   ylim(30, 135) +
+#   #ggtitle("m1") +
+#   coord_flip() +
+#   facet_wrap(~site, ncol = 2, strip.position = "top") +
+#   theme_light(base_size = 16) +
+#   theme(legend.position = "none",
+#         axis.title.x = element_blank(),
+#         axis.text.x = element_blank(),
+#         strip.background = element_rect(fill = "grey60", color = "grey60"),
+#         strip.text = element_text(size = 22, colour="white"))
+# 
+# g4 <- ggplot(tmp.m4) + 
+#   stat_halfeye(aes(x = meth2, y = sim.m,
+#                    linewidth = after_stat(.width)), # needed for linewidth
+#                .width = c(0.5, 0.95),
+#                #color = "black",
+#                fatten_point = 3,
+#                normalize = "panels", scale = 0.7) +
+#   scale_linewidth_continuous(range = c(15, 5)) + # Define range of linewidths (reverse!!)
+#   # scale_color_viridis_d("site", end = 0.5) +
+#   xlab("method") +
+#   ylab("est. mean PE [m]") +
+#   ylim(30, 135) +
+#   #ggtitle("m4") +
+#   coord_flip() +
+#   facet_wrap(~site, ncol = 2, strip.position = "right") +
+#   theme_light(base_size = 16) +
+#   theme(legend.position = "none",
+#         strip.text = element_blank(),
+#         strip.background = element_blank())
+# 
+# g4c <- ggplot(data = df.m4, aes(x = meth2, y = cover, fill = allM, color = allM)) +
+#   geom_split_violin(alpha = 0.4, trim = TRUE, scale = "count", width = 1.1) +
+#   scale_color_viridis_d("all meth.", end = 0.5, alpha = 0.4) +
+#   scale_fill_viridis_d("all meth.", end = 0.5, alpha = 0.4) +
+#   facet_wrap(~site, ncol = 2, strip.position = "right") +
+#   ylim(0, max(df.m4$cover)) +
+#   xlab("method") +
+#   ylab("station cover") +
+#   coord_flip() +
+#   theme_light(base_size = 16) +
+#   theme(legend.position = c(0.75, 0.75),
+#         strip.text = element_blank(),
+#         strip.background = element_blank())
+# 
+# g4PE <- ggplot(data = df.m4, aes(x = meth2, y = PE, fill = allM, color = allM)) +
+#   geom_split_violin(alpha = 0.4, trim = TRUE, scale = "count", width = 1.1) +
+#   scale_color_viridis_d("all meth.", end = 0.5, alpha = 0.4) +
+#   scale_fill_viridis_d("all meth.", end = 0.5, alpha = 0.4) +
+#   facet_wrap(~site, ncol = 2, strip.position = "right") +
+#   ylim(0, max(df.m4$PE)) +
+#   xlab("method") +
+#   ylab("PE [m]") +
+#   coord_flip() +
+#   theme_light(base_size = 16) +
+#   theme(legend.position = c(0.75, 0.75),
+#         strip.text = element_blank(),
+#         strip.background = element_blank())
+# 
+# layout <- "
+# A
+# B
+# C
+# D
+# "
+# 
+# g <- g1 + g4 + g4c + g4PE + plot_layout(design = layout)
+# g
+# ggsave("./plots/plotModel.pdf", plot = g, width = 30, height = 30, device = "pdf", units = "cm")
+
+# ## model output horizontal
+# g1 <- ggplot(tmp.m1) +
+#   stat_halfeye(aes(x = detR, y = sim.m,
+#                    linewidth = after_stat(.width)), # needed for linewidth
+#                .width = c(0.5, 0.95),
+#                #color = "black",
+#                fatten_point = 3,
+#                normalize = "panels", scale = 0.7) +
+#   scale_linewidth_continuous(range = c(15, 5)) + # Define range of linewidths (reverse!!)
+#   # scale_color_viridis_d("site", end = 0.5) +
+#   xlab("detection range [m]") +
+#   ylab("est. mean PE [m]") +
+#   ylim(35, 132) +
+#   facet_wrap(~site, ncol = 1, strip.position = "top") +
+#   theme_light(base_size = 16) +
+#   theme(legend.position = "none",
+#         strip.text = element_blank(),
+#         strip.background = element_blank())
+# 
+# g4 <- ggplot(tmp.m4) + 
+#   stat_halfeye(aes(x = meth3, y = sim.m,
+#                    linewidth = after_stat(.width)), # needed for linewidth
+#                .width = c(0.5, 0.95),
+#                #color = "black",
+#                fatten_point = 3,
+#                normalize = "panels", scale = 0.7) +
+#   scale_linewidth_continuous(range = c(15, 5)) + # Define range of linewidths (reverse!!)
+#   # scale_color_viridis_d("site", end = 0.5) +
+#   xlab("method") +
+#   ylab("est. mean PE [m]") +
+#   ylim(35, 132) +
+#   facet_wrap(~site, ncol = 1, strip.position = "right") +
+#   theme_light(base_size = 16) +
 #   theme(legend.position = "none",
 #         axis.title.y = element_blank(),
+#         axis.text.y = element_blank(),
 #         strip.text = element_blank(),
-#         strip.background = element_blank()
-#   )
+#         strip.background = element_blank())
+# 
+# g4c <- ggplot(data = df.m4, aes(x = meth3, y = cover, fill = allM2, color = allM2)) +
+#   geom_split_violin(alpha = 0.4, trim = TRUE, scale = "count", width = 1.1) +
+#   scale_color_viridis_d("all meth.", end = 0.5, alpha = 0.4) +
+#   scale_fill_viridis_d("all meth.", end = 0.5, alpha = 0.4) +
+#   facet_wrap(~site, ncol = 1, strip.position = "right") +
+#   ylim(0, max(df.m4$cover)) +
+#   xlab("method") +
+#   ylab("station cover") +
+#   theme_light(base_size = 16) +
+#   theme(legend.position = c(0.75, 0.25),
+#         strip.text = element_blank(),
+#         strip.background = element_blank())
+# 
+# g4PE <- ggplot(data = df.m4, aes(x = meth3, y = PE, fill = allM2, color = allM2)) +
+#   geom_split_violin(alpha = 0.4, trim = TRUE, scale = "count", width = 1.1) +
+#   scale_color_viridis_d("all meth.", end = 0.5, alpha = 0.4) +
+#   scale_fill_viridis_d("all meth.", end = 0.5, alpha = 0.4) +
+#   facet_wrap(~site, ncol = 1, strip.position = "right") +
+#   ylim(0, max(df.m4$PE)) +
+#   xlab("method") +
+#   ylab("PE [m]") +
+#   theme_light(base_size = 16) +
+#   theme(legend.position = c(0.75, 0.25),
+#         strip.background = element_rect(fill = "grey60", color = "grey60"),
+#         strip.text = element_text(size = 22, colour="white"))
+# 
+# layout <- "
+# AABBCCCDDD
+# AABBCCCDDD
+# "
+# 
+# g <- g1 + g4 + g4c + g4PE + plot_layout(design = layout)
+# g
+# ggsave("./plots/plotModel_horizontal2.pdf", plot = g, width = 38, height = 20, device = "pdf", units = "cm")
 
-g4 <- ggplot(tmp.m4) + 
-  stat_halfeye(aes(x = meth2, y = sim.m,
+
+## model output horizontal combined
+g1 <- ggplot(tmp.m1) +
+  stat_halfeye(aes(x = detR, y = sim.m, group = site, color = site, fill = site,
                    linewidth = after_stat(.width)), # needed for linewidth
                .width = c(0.5, 0.95),
                #color = "black",
                fatten_point = 3,
-               normalize = "panels", scale = 0.7) +
+               normalize = "groups", scale = 0.8, # "groups" ?
+               slab_alpha = 0.45, side = "left", pch = 17) +
   scale_linewidth_continuous(range = c(15, 5)) + # Define range of linewidths (reverse!!)
-  # scale_color_viridis_d("site", end = 0.5) +
-  xlab("method") +
-  ylab("est. mean PE (m)") +
-  ylim(30, 130) +
-  #ggtitle("m4") +
-  facet_wrap(~site, ncol = 1, scales = "free_y", strip.position = "right") +
+  scale_color_manual("site", values = c("maisC" = "#440154", "maisD" = "#23898e")) +
+  scale_fill_manual("site", values = c("maisC" = "#440154", "maisD" = "#23898e")) +
+  xlab("detection range [m]") +
+  ylab("mean pPE [m]") +
+  # ylim(15, 100) +
+  ylim(35, 130) +
   theme_light(base_size = 16) +
   theme(legend.position = "none",
-        axis.title.y = element_blank(),
         strip.text = element_blank(),
         strip.background = element_blank())
 
-g4c <- ggplot(data = df.m4, aes(x = meth2, y = cover, fill = allM, color = allM)) +
-  geom_split_violin(alpha = 0.4, trim = TRUE, scale = "count", width = 1.1) +
-  scale_color_viridis_d("include", end = 0.5) +
-  scale_fill_viridis_d("include", end = 0.5) +
-  facet_wrap(~site, ncol = 1, strip.position = "right") +
-  ylim(0, max(df.m4$cover)) +
-  #coord_flip() +
+g4 <- ggplot() + 
+  stat_halfeye(aes(x = meth3, y = sim.m, group = site, color = site, fill = site,
+                   linewidth = after_stat(.width)), # needed for linewidth
+               .width = c(0.5, 0.95),
+               #color = "black",
+               fatten_point = 3,
+               normalize = "groups", scale = 0.8, # "groups" ?
+               slab_alpha = 0.6, side = "left",
+               data = tmp.m4, pch = 17) +
+  scale_linewidth_continuous(range = c(15, 5)) + # Define range of linewidths (reverse!!)
+  scale_color_manual("site", values = c("maisC" = "#440154", "maisD" = "#23898e")) +
+  scale_fill_manual("site", values = c("maisC" = "#440154", "maisD" = "#23898e")) +
   xlab("method") +
+  ylab("mean pPE [m]") +
+  # ylim(15, 100) +
+  ylim(35, 130) +
+  
+  ## legend
+  geom_rect(aes(xmin = 0.6, xmax = 4.2, ymin = 110, ymax = 130), color = "grey", fill = "white") +
+  geom_text(aes(x = c(0.9, 2.4), y = 125, label = c("site", "all meth.")), size = 6,
+            hjust = 0) +
+  geom_text(aes(x = c(0.9), y = c(120, 115), label = c("maisC", "maisD")), color = c("#440154", "#23898e"), size = 5,
+            hjust = 0) +
+  geom_text(aes(x = c(2.4), y = c(120, 115), label = c("yes", "yes")), color = c("#440154", "#23898e"), size = 5,
+            hjust = 0) +
+  geom_text(aes(x = c(3.3), y = c(120, 115), label = c("no", "no")), color = c("#440154", "#23898e"), alpha = 0.5, size = 5,
+            hjust = 0) +
+  
   theme_light(base_size = 16) +
-  theme(legend.position = c(0.85, 0.25),
-        strip.background = element_rect(fill = "grey60", color = "grey60"),
-        strip.text = element_text(size = 22, colour="white"))
+  theme(legend.position = "none",
+        axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        strip.text = element_blank(),
+        strip.background = element_blank())
+
+g4c <- ggplot(data = df.m4, aes(x = group2, y = cover, fill = site, color = site, alpha = allM2)) +
+  stat_eye(.width = NA, adjust = 3, 
+               #point_interval = NULL,
+               aes(side = ifelse(allM2 == "yes", "left", "right"),
+                   thickness = after_stat(pdf*n)), # scales to counts
+               normalize = "all", scale = 0.6) +
+  
+  scale_color_manual("site", values = c("maisC" = "#440154", "maisD" = "#23898e")) +
+  scale_fill_manual("site", values = c("maisC" = "#440154", "maisD" = "#23898e")) +
+  scale_alpha_manual("all meth.", values = c("yes" = 0.6, "no" = 0.3)) +
+  ylim(0, max(df.m4$cover)) +
+  xlab("method") +
+  ylab("station cover") +
+  theme_light(base_size = 16) +
+  theme(legend.position = "none",
+        axis.title.x = element_blank(),
+        axis.text.x = element_blank())
+
+
+g4PE <- ggplot() +
+  stat_eye(.width = NA, adjust = 3, 
+           #point_interval = NULL,
+           data = df.m4, aes(x = group2, y = PE, fill = site, color = site, alpha = allM2,
+                             side = ifelse(allM2 == "yes", "left", "right"),
+                             thickness = after_stat(pdf*n)), # scales to counts
+           normalize = "all", scale = 0.6)  +  
+  scale_color_manual("site", values = c("maisC" = "#440154", "maisD" = "#23898e")) +
+  scale_fill_manual("site", values = c("maisC" = "#440154", "maisD" = "#23898e")) +
+  scale_alpha_manual("all meth.", values = c("yes" = 0.6, "no" = 0.3)) +
+  xlab("method") +
+  ylab("PE [m]") +
+  geom_text(data = df.points[df.points$allM2 == "no",], 
+            aes(x = group2, y = 0.4, label = paste0(propP, "%"), color = site), alpha = 0.5) +
+  geom_text(data = df.points[df.points$allM2 == "yes",], 
+            aes(x = group2, y = 0.7, label = paste0(propP, "%"), color = site), alpha = 0.8) +
+  scale_y_continuous(trans = "log10", breaks = c(5, 10, 50, 100, 500, 1000), limits = c(0.4, NA)) +
+  scale_x_discrete(labels = c("direct \nab", "direct \nab", "direct \nin", "direct \nin", "omni \nab", "omni \nml")) +
+  theme_light(base_size = 16) +
+  theme(legend.position = "none")
+
+layout <- "
+AABBCCCC
+AABBDDDD
+"
+
+g <- g1 + g4 + g4c + g4PE + plot_layout(design = layout)
+g
+ggsave("./plots/plotModel_horizontal.pdf", plot = g, width = 30, height = 18, device = "pdf", units = "cm")
 
 g5 <- ggplot(df.pred5ab) +
   geom_point(aes(y = Sc, x = Ac, color = pred_mod, fill = pred_mod, size = diffCI2), pch = 22) +
-  scale_color_viridis_c("est. mean \nPE (m)", option = "rocket", limits = c(1, NA), na.value = "#FAEBDDFF") +
-  scale_fill_viridis_c("est. mean \nPE (m)", option = "rocket", limits = c(1, NA), na.value = "#FAEBDDFF") +
+  scale_color_viridis_c("mean \npPE [m]", option = "rocket", limits = c(1, NA), na.value = "#FAEBDDFF") +
+  scale_fill_viridis_c("mean \npPE [m]", option = "rocket", limits = c(1, NA), na.value = "#FAEBDDFF") +
   scale_size_discrete("range CI") +
   xlab("number of antennas") +
   ylab("number of stations") +
@@ -522,8 +723,8 @@ g5 <- ggplot(df.pred5ab) +
 
 g5log10 <- ggplot(df.pred5ab) +
   geom_point(aes(y = Sc, x = Ac, color = log10(pred_mod), fill = log10(pred_mod), size = diffCI2), pch = 22) +
-  scale_color_viridis_c("est. mean \nPE (m)", option = "rocket", limits = c(0.9, NA), na.value = "black", breaks = c(1, 1.7, 2, 2.47), labels = c(10, 50, 100, 300)) +
-  scale_fill_viridis_c("est. mean \nPE (m)", option = "rocket", limits = c(0.9, NA), na.value = "black", breaks = c(1, 1.7, 2, 2.47), labels = c(10, 50, 100, 300)) +
+  scale_color_viridis_c("mean \npPE [m]", option = "rocket", limits = c(0.9, NA), na.value = "black", breaks = c(1, 1.7, 2, 2.47), labels = c(10, 50, 100, 300)) +
+  scale_fill_viridis_c("mean \npPE [m]", option = "rocket", limits = c(0.9, NA), na.value = "black", breaks = c(1, 1.7, 2, 2.47), labels = c(10, 50, 100, 300)) +
   scale_size_discrete("range CI") +
   xlab("number of antennas") +
   ylab("number of stations") +
@@ -536,8 +737,8 @@ g5log10 <- ggplot(df.pred5ab) +
 
 g5log2 <- ggplot(df.pred5ab) +
   geom_point(aes(y = Sc, x = Ac, color = log2(pred_mod), fill = log2(pred_mod), size = diffCI2), pch = 22) +
-  scale_color_viridis_c("est. mean \nPE (m)", option = "rocket", limits = c(3, NA), na.value = "black", breaks = c(4, 6, 8), labels = c(16, 64, 256)) +
-  scale_fill_viridis_c("est. mean \nPE (m)", option = "rocket", limits = c(3, NA), na.value = "black", breaks = c(4, 6, 8), labels = c(16, 64, 256)) +
+  scale_color_viridis_c("mean \npPE [m]", option = "rocket", limits = c(3, NA), na.value = "black", breaks = c(4, 6, 8), labels = c(16, 64, 256)) +
+  scale_fill_viridis_c("mean \npPE [m]", option = "rocket", limits = c(3, NA), na.value = "black", breaks = c(4, 6, 8), labels = c(16, 64, 256)) +
   scale_size_discrete("range CI") +
   xlab("number of antennas") +
   ylab("number of stations") +
@@ -553,93 +754,45 @@ g5.2 <- ggplot(df.pred5ab) +
   #            data = df.m4[df.m4$meth2 == "direct \nab",],
   #            size = 0.5, alpha = 0.2, pch = 1, position = position_dodge(width = 0.3)) +
   geom_line(aes(x = Ac, y = pred_mod, group = as.factor(Sc), color = as.factor(Sc)),
-            lwd = 1, alpha = 0.5, position = position_dodge(width = 0.3)) + 
-  geom_linerange(aes(x = Ac, y = pred_mod, ymin = lwr, ymax = upr,
+            lwd = 1, alpha = 0.5, position = position_dodge(width = 0.4)) + 
+  geom_linerange(aes(x = Ac, ymin = lwr, ymax = upr,
                       group = as.factor(Sc), color = as.factor(Sc)),
-            lwd = 1, alpha = 0.5, position = position_dodge(width = 0.3)) + 
+            lwd = 0.5, alpha = 0.7, position = position_dodge(width = 0.4)) + 
+  geom_linerange(aes(x = Ac, ymin = lwr25, ymax = upr75,
+                     group = as.factor(Sc), color = as.factor(Sc)),
+                 lwd = 1, alpha = 0.7, position = position_dodge(width = 0.4)) + 
   # geom_point(aes(x = Ac, y = pred_mod, group = as.factor(Sc), color = as.factor(Sc)),
   #                size = 1, alpha = 0.5, position = position_dodge(width = 0.3)) + 
   scale_color_viridis_d("Sc", option = "viridis") +
   facet_wrap(~site, ncol = 2, strip.position = "top") +
   xlab("number of antennas") +
-  ylab("est. mean PE (m) and 95% CI") +
+  ylab("mean pPE [m]") +
   # ylim(0, 500) +
   scale_x_continuous(breaks = c(4, 8, 12, 16, 20, 24, 28, 32)) +
   theme_light(base_size = 16) +
   theme(strip.background = element_rect(fill = "grey60", color = "grey60"),
         strip.text = element_text(size = 22, colour="white"))
 
-g5in <- ggplot(df.pred5in) +
-  geom_point(aes(y = Sc, x = Ac, color = pred_mod, size = diffCI2)) +
-  scale_color_viridis_c("est. mean \nPE (m)", option = "rocket", limits = c(0, NA), na.value = "#FAEBDDFF") +
-  scale_size_discrete("range CI") +
-  xlab("number of antennas") +
-  ylab("number of stations") +
-  facet_wrap(~site, ncol = 2) +
-  scale_x_continuous(breaks = c(4, 8, 12, 16, 20, 24, 28, 32)) +
-  scale_y_continuous(breaks = c(2, 4, 6, 8, 10)) +
-  theme_light(base_size = 16) +
-  theme(strip.background = element_rect(fill = "grey60", color = "grey60"),
-        strip.text = element_text(size = 22, colour="white"))
-
-ggplot(df.m4[df.m4$meth2 == "direct \nin",]) + geom_histogram(aes(x = PE, fill = site)) + facet_wrap(~Sc)
-
-## add dummy sites to have violins one same side
-tmp.sim <- unique(df.sim5[, c("site", "meth", "Ac")])
-tmp.sim$Sc <- 0
-df.sim5 <- bind_rows(df.sim5, tmp.sim)
-
-df.sim5$Sc <- as.factor(df.sim5$Sc)
-df.pred5$Sc <- as.factor(df.pred5$Sc)
-
-g5in.2 <- ggplot(df.pred5[df.pred5$meth == "direct in",]) + 
-  # geom_point(aes(x = Ac, y = PE, group = as.factor(Sc), color = as.factor(Sc)),
-  #            data = df.m4[df.m4$meth2 == "direct \nab",],
-  #            size = 0.5, alpha = 0.2, pch = 1, position = position_dodge(width = 0.3)) +
-  geom_split_violin(aes(x = as.factor(Ac), y = sim.m, fill = Sc, color = Sc),
-                    alpha = 0.4, trim = TRUE, scale = "count", width = 2, 
-                    data = df.sim5[df.sim5$meth == "direct in",]) +
-  
-  geom_point(aes(x = as.factor(Ac), y = pred_mod, group = Sc, color = Sc),
-            size = 3.5, alpha = 0.8) + 
-  geom_linerange(aes(x = as.factor(Ac), y = pred_mod, ymin = lwr, ymax = upr,
-                     group = Sc, color = Sc),
-                 lwd = 1.5, alpha = 0.8) + 
-  # geom_point(aes(x = Ac, y = pred_mod, group = as.factor(Sc), color = as.factor(Sc)),
-  #                size = 1, alpha = 0.5, position = position_dodge(width = 0.3)) + 
-  scale_color_viridis_d("Sc", option = "viridis") +
-  scale_fill_viridis_d("Sc", option = "viridis") +
-  facet_wrap(~meth + site, ncol = 2, strip.position = "top") +
-  xlab("number of antennas") +
-  ylab("est. mean PE (m) and 95% CI") +
-  # ylim(0, 500) +
-  # scale_x_continuous(breaks = c(4, 8, 12, 16, 20, 24, 28, 32)) +
-  theme_light(base_size = 16) +
-  theme(strip.background = element_rect(fill = "grey60", color = "grey60"),
-        strip.text = element_text(size = 22, colour="white"))
-
-layout <- "
-AABCC
-DDDDD
-"
-
-layout <- "
-ABCC
-ABCC
-"
-
-g <- g1 + g4 + g4c + plot_layout(design = layout)
-g
-ggsave("./plots/plotModel.pdf", plot = g, width = 30, height = 18, device = "pdf", units = "cm")
+# ggplot(df.m4[df.m4$meth3 == "direct \nin",]) + geom_histogram(aes(x = PE, fill = site)) + facet_wrap(~Sc)
 
 ggsave("./plots/plotPA.pdf", plot = g5, width = 34, height = 12, device = "pdf", units = "cm")
 ggsave("./plots/plotPAlog10.pdf", plot = g5log10, width = 34, height = 12, device = "pdf", units = "cm")
 ggsave("./plots/plotPAlog2.pdf", plot = g5log2, width = 34, height = 12, device = "pdf", units = "cm")
 ggsave("./plots/plotPA2.pdf", plot = g5.2, width = 34, height = 12, device = "pdf", units = "cm")
 
+## add dummy sites to have violins one same side
+# tmp.sim <- unique(df.sim5[, c("site", "meth", "Ac")])
+# tmp.sim$Sc <- 0
+# df.sim5 <- bind_rows(df.sim5, tmp.sim)
+
+df.sim5$Sc <- as.factor(df.sim5$Sc)
+df.pred5$Sc <- as.factor(df.pred5$Sc)
+
+## correlations between coefficients
+
 gPE <- ggplot(df.pred5ab) + 
   geom_point(aes(x = Ac, y = PE, group = as.factor(Sc), color = as.factor(Sc)),
-             data = df.m4[df.m4$meth2 == "direct \nab",],
+             data = df.m4[df.m4$meth3 == "direct \nab",],
              size = 0.5, alpha = 0.2, pch = 1, position = position_dodge(width = 0.5)) +
   geom_line(aes(x = Ac, y = pred_mod, group = as.factor(Sc), color = as.factor(Sc)),
             lwd = 1, alpha = 0.7) + 
@@ -655,7 +808,7 @@ ggsave("./plots/plotAcSc_PE.pdf", plot = gPE, width = 34, height = 12, device = 
 
 gcov <- ggplot(df.pred5ab) + 
   geom_point(aes(x = Ac, y = cover, group = as.factor(Sc), color = as.factor(Sc)),
-             data = df.m4[df.m4$meth2 == "direct \nab",],
+             data = df.m4[df.m4$meth3 == "direct \nab",],
              size = 0.5, alpha = 0.2, pch = 1, position = position_dodge(width = 0.5)) +
   geom_line(aes(x = Ac, y = cover, group = as.factor(Sc), color = as.factor(Sc)),
             lwd = 1, alpha = 0.7) + 
@@ -671,7 +824,7 @@ ggsave("./plots/plotAcSc_cover.pdf", plot = gcov, width = 34, height = 12, devic
 
 gmaxS <- ggplot(df.pred5ab) + 
   geom_point(aes(x = Ac, y = maxSig, group = as.factor(Sc), color = as.factor(Sc)),
-             data = df.m4[df.m4$meth2 == "direct \nab",],
+             data = df.m4[df.m4$meth3 == "direct \nab",],
              size = 0.5, alpha = 0.2, pch = 1, position = position_dodge(width = 0.5)) +
   geom_line(aes(x = Ac, y = maxSig, group = as.factor(Sc), color = as.factor(Sc)),
             lwd = 1, alpha = 0.7) + 
@@ -688,14 +841,14 @@ ggsave("./plots/plotAcSc_maxSig.pdf", plot = gmaxS, width = 34, height = 12, dev
 
 gwgt <- ggplot(df.pred5ab) + 
   geom_point(aes(x = Ac, y = Weight, group = as.factor(Sc), color = as.factor(Sc)),
-             data = df.m4[df.m4$meth2 == "direct \nab",],
+             data = df.m4[df.m4$meth3 == "direct \nab",],
              size = 0.5, alpha = 0.2, pch = 1, position = position_dodge(width = 0.5)) +
   geom_line(aes(x = Ac, y = Weight, group = as.factor(Sc), color = as.factor(Sc)),
             lwd = 1, alpha = 0.7) + 
   scale_color_viridis_d("Sc", option = "viridis") +
   facet_wrap(~site, ncol = 2, strip.position = "top") +
   xlab("number of antennas") +
-  ylab("weight (sum of normalized signals)") +
+  ylab("weight (sum of normalized signals") +
   scale_x_continuous(breaks = c(4, 8, 12, 16, 20, 24, 28, 32)) +
   theme_light(base_size = 16) +
   theme(strip.background = element_rect(fill = "grey60", color = "grey60"),
@@ -703,7 +856,7 @@ gwgt <- ggplot(df.pred5ab) +
 ggsave("./plots/plotAcSc_weight.pdf", plot = gwgt, width = 34, height = 12, device = "pdf", units = "cm")
 
 
-gcw <- ggplot(df.m4[df.m4$meth2 == "direct \nab",]) + 
+gcw <- ggplot(df.m4[df.m4$meth3 == "direct \nab",]) + 
   geom_point(aes(x = cover, y = Weight, group = as.factor(Sc), color = as.factor(Sc)),
              size = 0.5, alpha = 0.2, pch = 1, position = position_dodge(width = 0.5)) +
   scale_color_viridis_d("Sc", option = "viridis") +
@@ -715,7 +868,7 @@ gcw <- ggplot(df.m4[df.m4$meth2 == "direct \nab",]) +
         strip.text = element_text(size = 22, colour="white"))
 ggsave("./plots/plotcover_weight.pdf", plot = gcw, width = 34, height = 12, device = "pdf", units = "cm")
 
-gsw <- ggplot(df.m4[df.m4$meth2 == "direct \nab",]) + 
+gsw <- ggplot(df.m4[df.m4$meth3 == "direct \nab",]) + 
   geom_point(aes(x = maxSig, y = Weight, group = as.factor(Sc), color = as.factor(Sc)),
              size = 0.5, alpha = 0.2, pch = 1, position = position_dodge(width = 0.5)) +
   scale_color_viridis_d("Sc", option = "viridis") +
@@ -728,7 +881,7 @@ gsw <- ggplot(df.m4[df.m4$meth2 == "direct \nab",]) +
 
 ggsave("./plots/plotmaxSig_weight.pdf", plot = gsw, width = 34, height = 12, device = "pdf", units = "cm")
 
-gsc <- ggplot(df.m4[df.m4$meth2 == "direct \nab",]) + 
+gsc <- ggplot(df.m4[df.m4$meth3 == "direct \nab",]) + 
   geom_point(aes(x = maxSig, y = cover, group = as.factor(Sc), color = as.factor(Sc)),
              size = 0.5, alpha = 0.2, pch = 1, position = position_dodge(width = 0.5)) +
   scale_color_viridis_d("Sc", option = "viridis") +
@@ -741,6 +894,91 @@ gsc <- ggplot(df.m4[df.m4$meth2 == "direct \nab",]) +
 
 ggsave("./plots/plotmaxSig_cover.pdf", plot = gsc, width = 34, height = 12, device = "pdf", units = "cm")
 
+#### predictive performance test testtrack -------------------------------------
+## check whether X_time is present in all methods
+df.t5 <- df.t5 %>% group_by(X_time, tagID, site) %>% 
+  mutate(allM2 = ifelse(site == "maisC" & n() == 4, "yes", 
+                          ifelse(site == "maisD" & n() == 2, "yes", "no"))) %>% 
+  ungroup()
+
+## add site_meth groups
+df.t5$group <- paste0(df.t5$site, "_", df.t5$meth)
+df.t5$group2 <- paste0(df.t5$meth, "_", df.t5$site)
+
+## add column to indicate whether position is kept due to thresholds
+df.t5$thresh <- "yes"
+df.t5$thresh[df.t5$meth == "direct.ab" & df.t5$site == "maisC" & df.t5$Ac == df.t5$Sc] <- "no"
+df.t5$thresh[df.t5$meth == "direct.ab" & df.t5$site == "maisD" & df.t5$Ac <= 3 & df.t5$Sc %in% c(1, 2, 3)] <- "no"
+df.t5$thresh[df.t5$meth == "omni.ab" & df.t5$site == "maisC" & df.t5$Ac == 1] <- "no"
+
+g1 <- ggplot() +
+  geom_hline(yintercept = 0, lty = "dashed", color = "grey") +
+  stat_eye(.width = NA, adjust = 3, 
+           #point_interval = NULL,
+           mapping = aes(x = group2, y = pred_mod, fill = site, color = site, alpha = allM2,
+                         side = "right",
+               thickness = after_stat(pdf*n)), # scales to counts
+           normalize = "all", scale = 0.6,
+           point_color = "black",
+           data = df.t5, pch = 24) +
+  
+  stat_eye(.width = NA, adjust = 3, 
+           #point_interval = NULL,
+           mapping = aes(x = group2, y = PE, fill = site, color = site, alpha = allM2,
+                         side = "left",
+                         thickness = after_stat(pdf*n)), # scales to counts
+           normalize = "all", scale = 0.6,
+           point_color = "black",
+           data = df.t5, pch = 21) +
+  
+  scale_color_manual("site", values = c("maisC" = "#440154", "maisD" = "#23898e")) +
+  scale_fill_manual("site", values = c("maisC" = "#440154", "maisD" = "#23898e")) +
+  scale_alpha_manual("all meth.", values = c("yes" = 0.6, "no" = 0.3)) +
+  #ylim(-300, 500) +
+  scale_x_discrete(labels = c("direct \nab", "direct \nab", "direct \nin", "direct \nin", "omni \nab", "omni \nml")) +
+  scale_y_continuous(trans = "log10", breaks = c(5, 10, 50, 100, 500, 1000), limits = c(1, NA)) +
+  xlab("method") +
+  ylab("PE (left), pPE (right) [m]") +
+  
+  theme_light(base_size = 16) +
+  theme(legend.position = "none")
+
+g2 <- ggplot() +
+  geom_hline(yintercept = 0, lty = "dashed", color = "grey") +
+  stat_eye(.width = NA, adjust = 3, 
+           #point_interval = NULL,
+           mapping = aes(x = group2, y = diff, fill = site, color = site, alpha = allM2,
+                         side = ifelse(allM2 == "yes", "left", "right"),
+                         thickness = after_stat(pdf*n)), # scales to counts
+           normalize = "all", scale = 0.6,
+           data = df.t5) +
+  
+  scale_color_manual("site", values = c("maisC" = "#440154", "maisD" = "#23898e")) +
+  scale_fill_manual("site", values = c("maisC" = "#440154", "maisD" = "#23898e")) +
+  scale_alpha_manual("all meth.", values = c("yes" = 0.7, "no" = 0.3)) +
+  ylim(-300, 500) +
+  scale_x_discrete(labels = c("direct \nab", "direct \nab", "direct \nin", "direct \nin", "omni \nab", "omni \nml")) +
+  xlab("method") +
+  ylab("PE - pPE [m]") +
+  
+  ## legend
+  geom_rect(aes(xmin = 2, xmax = 5, ymin = 300, ymax = 500), color = "grey", fill = "white") +
+  geom_text(aes(x = c(2.5, 3.5), y = 450, label = c("site", "all meth.")), size = 6,
+            hjust = 0) +
+  geom_text(aes(x = c(2.5), y = c(400, 350), label = c("maisC", "maisD")), color = c("#440154", "#23898e"), size = 5,
+            hjust = 0) +
+  geom_text(aes(x = c(3.5), y = c(400, 350), label = c("yes", "yes")), color = c("#440154", "#23898e"), size = 5,
+            hjust = 0) +
+  geom_text(aes(x = c(4), y = c(400, 350), label = c("no", "no")), color = c("#440154", "#23898e"), alpha = 0.4, size = 5,
+            hjust = 0) +
+  
+  theme_light(base_size = 16) +
+  theme(legend.position = "none")
+
+g <- g1 + g2
+ggsave("./plots/plotTest.pdf", plot = g, width = 34, height = 12, device = "pdf", units = "cm")
+
+
 ####5) table kfold -------------------------------------------------------------
 ## function for pseudo R2
 pR2 <- function(model, resp) {
@@ -750,45 +988,87 @@ pR2 <- function(model, resp) {
 }
 
 for(i in df.meth$ID) {
-  df.meth$R2[df.meth$ID == i] <- round(pR2(model = Lm[[i]], resp = Lm[[i]]$frame$PE)*100, 2)
-  df.meth$MAE[df.meth$ID == i] <- round(mean(Lk[[i]]$mfull2), 2)
-  Ld[[i]]$ID <- paste0(Ld[[i]]$site, "_", Ld[[i]]$meth)
-  Ld[[i]] <- left_join(Ld[[i]], df.m4[df.m4$ID == i, c("X_time", "tagID", "allM", "thresh", "ID")], by = c("X_time", "tagID", "ID"))
-  df.meth$MAE2[df.meth$ID == i] <- mean(abs(predict(Lm[[i]], newdata = Ld[[i]], type = "response")-Ld[[i]]$PE))
-  df.meth$MAE3[df.meth$ID == i] <- mean(abs(predict(Lm[[i]], newdata = Ld[[i]][Ld[[i]]$allM == "yes",], type = "response")-Ld[[i]]$PE[Ld[[i]]$allM == "yes"]))
-  df.meth$MAE4[df.meth$ID == i] <- mean(abs(predict(Lm[[i]], newdata = Ld[[i]][Ld[[i]]$thresh == "yes",], type = "response")-Ld[[i]]$PE[Ld[[i]]$thresh == "yes"]))
+  # df.meth$R2[df.meth$ID == i] <- round(pR2(model = Lm[[i]], resp = Lm[[i]]$frame$PE)*100, 2)
+  # df.meth$MAE[df.meth$ID == i] <- round(mean(Lk[[i]]$mfull2), 2)
+  # Ld[[i]]$ID <- paste0(Ld[[i]]$site, "_", Ld[[i]]$meth)
+  # Ld[[i]] <- left_join(Ld[[i]], df.m4[df.m4$ID == i, c("X_time", "tagID", "allM", "thresh", "ID")], by = c("X_time", "tagID", "ID"))
+  # df.meth$MAE2[df.meth$ID == i] <- mean(abs(predict(Lm[[i]], newdata = Ld[[i]], type = "response")-Ld[[i]]$PE))
+  # df.meth$MAE3[df.meth$ID == i] <- mean(abs(predict(Lm[[i]], newdata = Ld[[i]][Ld[[i]]$allM == "yes",], type = "response")-Ld[[i]]$PE[Ld[[i]]$allM == "yes"]))
+  # df.meth$MAE4[df.meth$ID == i] <- mean(abs(predict(Lm[[i]], newdata = Ld[[i]][Ld[[i]]$thresh == "yes",], type = "response")-Ld[[i]]$PE[Ld[[i]]$thresh == "yes"]))
+  # df.meth$ME2[df.meth$ID == i] <- -mean(predict(Lm[[i]], newdata = Ld[[i]], type = "response")-Ld[[i]]$PE)
+  # df.meth$ME3[df.meth$ID == i] <- -mean(predict(Lm[[i]], newdata = Ld[[i]][Ld[[i]]$allM == "yes",], type = "response")-Ld[[i]]$PE[Ld[[i]]$allM == "yes"])
+  # df.meth$ME4[df.meth$ID == i] <- -mean(predict(Lm[[i]], newdata = Ld[[i]][Ld[[i]]$thresh == "yes",], type = "response")-Ld[[i]]$PE[Ld[[i]]$thresh == "yes"])
+  # df.meth$m2[df.meth$ID == i] <- median(predict(Lm[[i]], newdata = Ld[[i]], type = "response"))
+  # df.meth$m3[df.meth$ID == i] <- median(predict(Lm[[i]], newdata = Ld[[i]][Ld[[i]]$allM == "yes",], type = "response"))
+  # df.meth$m4[df.meth$ID == i] <- median(predict(Lm[[i]], newdata = Ld[[i]][Ld[[i]]$thresh == "yes",], type = "response"))
 }
 
+df.t5 %>% group_by(group) %>% 
+  summarize(MAE = mean(abs(diff)), MAEq50 = mean(abs(diffq50)), MAEq65 = mean(abs(diffq65)), 
+            meanPA = mean(pred_mod), meanPA50 = mean(q50), meanPA65 = mean(q65),
+            meanPE = mean(PE), meanPE50 = median(PE), meanPE65 = quantile(PE, probs = 0.65))
+
 df.meth <- left_join(df.meth,
-                 df.m4 %>% group_by(site, meth) %>% summarize(nPfull = n(), .groups = "drop"), 
+                     df.t5 %>% group_by(group) %>% 
+                       summarize(MAE = mean(abs(diff)), 
+                                 meanPA = mean(pred_mod),
+                                 meanPE = mean(PE),
+                                 meanDiff = mean(diff)),
+                     by = c("ID" = "group"))
+
+df.meth <- left_join(df.meth,
+                     df.t5[df.t5$allM2 == "yes",] %>% group_by(group) %>% 
+                       summarize(MAE2 = mean(abs(diff)), 
+                                 meanPA2 = mean(pred_mod),
+                                 meanPE2 = mean(PE),
+                                 meanDiff2 = mean(diff)),
+                     by = c("ID" = "group"))
+
+df.meth <- left_join(df.meth,
+                     df.t5[df.t5$thresh == "yes",] %>% group_by(group) %>% 
+                       summarize(MAE3 = mean(abs(diff)), 
+                                 meanPA3 = mean(pred_mod),
+                                 meanPE3 = mean(PE),
+                                 meanDiff3 = mean(diff)),
+                     by = c("ID" = "group"))
+
+df.meth <- left_join(df.meth,
+                     df.t5 %>% group_by(site, meth) %>% summarize(nPfull = n(), .groups = "drop"), 
                  by = c("site", "meth"))
 
 df.meth <- left_join(df.meth,
-                     df.m4[df.m4$allM == "yes",] %>% group_by(site, meth) %>% summarize(nPallM = n(), .groups = "drop"), 
+                     df.t5[df.t5$allM2 == "yes",] %>% group_by(site, meth) %>% 
+                       summarize(nPallM = n(), .groups = "drop"), 
                      by = c("site", "meth"))
 
 df.meth <- left_join(df.meth,
-                     df.m4[df.m4$thresh == "yes",] %>% group_by(site, meth) %>% summarize(nPthresh = n(), .groups = "drop"), 
+                     df.t5[df.t5$thresh == "yes",] %>% group_by(site, meth) %>% 
+                       summarize(nPthresh = n(), .groups = "drop"), 
                      by = c("site", "meth"))
 
 df.meth <- left_join(df.meth,
-                     sum.p %>% group_by(site) %>% summarize(nPtot = sum(`N points` * `N tags`), .groups = "drop"), 
+                     sum.p[sum.p$trackID %in% c("C4", "D2"),] %>% group_by(site) %>% 
+                       summarize(nPtot = sum(`N points` * `N tags`), .groups = "drop"), 
                      by = c("site"))
 
 df.meth$propPfull <- round(df.meth$nPfull/df.meth$nPtot*100, 0)
 df.meth$propPallM <- round(df.meth$nPallM/df.meth$nPtot*100, 0)
 df.meth$propPthresh <- round(df.meth$nPthresh/df.meth$nPtot*100, 0)
 
-df.meth[, c("MAE2", "MAE3", "MAE4")] <- round(df.meth[, c("MAE2", "MAE3", "MAE4")], 0)
+colL <- c("meanPE", "meanPE2", "meanPE3", "meanPA", "meanPA2", "meanPA3", 
+          "MAE", "MAE2", "MAE3", "meanDiff", "meanDiff2", "meanDiff3",
+          "propPfull", "propPallM", "propPthresh")
+colL2 <- c("meanPE",  "meanPA",  "MAE",  "meanDiff",  "propPfull", 
+           "meanPE2", "meanPA2", "MAE2", "meanDiff2", "propPallM", 
+           "meanPE3", "meanPA3", "MAE3", "meanDiff3", "propPthresh")
 
-df.meth$full <- paste0(df.meth$MAE2, " (", df.meth$propPfull, ")")
-df.meth$allM <- paste0(df.meth$MAE3, " (", df.meth$propPallM, ")")
-df.meth$thresh <- paste0(df.meth$MAE4, " (", df.meth$propPthresh, ")")
+df.meth[, colL] <- round(df.meth[, colL], 0)
 
 df.meth <- df.meth[order(df.meth$site),]
 
-write.csv(df.meth, "./plots/tabMeth.csv", row.names = F)
+df.meth <- df.meth[, c("site", "meth", colL2)]
 
+write.csv(df.meth, "./plots/tabMeth.csv", row.names = F)
 
 ### convex hull for each method ------------------------------------------------
 dist_C <- 0.5*800
@@ -954,7 +1234,9 @@ g2 <- ggplot() +
 ggsave("./plots/plotAnimal1.pdf", plot = g1, width = 34, height = 18, device = "pdf", units = "cm")
 ggsave("./plots/plotAnimal2.pdf", plot = g2, width = 34, height = 18, device = "pdf", units = "cm")
 
+
+
+
+
 ## run markdown for supplement -------------------------------------------------
 rmarkdown::render(input = here("supplement.Rmd"))
-
-

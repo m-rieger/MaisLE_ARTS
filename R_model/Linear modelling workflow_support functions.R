@@ -2161,51 +2161,6 @@ post_predictN <- function(data, modelTMB, newdat, offset, component, sims = F, n
   
 }
 
-## simulate raw data to get quantiles for newdat (e.g., median, 65%)
-quant.rlnorm <- function(m, # matrix with mean
-                   sd, # matrix with sd
-                   probs = 0.5, # quantile to calculate (0.5, 0.65, 0.75, ...)
-                   nsim = 1000, # number of simulations for rlnorm
-                   SPEED = F # do you want to speed up the process using parallelization (TRUE)?
-                   ) {
-  
-  if(length(probs) > 1) {
-    warning("There is more than one value for 'probs'. The first one will be selected for further calculations.")
-    probs <- probs[1]
-  }
-  
-  # v <- sd^2
-  # phi <- sqrt(v+m^2)
-  # mu <- log(m^2/phi)
-  sigma <- sqrt(log(1+sd^2/m^2))
-  mu <- log(m)-0.5*sigma^2 # identisch zu oberem mu
-  
-  quant.rlnorm2 <- function(mus) {
-    set.seed(3171)
-    quantile(rlnorm(nsim, mus[1], mus[2]), probs = probs)  # change to rnorm, rpois, etc. if needed
-  }
-  
-  if(SPEED) {
-    require(future.apply)
-    plan(multicore, workers = parallel::detectCores())
-    q <- matrix(future_apply(cbind(as.vector(mu), as.vector(sigma)), 1, 
-                             quant.rlnorm2, future.seed = 3171), 
-                            nrow = nrow(mu))
-    
-    plan(sequential)
-    
-  }
-  
-  if(!SPEED) {
-    q <- matrix(apply(cbind(as.vector(mu), as.vector(sigma)), 1, 
-                      quant.rlnorm2), 
-                nrow = nrow(mu))
-    
-  } 
-  
-  return(q)
-  
-}
 
 #============================#
 #* 8.3 Summarise raw data ---- 

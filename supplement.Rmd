@@ -3,9 +3,7 @@ title: "Supplement of 'Optimizing Position Finding and Accuracy of wildlife move
 data using the trackIT Automated Radiotelemetry System'"
 author: "Mirjam R. Rieger, Jan Schmitt, Paula Machin, Johann Musculus, Ralf Dittrich,
 Thomas K. Gottschalk, Jannis Gottwald, Patrick Lampe, Jonas Höchst"
-bookdown::html_document2:
-  number_sections: true
-  toc_depth: 2
+output: bookdown::html_document2
 always_allow_html: true
 language: eng
 fontsize: 12pt
@@ -18,11 +16,12 @@ library(kableExtra)
 
 # Methods
 
-## Ground truth data
+## Ground-truth data
 ```{r}
 # Properties of test tracks used to compare position estimations and accuracies for maisC (C1-4) and maisD (D1-
 # 4). N points is the number of recorded GPS positions (summarized in 2-second intervals) and N tags the number of used
 # transmitters.
+sum.p <- dplyr::select(sum.p, -c(site))
 
 colnames(sum.p)[colnames(sum.p) %in% c("trackID", "duration_h", "length_km")] <- c("track ID", "duration (h)", "length (km)") 
 
@@ -58,7 +57,7 @@ g1 <- ggplot() +
   theme_void(base_size = 15) +
   theme(legend.position = "none",
         strip.background = element_rect(fill = "grey60", color = "grey60"),
-        strip.text = element_text(size = 15, colour="white"))
+        strip.text = element_text(size = 18, colour="white"))
 
 g2 <- ggplot() + 
   annotation_map_tile(type = "osm") +
@@ -73,7 +72,7 @@ g2 <- ggplot() +
   theme_void(base_size = 15) +
   theme(legend.position = "right",
         strip.background = element_rect(fill = "grey60", color = "grey60"),
-        strip.text = element_text(size = 15, colour="white"))
+        strip.text = element_text(size = 18, colour="white"))
 
 
 ## plot raster (= merged polygons)
@@ -99,7 +98,7 @@ gC <- ggplot(shp.r) +
   theme_void(base_size = 15) +
   theme(legend.position = "right",
         strip.background = element_rect(fill = "grey60", color = "grey60"),
-        strip.text = element_text(size = 15, colour="white"))
+        strip.text = element_text(size = 18, colour="white"))
 
 gD <- ggplot(shp.r) +
   annotation_map_tile(type = "osm") +
@@ -122,7 +121,7 @@ gD <- ggplot(shp.r) +
   theme_void(base_size = 15) +
   theme(legend.position = "none",
         strip.background = element_rect(fill = "grey60", color = "grey60"),
-        strip.text = element_text(size = 30, colour="white"))
+        strip.text = element_text(size = 18, colour="white"))
 
 g <- gC + gD
 g <- g1 + g2 + gC
@@ -131,6 +130,105 @@ g
 ```
 
 # Results
+
+## Estimated positions {.tabset}
+
+```{r}
+df.m4$X_time <- as.POSIXct(df.m4$X_time)
+df.m4$time <- as.numeric(format(df.m4$X_time, "%H")) + as.numeric(format(df.m4$X_time, "%M"))/60
+shp.p$X_time <- shp.p$time
+shp.p$time <- as.numeric(format(shp.p$X_time, "%H")) + as.numeric(format(shp.p$X_time, "%M"))/60
+shp.p$date <- as.Date(shp.p$X_time)
+
+## df.m4 as shp
+# df.m4 <- st_as_sf(df.m4, coords = c("lon", "lat"), crs = crsLL)
+shp.est <- NULL
+
+for(m in unique(df.m4$meth2)) {
+  
+  for(t in unique(df.m4$tagID)) {
+    s <- unique(df.m4$site[df.m4$meth2 == m & df.m4$tagID == t])
+    tmp.p <- left_join(shp.p[shp.p$site %in% s,], df.m4[df.m4$meth2 == m & df.m4$tagID == t, c("X_time", "PE", "lon", "lat")],
+                   by = c("X_time"))
+    tmp.p$meth2 <- m
+    tmp.p$tagID <- t
+   
+    shp.est <- rbind(shp.est, tmp.p)
+  }
+}
+
+# for plotting
+shp.est$PE[shp.est$PE < 5] <- 5
+shp.est$PE[shp.est$PE > 1000] <- 1000
+
+plot.track <- function(data) {
+  
+  g <- ggplot() + 
+    annotation_map_tile(type = "osm") +
+    geom_sf(data = data, 
+            alpha = 0.2, aes(color = log10(PE)), pch = 1) +
+  
+    scale_color_viridis_c("PE [m]", option = "inferno", na.value = "grey",
+                          limits = c(log10(c(5, 1000))),
+                          breaks = c(log10(c(5, 10, 50, 100, 500, 1000))),
+                          label = c("<5", 10, 50, 100, 500, ">1000")) +
+    # geom_sf(data = df.stat[df.stat$station.project_id == "maisC",], 
+    #         aes(pch = type, fill = type), color = "black", stroke = 1.2, size = 3, alpha = 0.7) +
+    # scale_shape_manual("station type", values = c("direct" = 23, "omni" = 21),
+    #                    guide = guide_legend(order = 2)) +
+    # scale_fill_manual("station type", values = c("direct" = "white", "omni" = "grey60"),
+    #                    guide = guide_legend(order = 2)) +
+    # annotation_scale(height = unit(0.4, "cm"), text_cex = 1, width_hint = 0.4, bar_cols = c("grey60", "white")) +
+    facet_grid(cols = vars(trackID), rows = vars(meth2)) +  # Structured row & col facets
+    theme_void(base_size = 15) +
+    theme(
+      strip.placement = "outside",  # Moves strip labels outside
+      strip.background = element_rect(fill = "grey60", color = "grey60"),  # Remove background strip
+      strip.text = element_text(size = 15, colour="white"),
+      strip.text.y = element_text(angle = -90),
+      panel.spacing = unit(0.5, "lines")  # Adds spacing between panels
+  )  
+
+  return(g)
+}
+
+```
+
+
+### maisC 0.5m {-}
+```{r,  fig.cap = "Position errors (PE) of estimated positions per testtrack (columns) and method (rows) for a test transmitter at 0.5 m above ground in maisC. Ground-truth positions are displayed and colored by PE. Positions that could not be estimated are colored in gray. Note the log10 scaling of the PE color scale.", fig.width = 10, fig.height = 7}
+plot.track(data = shp.est[shp.est$site == "maisC" & shp.est$tagID == 0.5,])
+```
+
+### maisC 1m {-}
+```{r,  fig.cap = "Position errors (PE) of estimated positions per testtrack (columns) and method (rows) for a test transmitter at 1 m above ground in maisC. Ground-truth positions are displayed and colored by PE. Positions that could not be estimated are colored in gray. Note the log10 scaling of the PE color scale.", fig.width = 10, fig.height = 7}
+plot.track(data = shp.est[shp.est$site == "maisC" & shp.est$tagID == 1,])
+```
+
+### maisC 1.5m {-}
+```{r,  fig.cap = "Position errors (PE) of estimated positions per testtrack (columns) and method (rows) for a test transmitter at 1.5 m above ground in maisC. Ground-truth positions are displayed and colored by PE. Positions that could not be estimated are colored in gray. Note the log10 scaling of the PE color scale.", fig.width = 10, fig.height = 7}
+plot.track(data = shp.est[shp.est$site == "maisC" & shp.est$tagID == 1.5,])
+```
+
+### maisC 2m {-}
+```{r,  fig.cap = "Position errors (PE) of estimated positions per testtrack (columns) and method (rows) for a test transmitter at 2 m above ground in maisC. Ground-truth positions are displayed and colored by PE. Positions that could not be estimated are colored in gray. Note the log10 scaling of the PE color scale.", fig.width = 10, fig.height = 7}
+plot.track(data = shp.est[shp.est$site == "maisC" & shp.est$tagID == 2 & shp.est$trackID != "C1",])
+```
+
+### maisD 0.5m {-}
+```{r,  fig.cap = "Position errors (PE) of estimated positions per testtrack (columns) and method (rows) for a test transmitter at 0.5 m above ground in maisD. Ground-truth positions are displayed and colored by PE. Positions that could not be estimated are colored in gray. Note the log10 scaling of the PE color scale.", fig.width = 10, fig.height = 3.5}
+plot.track(data = shp.est[shp.est$site == "maisD" & shp.est$tagID == 0.5,])
+```
+
+### maisD 1m {-}
+```{r,  fig.cap = "Position errors (PE) of estimated positions per testtrack (columns) and method (rows) for a test transmitter at 1 m above ground in maisD. Ground-truth positions are displayed and colored by PE. Positions that could not be estimated are colored in gray. Note the log10 scaling of the PE color scale.", fig.width = 10, fig.height = 3.5}
+plot.track(data = shp.est[shp.est$site == "maisD" & shp.est$tagID == 1,])
+```
+
+### maisD 1.5m {-}
+```{r,  fig.cap = "Position errors (PE) of estimated positions per testtrack (columns) and method (rows) for a test transmitter at 1.5 m above ground in maisD. Ground-truth positions are displayed and colored by PE. Positions that could not be estimated are colored in gray. Note the log10 scaling of the PE color scale.", fig.width = 10, fig.height = 3.5}
+plot.track(data = shp.est[shp.est$site == "maisD" & shp.est$tagID == 1.5,])
+```
 
 ## Correlations between predictors {.tabset}
 
@@ -166,40 +264,42 @@ panel.cor <- function(x, y, digits = 2, prefix = "", cex.cor, ...) {
 panel.point <- function(x, y) {
   points(x, y, col = adjustcolor("black", alpha.f = 0.01), pch = 1)
 }
+
+
 ```
 
-### direct ab - maisC
-```{r, fig.cap = "Correlations between predictors, including correlation coefficients (upper panels) and histograms (diagonal panels) for directional antenna beams in maisC.", fig.width = 10, fig.height = 5}
+### direct ab - maisC {-}
+```{r, fig.cap = "Correlations between predictors (Ac = number of receiving antennas, Sc = number of receiving stations, cover = station cover (proxy for detection probability), maxSig = maximum received signal (dB), Weight = summed up normalized signals), including correlation coefficients (upper panels) and histograms (diagonal panels) for directional antenna beams in maisC.", fig.width = 10, fig.height = 5}
 df <- df.m4[df.m4$meth == "direct.ab" & df.m4$site == "maisC", c("Ac", "Sc", "cover", "maxSig", "Weight")]
 pairs(df, upper.panel = panel.cor, diag.panel = panel.hist, lower.panel = panel.point)
 ```
 
-### direct ab - maisD
-```{r, fig.cap = "Correlations between predictors, including correlation coefficients (upper panels) and histograms (diagonal panels) for directional antenna beams in maisD.", fig.width = 10, fig.height = 5}
+### direct ab - maisD {-}
+```{r, fig.cap = "Correlations between predictors (Ac = number of receiving antennas, Sc = number of receiving stations, cover = station cover (proxy for detection probability), maxSig = maximum received signal (dB), Weight = summed up normalized signals), including correlation coefficients (upper panels) and histograms (diagonal panels) for directional antenna beams in maisD.", fig.width = 10, fig.height = 5}
 df <- df.m4[df.m4$meth == "direct.ab" & df.m4$site == "maisD", c("Ac", "Sc", "cover", "maxSig", "Weight")]
 pairs(df, upper.panel = panel.cor, diag.panel = panel.hist, lower.panel = panel.point)
 ```
 
-### direct in - maisC
-```{r, fig.cap = "Correlations between predictors, including correlation coefficients (upper panels) and histograms (diagonal panels) for directional intersection in maisC.", fig.width = 10, fig.height = 5}
+### direct in - maisC {-}
+```{r, fig.cap = "Correlations between predictors (Sc = number of receiving stations, cover = station cover (proxy for detection probability), maxSig = maximum received signal (dB)), including correlation coefficients (upper panels) and histograms (diagonal panels) for directional intersection in maisC.", fig.width = 10, fig.height = 5}
 df <- df.m4[df.m4$meth == "direct.in" & df.m4$site == "maisC", c("Sc", "cover", "maxSig")]
 pairs(df, upper.panel = panel.cor, diag.panel = panel.hist, lower.panel = panel.point)
 ```
 
-### direct in - maisD
-```{r, fig.cap = "Correlations between predictors, including correlation coefficients (upper panels) and histograms (diagonal panels) for directional intersection in maisD.", fig.width = 10, fig.height = 5}
+### direct in - maisD {-}
+```{r, fig.cap = "Correlations between predictors (Sc = number of receiving stations, cover = station cover (proxy for detection probability), maxSig = maximum received signal (dB)), including correlation coefficients (upper panels) and histograms (diagonal panels) for directional intersection in maisD.", fig.width = 10, fig.height = 5}
 df <- df.m4[df.m4$meth == "direct.in" & df.m4$site == "maisD", c("Sc", "cover", "maxSig")]
 pairs(df, upper.panel = panel.cor, diag.panel = panel.hist, lower.panel = panel.point)
 ```
 
-### omni ab - maisC
-```{r, fig.cap = "Correlations between predictors, including correlation coefficients (upper panels) and histograms (diagonal panels) for omnidirectional antenna beams in maisC.", fig.width = 10, fig.height = 5}
+### omni ab - maisC {-}
+```{r, fig.cap = "Correlations between predictors (Sc = number of receiving stations, cover = station cover (proxy for detection probability), maxSig = maximum received signal (dB), Weight = summed up normalized signals), including correlation coefficients (upper panels) and histograms (diagonal panels) for omnidirectional antenna beams in maisC.", fig.width = 10, fig.height = 5}
 df <- df.m4[df.m4$meth == "omni.ab" & df.m4$site == "maisC", c("Sc", "cover", "maxSig", "Weight")]
 pairs(df, upper.panel = panel.cor, diag.panel = panel.hist, lower.panel = panel.point)
 ```
 
-### omni ml - maisC
-```{r, fig.cap = "Correlations between predictors, including correlation coefficients (upper panels) and histograms (diagonal panels) for omnidirectional multilateration in maisC.", fig.width = 10, fig.height = 5}
+### omni ml - maisC {-}
+```{r, fig.cap = "Correlations between predictors (Sc = number of receiving stations, cover = station cover (proxy for detection probability), maxSig = maximum received signal (dB)), including correlation coefficients (upper panels) and histograms (diagonal panels) for omnidirectional multilateration in maisC.", fig.width = 10, fig.height = 5}
 df <- df.m4[df.m4$meth == "omni.ml" & df.m4$site == "maisC", c("Sc", "cover", "maxSig")]
 pairs(df, upper.panel = panel.cor, diag.panel = panel.hist, lower.panel = panel.point)
 ```
@@ -209,20 +309,30 @@ pairs(df, upper.panel = panel.cor, diag.panel = panel.hist, lower.panel = panel.
 
 
 ```{r}
-plotPAdab <- function(d.pred, PApred, lower, upper, ytitle) {
+
+# get Sc levels and colors
+all_levels <- levels(df.sim5$Sc)
+fill_values <- color_values <- viridis::viridis(length(all_levels))  # Generates 10 distinct colors
+
+plotPAdab <- function(d.pred, PApred, lower, upper, lower25, upper75, ytitle) {
   
   d.pred$PApred <- d.pred[,PApred]
   d.pred$lower <- d.pred[,lower]
   d.pred$upper <- d.pred[,upper]
+  d.pred$lower25 <- d.pred[,lower25]
+  d.pred$upper75 <- d.pred[,upper75]
   
   g <- ggplot(d.pred) + 
-    geom_line(aes(x = Ac, y = PApred, group = Sc, color = Sc),
-              lwd = 1, alpha = 0.5, position = position_dodge(width = 0.3)) + 
+    geom_line(aes(x = Ac, y = PApred, group = as.factor(Sc), color = as.factor(Sc)),
+              lwd = 1, alpha = 0.5, position = position_dodge(width = 0.4)) + 
     geom_linerange(aes(x = Ac, y = PApred, ymin = lower, ymax = upper,
-                        group = Sc, color = Sc),
-              lwd = 1, alpha = 0.5, position = position_dodge(width = 0.3)) + 
+                        group = as.factor(Sc), color = as.factor(Sc)),
+              lwd = 0.5, alpha = 0.7, position = position_dodge(width = 0.4)) + 
+    geom_linerange(aes(x = Ac, y = PApred, ymin = lower25, ymax = upper75,
+                       group = as.factor(Sc), color = as.factor(Sc)),
+                   lwd = 1, alpha = 0.7, position = position_dodge(width = 0.4)) + 
 
-    scale_color_viridis_d("Sc", option = "viridis") +
+    scale_color_manual(name = "Sc", values = color_values, breaks = all_levels) +
     facet_wrap(~paste0(meth, " - ", site), ncol = 2, strip.position = "top") +
     xlab("number of antennas") +
     ylab(ytitle) +
@@ -245,27 +355,37 @@ plotPA <- function(d.sim, d.pred, PAsim, PApred, lower, upper, ytitle) {
   d.pred$lower <- d.pred[,lower]
   d.pred$upper <- d.pred[,upper]
   
-  g <- ggplot(d.pred) + 
+  g <- ggplot(d.sim) + 
 
-    geom_split_violin(aes(x = as.factor(Ac), y = PAsim, fill = Sc, color = Sc),
-                      alpha = 0.4, trim = TRUE, scale = "count", width = 2, 
-                      data = d.sim) +
-    
-    geom_point(aes(x = as.factor(Ac), y = PApred, group = Sc, color = Sc),
-              size = 3.5, alpha = 0.8) + 
-    geom_linerange(aes(x = as.factor(Ac), y = PApred, ymin = lower, ymax = upper,
-                       group = Sc, color = Sc),
-                   lwd = 1.5, alpha = 0.8) + 
+    stat_halfeye(aes(x = as.factor(Ac), y = PAsim, fill = Sc, color = Sc,
+                     linewidth = after_stat(.width)), # needed for linewidth
+                 .width = c(0.5, 0.95),
+                 #color = "black",
+                 fatten_point = 3,
+                 normalize = "groups", scale = 0.8, # "groups" ?
+                 slab_alpha = 0.5, side = "left") +
+    scale_linewidth_continuous(range = c(15, 5)) + # Define range of linewidths (reverse!!)
 
-    scale_color_viridis_d("Sc", option = "viridis") +
-    scale_fill_viridis_d("Sc", option = "viridis") +
+    # geom_split_violin(aes(x = as.factor(Ac), y = PAsim, fill = Sc, color = Sc),
+    #                   alpha = 0.4, trim = TRUE, scale = "count", width = 2, 
+    #                   data = d.sim) +
+    # 
+    # geom_point(aes(x = as.factor(Ac), y = PApred, group = Sc, color = Sc),
+    #           size = 3.5, alpha = 0.8) + 
+    # geom_linerange(aes(x = as.factor(Ac), y = PApred, ymin = lower, ymax = upper,
+    #                    group = Sc, color = Sc),
+    #                lwd = 1.5, alpha = 0.8) + 
+
+    scale_color_manual(name = "Sc", values = color_values, breaks = all_levels) +
+    scale_fill_manual(name = "Sc", values = fill_values, breaks = all_levels) +
     facet_wrap(~ paste0(meth, " - ", site), ncol = 2, strip.position = "top") +
     xlab("number of antennas") +
     ylab(ytitle) +
     ylim(0, max(c(d.sim$sim.m, d.sim$sim.q50, d.sim$sim.q65), na.rm = T)) +
     theme_light(base_size = 16) +
     theme(strip.background = element_rect(fill = "grey60", color = "grey60"),
-          strip.text = element_text(size = 15, colour="white"))
+          strip.text = element_text(size = 15, colour="white")) +
+    guides(linewidth = "none")
   
   return(g)
   
@@ -273,23 +393,24 @@ plotPA <- function(d.sim, d.pred, PAsim, PApred, lower, upper, ytitle) {
 ```
 
 
-### PA
+### PA {-}
 
-```{r, fig.cap = "Predicted PA from the global model, namely the estimated mean PE including 95 % CI (and density distribution, only in middle and bottom panels) for all present combinations of Ac-Sc per site and method. For predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination.", fig.height = 12}
+```{r, fig.cap = "Predicted mean PE (pPE, based on 4000 simulated datasets) from the global model, namely the median pPE (point) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels) for all present combinations of Ac-Sc per site and method. For predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination.", fig.height = 12}
 
 g1 <- plotPAdab(d.pred = df.pred5[df.pred5$meth == "direct ab",], 
-       PApred = "pred_mod", lower = "lwr", upper = "upr",
-       ytitle = "mean est. PE (m) and 95% CI")
+       PApred = "pred_mod", lower = "lwr", upper = "upr", 
+       lower25 = "lwr25", upper75 = "upr75",
+       ytitle = "pPE [m]")
 
 g2 <- plotPA(d.sim = df.sim5[df.sim5$meth == "direct in",], 
        d.pred = df.pred5[df.pred5$meth == "direct in",], 
        PAsim = "sim.m", PApred = "pred_mod", lower = "lwr", upper = "upr",
-       ytitle = "mean est. PE (m) and 95% CI")
+       ytitle = "pPE [m]")
 
 g3 <- plotPA(d.sim = df.sim5[df.sim5$meth %in% c("omni ab", "omni ml"),], 
        d.pred = df.pred5[df.pred5$meth %in% c("omni ab", "omni ml"),], 
        PAsim = "sim.m", PApred = "pred_mod", lower = "lwr", upper = "upr",
-       ytitle = "mean est. PE (m) and 95% CI")
+       ytitle = "pPE [m]")
 
 layout <- "
 A
@@ -302,23 +423,24 @@ g
 
 ```
 
-### PA50
+### PA50 {-}
 
-```{r, fig.cap = "Predicted PA50 from the global model, namely the estimated 50% quantile of PE including 95 % CI (and density distribution, only in middle and bottom panels) for all present combinations of Ac-Sc per site and method. For predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination.", fig.height = 12}
+```{r, fig.cap = "Predicted median PE (pPE50, based on 4000 simulated datasets) from the global model, namely the median estimated 50% quantile of PE (point) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels) for all present combinations of Ac-Sc per site and method. For predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination.", fig.height = 12}
 
 g1 <- plotPAdab(d.pred = df.pred5[df.pred5$meth == "direct ab",], 
        PApred = "q50", lower = "lwrq50", upper = "uprq50",
-       ytitle = "q50 of est. PE (m) and 95% CI")
+       lower25 = "lwr25q50", upper75 = "upr75q50",
+       ytitle = "pPE50 [m]")
 
 g2 <- plotPA(d.sim = df.sim5[df.sim5$meth == "direct in",], 
        d.pred = df.pred5[df.pred5$meth == "direct in",], 
        PAsim = "sim.q50", PApred = "q50", lower = "lwrq50", upper = "uprq50",
-       ytitle = "q50 of est. PE (m) and 95% CI")
+       ytitle = "pPE50 [m]")
 
 g3 <- plotPA(d.sim = df.sim5[df.sim5$meth %in% c("omni ab", "omni ml"),], 
        d.pred = df.pred5[df.pred5$meth %in% c("omni ab", "omni ml"),], 
        PAsim = "sim.q50", PApred = "q50", lower = "lwrq50", upper = "uprq50",
-       ytitle = "q50 of est. PE (m) and 95% CI")
+       ytitle = "pPE50 [m]")
 
 layout <- "
 A
@@ -331,23 +453,24 @@ g
 
 ```
 
-### PA65
+### PA65 {-}
 
-```{r, fig.cap = "Predicted PA65 from the global model, namely the estimated 65% quantile of PE including 95 % CI (and density distribution, only in middle and bottom panels) for all present combinations of Ac-Sc per site and method. For predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination.", fig.height = 12}
+```{r, fig.cap = "Predicted 65% quantile of PE (pPE65, based on 4000 simulated datasets) from the global model, namely the median estimated 65% quantile of PE (point) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels) for all present combinations of Ac-Sc per site and method. For predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination.", fig.height = 12}
 
 g1 <- plotPAdab(d.pred = df.pred5[df.pred5$meth == "direct ab",], 
        PApred = "q65", lower = "lwrq65", upper = "uprq65",
-       ytitle = "q65 of est. PE (m) and 95% CI")
+       lower25 = "lwr25q65", upper75 = "upr75q65",
+       ytitle = "pPE65 [m]")
 
 g2 <- plotPA(d.sim = df.sim5[df.sim5$meth == "direct in",], 
        d.pred = df.pred5[df.pred5$meth == "direct in",], 
        PAsim = "sim.q65", PApred = "q65", lower = "lwrq65", upper = "uprq65",
-       ytitle = "q65 of est. PE (m) and 95% CI")
+       ytitle = "pPE65 [m]")
 
 g3 <- plotPA(d.sim = df.sim5[df.sim5$meth %in% c("omni ab", "omni ml"),], 
        d.pred = df.pred5[df.pred5$meth %in% c("omni ab", "omni ml"),], 
        PAsim = "sim.q65", PApred = "q65", lower = "lwrq65", upper = "uprq65",
-       ytitle = "q65 of est. PE (m) and 95% CI")
+       ytitle = "pPE65 [m]")
 
 layout <- "
 A

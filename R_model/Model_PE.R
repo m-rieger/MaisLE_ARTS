@@ -10,6 +10,9 @@ source("./R_model/Linear modelling workflow_support functions.R")
 ## read in helper functions (e.g. for rolling mean)
 source("./help_functions.R") 
 
+# increase memory size per worker
+options(future.globals.maxSize = 1000 * 1024^2)
+
 ## load additional packages
 library(sf)
 library(ggeffects) # to predict gams (in fast way)
@@ -23,9 +26,12 @@ library(lubridate)
 
 ## global options
 theme_set(theme_light()) # ggplot theme 
-nsim <- 500 # number of simulatinos for predictions
+nsim <- 500 # number of simulatinos for distribution predictions
 nsamp <- 20000
 SAMP <- FALSE # use sample (nsamp, TRUE) or full data (FALSE)
+# Define the number of folds
+k <- 20
+FOLD <- FALSE # run kfold (TRUE)?
 
 crsLL <- 4326 # coordinates in lon lat
 
@@ -150,7 +156,7 @@ for(m in 1:nrow(tmp.mod)) {
   
   # get model prediction (summarized)
   tmp.pred <- post_predictN(data = df, modelTMB = mod,
-                           sims = TRUE, nsim = 1000,# save model simulations in mod.sims
+                           sims = TRUE, nsim = 4000,# save model simulations in mod.sims
                            newdat = newdat, component = "all",
                            DISP = T)
   tmp.pred$model <- tmp.mod$model[m]
@@ -158,11 +164,21 @@ for(m in 1:nrow(tmp.mod)) {
   tmp.pred$meth <- tmp.mod$meth[m]
   
   ## simulate raw data an get quantile (here: median)
-  q50 <- quant.rlnorm(m = mod.sims[[1]], sd = mod.sims[[2]], probs = 0.5, nsim = 1000)
+  q50 <- quant.rlnorm(m = mod.sims[[1]], sd = mod.sims[[2]], 
+                      probs = 0.5, nsim = 1000, SPEED = T)
   tmp.pred$q50 <- rowMeans(q50)
+  tmp.pred$lwrq50 <- apply(q50, 1, quantile, probs = 0.025)
+  tmp.pred$uprq50 <- apply(q50, 1, quantile, probs = 0.975)
+  tmp.pred$lwr25q50 <- apply(q50, 1, quantile, probs = 0.25)
+  tmp.pred$upr75q50 <- apply(q50, 1, quantile, probs = 0.75)
   
-  q65 <- quant.rlnorm(m = mod.sims[[1]], sd = mod.sims[[2]], probs = 0.65, nsim = 1000)
+  q65 <- quant.rlnorm(m = mod.sims[[1]], sd = mod.sims[[2]], 
+                      probs = 0.65, nsim = 1000, SPEED = T)
   tmp.pred$q65 <- rowMeans(q65)
+  tmp.pred$lwrq65 <- apply(q65, 1, quantile, probs = 0.025)
+  tmp.pred$uprq65 <- apply(q65, 1, quantile, probs = 0.975)
+  tmp.pred$lwr25q65 <- apply(q65, 1, quantile, probs = 0.25)
+  tmp.pred$upr75q65 <- apply(q65, 1, quantile, probs = 0.75)
   
   df.pred <- bind_rows(df.pred, tmp.pred)
   
@@ -717,7 +733,7 @@ for(m in unique(df.mod$site)) {
 
   # get model prediction (summarized)
   tmp.pred <- post_predictN(data = df, modelTMB = mod,
-                            sims = TRUE, nsim = 1000, # does not save model simulations in mod.sims
+                            sims = TRUE, nsim = 4000, # does not save model simulations in mod.sims
                             newdat = newdat,
                             DISP = T, 
                             component = "all")
@@ -725,7 +741,6 @@ for(m in unique(df.mod$site)) {
   tmp.pred$model <- "m4"
   tmp.pred$site <- m
 
-  df.pred <- bind_rows(df.pred, tmp.pred)
 
   ## get size of CI for plotting
   tmp.pred$diffCI <- tmp.pred$upr - tmp.pred$lwr
@@ -734,10 +749,20 @@ for(m in unique(df.mod$site)) {
   q50 <- quant.rlnorm(m = mod.sims[[1]], sd = mod.sims[[2]], 
                       probs = 0.5, nsim = 1000, SPEED = T)
   tmp.pred$q50 <- rowMeans(q50)
+  tmp.pred$lwrq50 <- apply(q50, 1, quantile, probs = 0.025)
+  tmp.pred$uprq50 <- apply(q50, 1, quantile, probs = 0.975)
+  tmp.pred$lwr25q50 <- apply(q50, 1, quantile, probs = 0.25)
+  tmp.pred$upr75q50 <- apply(q50, 1, quantile, probs = 0.75)
   
   q65 <- quant.rlnorm(m = mod.sims[[1]], sd = mod.sims[[2]], 
                       probs = 0.65, nsim = 1000, SPEED = T)
   tmp.pred$q65 <- rowMeans(q65)
+  tmp.pred$lwrq65 <- apply(q65, 1, quantile, probs = 0.025)
+  tmp.pred$uprq65 <- apply(q65, 1, quantile, probs = 0.975)
+  tmp.pred$lwr25q65 <- apply(q65, 1, quantile, probs = 0.25)
+  tmp.pred$upr75q65 <- apply(q65, 1, quantile, probs = 0.75)
+  
+  df.pred <- bind_rows(df.pred, tmp.pred)
   
   ## mod.sim as long formate
   tmp.sim <- data.frame()
@@ -812,10 +837,9 @@ write.csv(df.coef, "./output_model/model-coefficients_m4.csv", row.names = F)
 
 #### 5) m5 to get position accuracy (PA) maisC -----------------------------####
 #------------------------------------------------------------------------------#
-
-# Define the number of folds
-k <- 20
-FOLD <- FALSE # run kfold (TRUE)?
+## exclude track for testing
+df.test <- dat[dat$date %in% c("2023-10-13", "2023-09-13"),]
+dat <- dat[!dat$date %in% c("2023-10-13", "2023-09-13"),]
 
 df.coef <- NULL
 df.pred <- NULL
@@ -827,8 +851,13 @@ for(s in c("maisC", "maisD")) {
   
   ## subset data based on values in tmp.mod
   df <- subset(dat, 
-               site == s   &
+               site == s &
                  meth == m)
+  
+  ## test data
+  df.t <- subset(df.test,
+                 site == s &
+                   meth == m)
   
   ## convert columns to factors or ordered factors
   df <- df %>% mutate(across(c(tagID, meth), as.factor))
@@ -841,10 +870,11 @@ for(s in c("maisC", "maisD")) {
   ## remove NAs
   df <- df %>% filter(!is.na(PE) & !is.na(tagID) & !is.na(Weight) & !is.na(maxSig) & 
                         !is.na(Sc) & !is.na(Ac) & !is.na(cover))
+  df.t <- df.t %>% filter(!is.na(PE) & !is.na(tagID) & !is.na(Weight) & !is.na(maxSig) & 
+                            !is.na(Sc) & !is.na(Ac) & !is.na(cover))
   
   # ## use sample only (remove for final version)
   if(SAMP & nsamp <= nrow(df)) df <- df[sample(c(rep(TRUE, nsamp), rep(FALSE, nrow(df)-nsamp)), nrow(df) ,replace = F),]
-  write.csv(df, paste0("./output_model/data_m5_", s, "_", m, ".csv"), row.names = F)
   
   pdf(paste0("./output_model/output_m5_", s, "_", m, ".pdf"), height = 10, width = 10)
   
@@ -940,6 +970,16 @@ for(s in c("maisC", "maisD")) {
   
   saveRDS(mod, paste0("./output_model/model_m5_", s, "_", m, ".RDS"))
   
+  ## simulate raw data
+  xx <- simulate(mod, nsim = 1000)
+  write.csv(xx, paste0("./output_model/simulations_m5_", s, "_", m, ".csv"))
+  df$meanPE <- apply(xx, 1, mean)
+  df$q50PE <- apply(xx, 1, median)
+  df$q65PE <- apply(xx, 1, quantile, probs = 0.65)
+  df$q75PE <- apply(xx, 1, quantile, probs = 0.75)
+  df$sdPE <- apply(xx, 1, sd)
+  write.csv(df, paste0("./output_model/data_m5_", s, "_", m, ".csv"), row.names = F)
+  
   ## check residual plots (functions from Santon et al. 2023)
   # residual_plots(data = df, modelTMB = mod, response = "PE")
   # residual_plots_predictors(data = df, modelTMB = mod, predictors = "Sc")
@@ -991,13 +1031,13 @@ for(s in c("maisC", "maisD")) {
   
   # get model prediction (summarized)
   tmp.pred <- post_predictN(data = df, modelTMB = mod,
-                            sims = TRUE, nsim = 1000, # does not save model simulations in mod.sims
+                            sims = TRUE, nsim = 4000, # does not save model simulations in mod.sims
                             newdat = dplyr::select(newdat, -c(Sc, Ac)),
                             DISP = T,
                             component = "all")
   ####################
   tmp.pred2 <- post_predictN(data = df, modelTMB = mod,
-                            sims = F, nsim = 1000, # does not save model simulations in mod.sims
+                            sims = F, nsim = 4000, # does not save model simulations in mod.sims
                             newdat = dplyr::select(df, -c(Sc, Ac, Weight, maxSig, cover)),
                             DISP = F,
                             component = "all")
@@ -1014,11 +1054,15 @@ for(s in c("maisC", "maisD")) {
   tmp.pred$q50 <- rowMeans(q50)
   tmp.pred$lwrq50 <- apply(q50, 1, quantile, probs = 0.025)
   tmp.pred$uprq50 <- apply(q50, 1, quantile, probs = 0.975)
+  tmp.pred$lwr25q50 <- apply(q50, 1, quantile, probs = 0.25)
+  tmp.pred$upr75q50 <- apply(q50, 1, quantile, probs = 0.75)
   
   q65 <- quant.rlnorm(m = mod.sims[[1]], sd = mod.sims[[2]], probs = 0.65, nsim = 1000, SPEED = T)
   tmp.pred$q65 <- rowMeans(q65)
   tmp.pred$lwrq65 <- apply(q65, 1, quantile, probs = 0.025)
   tmp.pred$uprq65 <- apply(q65, 1, quantile, probs = 0.975)
+  tmp.pred$lwr25q65 <- apply(q65, 1, quantile, probs = 0.25)
+  tmp.pred$upr75q65 <- apply(q65, 1, quantile, probs = 0.75)
   
   ## get size of CI for plotting
   tmp.pred$diffCI <- tmp.pred$upr - tmp.pred$lwr
@@ -1120,6 +1164,69 @@ for(s in c("maisC", "maisD")) {
   
   xx <- df %>% group_by(Ac, Sc) %>%
     summarise(mean = mean(PE), median = median(PE), SD = sd(PE), n = n())
+  
+  ## predict for test testtrack
+  ## scale numeric values
+  newdat <- data.frame(tagID = rep(NA, nrow(df.t)))
+  newdat$Sc_z <- (df.t$Sc-mean(df$Sc)) / sd(df$Sc)
+  newdat$Ac_z <- (df.t$Ac-mean(df$Ac)) / sd(df$Ac)
+  newdat$maxSig_z <- (df.t$maxSig-mean(df$maxSig)) / sd(df$maxSig)
+  newdat$cover_z <- (df.t$cover-mean(df$cover)) / sd(df$cover)
+  newdat$Weight_z <- (df.t$Weight-mean(df$Weight)) / sd(df$Weight)
+  
+  tmp.pred <- post_predictN(data = df, modelTMB = mod,
+                            sims = TRUE, nsim = 1000,
+                            newdat = newdat,
+                            DISP = T,
+                            component = "all")
+  
+  
+  ## simulate raw data an get quantile (here: median)
+  q50 <- quant.rlnorm(m = mod.sims[[1]], sd = mod.sims[[2]], probs = 0.5, nsim = 100, SPEED = T)
+  tmp.pred$q50 <- rowMeans(q50)
+  tmp.pred$lwrq50 <- apply(q50, 1, quantile, probs = 0.025)
+  tmp.pred$uprq50 <- apply(q50, 1, quantile, probs = 0.975)
+  tmp.pred$lwr25q50 <- apply(q50, 1, quantile, probs = 0.25)
+  tmp.pred$upr75q50 <- apply(q50, 1, quantile, probs = 0.75)
+  
+  q65 <- quant.rlnorm(m = mod.sims[[1]], sd = mod.sims[[2]], probs = 0.65, nsim = 100, SPEED = T)
+  tmp.pred$q65 <- rowMeans(q65)
+  tmp.pred$lwrq65 <- apply(q65, 1, quantile, probs = 0.025)
+  tmp.pred$uprq65 <- apply(q65, 1, quantile, probs = 0.975)
+  tmp.pred$lwr25q65 <- apply(q65, 1, quantile, probs = 0.25)
+  tmp.pred$upr75q65 <- apply(q65, 1, quantile, probs = 0.75)
+  
+  ## get size of CI for plotting
+  tmp.pred$diffCI <- tmp.pred$upr - tmp.pred$lwr
+  tmp.pred$diffCIq50 <- tmp.pred$uprq50 - tmp.pred$lwrq50
+  tmp.pred$diffCIq65 <- tmp.pred$uprq65 - tmp.pred$lwrq65
+  
+  df.t <- cbind(df.t, tmp.pred[,colnames(tmp.pred)[!colnames(tmp.pred) %in% colnames(df.t)]]) ## check which rows to delete
+  df.t$diff <- df.t$PE - df.t$pred_mod
+  df.t$diffq50 <- df.t$PE - df.t$q50
+  df.t$diffq65 <- df.t$PE - df.t$q65
+  
+  write.csv(df.t, paste0("./output_model/data_test_m5_", s, "_", m, ".csv"), row.names = F)
+  
+  print(ggplot(df.t) + 
+          geom_abline(slope = 1, lty = "dashed", color = "blue") +
+          geom_point(aes(x = PE, y = q50), alpha = 0.2, pch = 1) +
+          geom_linerange(aes(x = PE, ymin = lwrq50, ymax = uprq50), lwd = 0.5, alpha = 0.1))
+  
+  print(ggplot(df.t) + 
+          stat_halfeye(aes(x = Individual, y = diff)))
+  print(ggplot(df.t) + 
+          stat_halfeye(aes(x = Individual, y = diffq50)))
+  print(ggplot(df.t) + 
+          stat_halfeye(aes(x = Individual, y = diffq65)))
+  
+  print(ggplot(df.t) + 
+          stat_halfeye(aes(x = Sc, y = diff)))
+  print(ggplot(df.t) + 
+          stat_halfeye(aes(x = Sc, y = diffq50)))
+  print(ggplot(df.t) + 
+          stat_halfeye(aes(x = Sc, y = diffq65)))
+  
   dev.off()
   
 }
@@ -1186,7 +1293,7 @@ for(f in fL) {
   newdat$Weight_z <- (df.t$Weight-mean(df$Weight)) / sd(df$Weight)
   
   tmp.pred <- post_predictN(data = df, modelTMB = mod,
-                            sims = TRUE, nsim = 1000,
+                            sims = TRUE, nsim = 4000,
                             newdat = newdat,
                             DISP = T,
                             component = "all")
@@ -1294,27 +1401,31 @@ for(m in c("direct.in", "omni.ml", "omni.ab")) {
     if(s == "maisD" & m %in% c("omni.ab", "omni.ml")) next
     ## subset data based on values in tmp.mod
     df <- subset(dat, 
-                 site == s   &
+                 site == s &
                    meth == m)
+    
+    ## test data
+    df.t <- subset(df.test,
+                   site == s &
+                     meth == m)
     
     ## convert columns to factors or ordered factors
     df <- df %>% mutate(across(c(tagID, meth), as.factor))
     
     ## z-transform numeric variables
-    df <- cbind(df, z_transform(data = df, predictors = c("Sc", "cover",
-                                                          "Weight", 
-                                                          "Ac", 
-                                                          "maxSig")))
+    df <- cbind(df, z_transform(data = df, predictors = c("Sc", "cover", 
+                                                          "Ac", "maxSig",
+                                                          "Weight")))
     
     ## remove NAs
-    df <- df %>% filter(!is.na(PE) & !is.na(tagID) & 
-                        #  !is.na(Weight) & !is.na(Ac) & 
-                          !is.na(maxSig) & !is.na(Sc) & !is.na(cover))
+    df <- df %>% filter(!is.na(PE) & !is.na(tagID) & !is.na(maxSig) & 
+                          !is.na(Sc) & !is.na(cover))
+    df.t <- df.t %>% filter(!is.na(PE) & !is.na(tagID) & !is.na(maxSig) & 
+                              !is.na(Sc) & !is.na(cover))
     
     # ## use sample only (remove for final version)
     if(SAMP & nsamp <= nrow(df)) df <- df[sample(c(rep(TRUE, nsamp), rep(FALSE, nrow(df)-nsamp)), nrow(df) ,replace = F),]
-    write.csv(df, paste0("./output_model/data_m5_", s, "_", m, ".csv"), row.names = F)
-    
+
     pdf(paste0("./output_model/output_m5_", s, "_", m, ".pdf"), height = 10, width = 10)
     
     print(ggplot(df) + geom_histogram(aes(x = PE)) + ggtitle(paste0(s, " - ", m)))
@@ -1426,6 +1537,16 @@ for(m in c("direct.in", "omni.ml", "omni.ab")) {
     
     saveRDS(mod, paste0("./output_model/model_m5_", s, "_", m, ".RDS"))
     
+    ## simulate raw data
+    xx <- simulate(mod, nsim = 1000)
+    write.csv(xx, paste0("./output_model/simulations_m5_", s, "_", m, ".csv"))
+    df$meanPE <- apply(xx, 1, mean)
+    df$q50PE <- apply(xx, 1, median)
+    df$q65PE <- apply(xx, 1, quantile, probs = 0.65)
+    df$q75PE <- apply(xx, 1, quantile, probs = 0.75)
+    df$sdPE <- apply(xx, 1, sd)
+    write.csv(df, paste0("./output_model/data_m5_", s, "_", m, ".csv"), row.names = F)
+    
     ## check dispersion parameters using raw (observed) and simulated values
     # disp.sim(data = df, modelTMB = mod, response = "PE", n.sim = nsim)
     sd.sim(data = df, modelTMB = mod, response = "PE", n.sim = nsim)
@@ -1473,13 +1594,13 @@ for(m in c("direct.in", "omni.ml", "omni.ab")) {
     
     
     tmp.pred <- post_predictN(data = df, modelTMB = mod,
-                              sims = TRUE, nsim = 1000, # does not save model simulations in mod.sims
+                              sims = TRUE, nsim = 4000, # does not save model simulations in mod.sims
                               newdat = dplyr::select(newdat, -c(Sc, Ac)),
                               DISP = T,
                               component = "all")
     
     tmp.pred2 <- post_predictN(data = df, modelTMB = mod,
-                              sims = F, nsim = 1000, # does not save model simulations in mod.sims
+                              sims = F, nsim = 4000, # does not save model simulations in mod.sims
                               newdat = dplyr::select(df, -c(Sc, Ac, Weight, maxSig, cover)),
                               DISP = F,
                               component = "all")
@@ -1587,6 +1708,68 @@ for(m in c("direct.in", "omni.ml", "omni.ab")) {
       geom_abline(slope = 1) + 
       scale_color_viridis_c("Ac/Sc") +
       facet_wrap(~as.factor(round(Sc, 0))))
+    
+    
+    ## predict for test testtrack
+    ## scale numeric values
+    newdat <- data.frame(tagID = rep(NA, nrow(df.t)))
+    newdat$Sc_z <- (df.t$Sc-mean(df$Sc)) / sd(df$Sc)
+    newdat$maxSig_z <- (df.t$maxSig-mean(df$maxSig)) / sd(df$maxSig)
+    newdat$cover_z <- (df.t$cover-mean(df$cover)) / sd(df$cover)
+    if(m == "omni.ab") newdat$Weight_z <- (df.t$Weight-mean(df$Weight)) / sd(df$Weight)
+    
+    tmp.pred <- post_predictN(data = df, modelTMB = mod,
+                              sims = TRUE, nsim = 1000,
+                              newdat = newdat,
+                              DISP = T,
+                              component = "all")
+    
+    
+    ## simulate raw data an get quantile (here: median)
+    q50 <- quant.rlnorm(m = mod.sims[[1]], sd = mod.sims[[2]], probs = 0.5, nsim = 100, SPEED = T)
+    tmp.pred$q50 <- rowMeans(q50)
+    tmp.pred$lwrq50 <- apply(q50, 1, quantile, probs = 0.025)
+    tmp.pred$uprq50 <- apply(q50, 1, quantile, probs = 0.975)
+    tmp.pred$lwr25q50 <- apply(q50, 1, quantile, probs = 0.25)
+    tmp.pred$upr75q50 <- apply(q50, 1, quantile, probs = 0.75)
+    
+    q65 <- quant.rlnorm(m = mod.sims[[1]], sd = mod.sims[[2]], probs = 0.65, nsim = 100, SPEED = T)
+    tmp.pred$q65 <- rowMeans(q65)
+    tmp.pred$lwrq65 <- apply(q65, 1, quantile, probs = 0.025)
+    tmp.pred$uprq65 <- apply(q65, 1, quantile, probs = 0.975)
+    tmp.pred$lwr25q65 <- apply(q65, 1, quantile, probs = 0.25)
+    tmp.pred$upr75q65 <- apply(q65, 1, quantile, probs = 0.75)
+    
+    ## get size of CI for plotting
+    tmp.pred$diffCI <- tmp.pred$upr - tmp.pred$lwr
+    tmp.pred$diffCIq50 <- tmp.pred$uprq50 - tmp.pred$lwrq50
+    tmp.pred$diffCIq65 <- tmp.pred$uprq65 - tmp.pred$lwrq65
+    
+    df.t <- cbind(df.t, tmp.pred[,colnames(tmp.pred)[!colnames(tmp.pred) %in% colnames(df.t)]]) ## check which rows to delete
+    df.t$diff <- df.t$PE - df.t$pred_mod
+    df.t$diffq50 <- df.t$PE - df.t$q50
+    df.t$diffq65 <- df.t$PE - df.t$q65
+    
+    write.csv(df.t, paste0("./output_model/data_test_m5_", s, "_", m, ".csv"), row.names = F)
+    
+    print(ggplot(df.t) + 
+      geom_abline(slope = 1, lty = "dashed", color = "blue") +
+      geom_point(aes(x = PE, y = q50), alpha = 0.2, pch = 1) +
+      geom_linerange(aes(x = PE, ymin = lwrq50, ymax = uprq50), lwd = 0.5, alpha = 0.1))
+    
+    print(ggplot(df.t) + 
+      stat_halfeye(aes(x = Individual, y = diff)))
+    print(ggplot(df.t) + 
+      stat_halfeye(aes(x = Individual, y = diffq50)))
+    print(ggplot(df.t) + 
+      stat_halfeye(aes(x = Individual, y = diffq65)))
+    
+    print(ggplot(df.t) + 
+      stat_halfeye(aes(x = Sc, y = diff)))
+    print(ggplot(df.t) + 
+      stat_halfeye(aes(x = Sc, y = diffq50)))
+    print(ggplot(df.t) + 
+      stat_halfeye(aes(x = Sc, y = diffq65)))
     
     dev.off()
   
