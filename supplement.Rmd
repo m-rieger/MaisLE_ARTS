@@ -141,14 +141,14 @@ shp.p$time <- as.numeric(format(shp.p$X_time, "%H")) + as.numeric(format(shp.p$X
 shp.p$date <- as.Date(shp.p$X_time)
 
 ## df.m4 as shp
-# df.m4 <- st_as_sf(df.m4, coords = c("lon", "lat"), crs = crsLL)
+shp.m4 <- st_as_sf(df.m4, coords = c("lon", "lat"), crs = crsLL)
 shp.est <- NULL
 
 for(m in unique(df.m4$meth2)) {
   
   for(t in unique(df.m4$tagID)) {
     s <- unique(df.m4$site[df.m4$meth2 == m & df.m4$tagID == t])
-    tmp.p <- left_join(shp.p[shp.p$site %in% s,], df.m4[df.m4$meth2 == m & df.m4$tagID == t, c("X_time", "PE", "lon", "lat")],
+    tmp.p <- left_join(shp.p[shp.p$site %in% s,], df.m4[df.m4$meth2 == m & df.m4$tagID == t, c("X_time", "PE", "lon", "lat", "allM2")],
                    by = c("X_time"))
     tmp.p$meth2 <- m
     tmp.p$tagID <- t
@@ -157,11 +157,28 @@ for(m in unique(df.m4$meth2)) {
   }
 }
 
+## needed for plotting overall results
+shp.est$allM2[is.na(shp.est$allM2)] <- "no"
+
 # for plotting
 shp.est$PE[shp.est$PE < 5] <- 5
 shp.est$PE[shp.est$PE > 1000] <- 1000
 
-plot.track <- function(data) {
+## df.stat
+df.statC <- df.stat[df.stat$station.project_id == "maisC",]
+df.statC <- full_join(df.statC, 
+                       data.frame(type = c("direct", "direct", "omni", "omni"),
+                                 meth2 = c("direct ab", "direct in", "omni ab", "omni ml")),
+                     by = "type")
+
+df.statD <- df.stat[df.stat$station.project_id == "maisD",]
+df.statD <- full_join(df.statD, 
+                       data.frame(type = c("direct", "direct"),
+                                 meth2 = c("direct ab", "direct in")),
+                     by = "type")
+
+
+plot.track <- function(data, data.stat) {
   
   g <- ggplot() + 
     annotation_map_tile(type = "osm") +
@@ -178,8 +195,54 @@ plot.track <- function(data) {
     #                    guide = guide_legend(order = 2)) +
     # scale_fill_manual("station type", values = c("direct" = "white", "omni" = "grey60"),
     #                    guide = guide_legend(order = 2)) +
-    # annotation_scale(height = unit(0.4, "cm"), text_cex = 1, width_hint = 0.4, bar_cols = c("grey60", "white")) +
+    
+    new_scale_fill() +
+  
+    geom_sf(data = data.stat, 
+          aes(pch = type, fill = type), color = "black", stroke = 1.2, size = 1.5, alpha = 0.7) +
+    scale_shape_manual("station type", values = c("direct" = 23, "omni" = 21),
+                     guide = guide_legend(order = 2)) +
+    scale_fill_manual("station type", values = c("direct" = "white", "omni" = "grey60"),
+                    guide = guide_legend(order = 2)) +
+
     facet_grid(cols = vars(trackID), rows = vars(meth2)) +  # Structured row & col facets
+    annotation_scale(height = unit(0.2, "cm"), text_cex = 1, width_hint = 0.4, style = "ticks") +
+    # annotation_custom(
+    # grob = textGrob("Scale Bar Here", gp = gpar(fontsize = 10)),  
+    # xmin = 2, xmax = 2, ymin = 10, ymax = 10) +
+    theme_void(base_size = 15) +
+    theme(
+      strip.placement = "outside",  # Moves strip labels outside
+      strip.background = element_rect(fill = "grey60", color = "grey60"),  # Remove background strip
+      strip.text = element_text(size = 15, colour="white"),
+      strip.text.y = element_text(angle = -90),
+      panel.spacing = unit(0.5, "lines")  # Adds spacing between panels
+  )  
+
+  return(g)
+}
+
+
+plot.track2 <- function(data, data.stat) {
+  
+  g <- ggplot() + 
+    annotation_map_tile(type = "osm") +
+    geom_sf(data = data, 
+            alpha = 0.2, aes(color = allM2), pch = 1) +
+  
+    scale_color_manual("all meth.", values = c("yes" = "darkorange", "no" = "grey")) +
+    
+    new_scale_fill() +
+  
+    geom_sf(data = data.stat, 
+          aes(pch = type, fill = type), color = "black", stroke = 1.2, size = 1.5, alpha = 0.7) +
+    scale_shape_manual("station type", values = c("direct" = 23, "omni" = 21),
+                     guide = guide_legend(order = 2)) +
+    scale_fill_manual("station type", values = c("direct" = "white", "omni" = "grey60"),
+                    guide = guide_legend(order = 2)) +
+    facet_grid(cols = vars(trackID), rows = vars(tagID)) +  # Structured row & col facets
+    annotation_scale(height = unit(0.2, "cm"), text_cex = 1, width_hint = 0.4, style = "ticks") +
+    guides(color = guide_legend(override.aes = list(alpha = 1))) +
     theme_void(base_size = 15) +
     theme(
       strip.placement = "outside",  # Moves strip labels outside
@@ -197,38 +260,78 @@ plot.track <- function(data) {
 
 ### maisC 0.5m {-}
 ```{r,  fig.cap = "Position errors (PE) of estimated positions per testtrack (columns) and method (rows) for a test transmitter at 0.5 m above ground in maisC. Ground-truth positions are displayed and colored by PE. Positions that could not be estimated are colored in gray. Note the log10 scaling of the PE color scale.", fig.width = 10, fig.height = 7}
-plot.track(data = shp.est[shp.est$site == "maisC" & shp.est$tagID == 0.5,])
+plot.track(data = shp.est[shp.est$site == "maisC" & shp.est$tagID == 0.5,], data.stat = df.statC)
 ```
 
 ### maisC 1m {-}
 ```{r,  fig.cap = "Position errors (PE) of estimated positions per testtrack (columns) and method (rows) for a test transmitter at 1 m above ground in maisC. Ground-truth positions are displayed and colored by PE. Positions that could not be estimated are colored in gray. Note the log10 scaling of the PE color scale.", fig.width = 10, fig.height = 7}
-plot.track(data = shp.est[shp.est$site == "maisC" & shp.est$tagID == 1,])
+plot.track(data = shp.est[shp.est$site == "maisC" & shp.est$tagID == 1,], data.stat = df.statC)
 ```
 
 ### maisC 1.5m {-}
 ```{r,  fig.cap = "Position errors (PE) of estimated positions per testtrack (columns) and method (rows) for a test transmitter at 1.5 m above ground in maisC. Ground-truth positions are displayed and colored by PE. Positions that could not be estimated are colored in gray. Note the log10 scaling of the PE color scale.", fig.width = 10, fig.height = 7}
-plot.track(data = shp.est[shp.est$site == "maisC" & shp.est$tagID == 1.5,])
+plot.track(data = shp.est[shp.est$site == "maisC" & shp.est$tagID == 1.5,], data.stat = df.statC)
 ```
 
 ### maisC 2m {-}
 ```{r,  fig.cap = "Position errors (PE) of estimated positions per testtrack (columns) and method (rows) for a test transmitter at 2 m above ground in maisC. Ground-truth positions are displayed and colored by PE. Positions that could not be estimated are colored in gray. Note the log10 scaling of the PE color scale.", fig.width = 10, fig.height = 7}
-plot.track(data = shp.est[shp.est$site == "maisC" & shp.est$tagID == 2 & shp.est$trackID != "C1",])
+plot.track(data = shp.est[shp.est$site == "maisC" & shp.est$tagID == 2 & shp.est$trackID != "C1",], data.stat = df.statC)
+```
+
+### maisC all meth. {-}
+```{r,  fig.cap = "Overview whether positions in maisC could be estimated by all methods ('yes', orange) or not ('no', grey) per testtrack (columns) and test transmitter (rows). Note that transmitter 2 was not used for test track C1.", fig.width = 10, fig.height = 7}
+plot.track2(data = shp.est[shp.est$site == "maisC" &  shp.est$meth2 == "direct ab",], data.stat = df.statC)
 ```
 
 ### maisD 0.5m {-}
 ```{r,  fig.cap = "Position errors (PE) of estimated positions per testtrack (columns) and method (rows) for a test transmitter at 0.5 m above ground in maisD. Ground-truth positions are displayed and colored by PE. Positions that could not be estimated are colored in gray. Note the log10 scaling of the PE color scale.", fig.width = 10, fig.height = 3.5}
-plot.track(data = shp.est[shp.est$site == "maisD" & shp.est$tagID == 0.5,])
+plot.track(data = shp.est[shp.est$site == "maisD" & shp.est$tagID == 0.5,], data.stat = df.statD)
 ```
 
 ### maisD 1m {-}
 ```{r,  fig.cap = "Position errors (PE) of estimated positions per testtrack (columns) and method (rows) for a test transmitter at 1 m above ground in maisD. Ground-truth positions are displayed and colored by PE. Positions that could not be estimated are colored in gray. Note the log10 scaling of the PE color scale.", fig.width = 10, fig.height = 3.5}
-plot.track(data = shp.est[shp.est$site == "maisD" & shp.est$tagID == 1,])
+plot.track(data = shp.est[shp.est$site == "maisD" & shp.est$tagID == 1,], data.stat = df.statD)
 ```
 
 ### maisD 1.5m {-}
 ```{r,  fig.cap = "Position errors (PE) of estimated positions per testtrack (columns) and method (rows) for a test transmitter at 1.5 m above ground in maisD. Ground-truth positions are displayed and colored by PE. Positions that could not be estimated are colored in gray. Note the log10 scaling of the PE color scale.", fig.width = 10, fig.height = 3.5}
-plot.track(data = shp.est[shp.est$site == "maisD" & shp.est$tagID == 1.5,])
+plot.track(data = shp.est[shp.est$site == "maisD" & shp.est$tagID == 1.5,], data.stat = df.statD)
 ```
+
+### maisD all meth. {-}
+```{r,  fig.cap = "Overview whether positions in mais D could be estimated by all methods ('yes', orange) or not ('no', grey) per testtrack (columns) and test transmitter (rows).", fig.width = 10, fig.height = 7}
+plot.track2(data = shp.est[shp.est$site == "maisD" &  shp.est$meth2 == "direct ab",], data.stat = df.statD)
+```
+
+
+```{r}
+
+## KDE for test trakcs
+# https://jamesepaterson.github.io/jamespatersonblog/04_trackingworkshop_kernels
+# shp.tmp <- shp.m4[shp.m4$meth == "direct.ab" & shp.m4$site == "maisC" & shp.m4$date == "2023-10-13",]
+# points_df <- st_coordinates(shp.tmp) %>% as.data.frame()
+# colnames(points_df) <- c("x", "y")
+# points_df$tagID <- shp.tmp$tagID
+# 
+# kde_contours <- ggplot_build(
+#   ggplot(points_df, aes(x = x, y = y, color = as.factor(tagID))) +
+#     stat_density_2d(geom = "density_2d")
+# )$data[[1]]
+# 
+# # Convert to sf and filter the 65% contour level
+# kde_sf <- kde_contours %>%
+#   group_by(group, colour, x, y, level) %>%
+#   summarise(do_union = FALSE) %>%
+#   st_as_sf(coords = c("x", "y"), crs = crsLL) %>%
+#   st_cast("LINESTRING") %>%
+#   filter(level == quantile(level, 0.65)) %>%
+#   filter(level == 0.65)
+# 
+# ggplot(kde_sf) + geom_sf(aes(color = colour))
+
+
+```
+
 
 ## Correlations between predictors {.tabset}
 
@@ -362,6 +465,7 @@ plotPA <- function(d.sim, d.pred, PAsim, PApred, lower, upper, ytitle) {
                  .width = c(0.5, 0.95),
                  #color = "black",
                  fatten_point = 3,
+                 point_color = "white", pch = 24,
                  normalize = "groups", scale = 0.8, # "groups" ?
                  slab_alpha = 0.5, side = "left") +
     scale_linewidth_continuous(range = c(15, 5)) + # Define range of linewidths (reverse!!)
@@ -395,7 +499,7 @@ plotPA <- function(d.sim, d.pred, PAsim, PApred, lower, upper, ytitle) {
 
 ### PA {-}
 
-```{r, fig.cap = "Predicted mean PE (pPE, based on 4000 simulated datasets) from the global model, namely the median pPE (point) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels) for all present combinations of Ac-Sc per site and method. For predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination.", fig.height = 12}
+```{r, fig.cap = "Predicted mean PE (pPE, based on 4000 simulated datasets) from the global model, namely the median pPE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels) for all present combinations of Ac-Sc per site and method. For predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination.", fig.height = 12}
 
 g1 <- plotPAdab(d.pred = df.pred5[df.pred5$meth == "direct ab",], 
        PApred = "pred_mod", lower = "lwr", upper = "upr", 
@@ -425,7 +529,7 @@ g
 
 ### PA50 {-}
 
-```{r, fig.cap = "Predicted median PE (pPE50, based on 4000 simulated datasets) from the global model, namely the median estimated 50% quantile of PE (point) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels) for all present combinations of Ac-Sc per site and method. For predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination.", fig.height = 12}
+```{r, fig.cap = "Predicted median PE (pPE50, based on 4000 simulated datasets) from the global model, namely the median estimated 50% quantile of PE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels) for all present combinations of Ac-Sc per site and method. For predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination.", fig.height = 12}
 
 g1 <- plotPAdab(d.pred = df.pred5[df.pred5$meth == "direct ab",], 
        PApred = "q50", lower = "lwrq50", upper = "uprq50",
@@ -455,7 +559,7 @@ g
 
 ### PA65 {-}
 
-```{r, fig.cap = "Predicted 65% quantile of PE (pPE65, based on 4000 simulated datasets) from the global model, namely the median estimated 65% quantile of PE (point) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels) for all present combinations of Ac-Sc per site and method. For predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination.", fig.height = 12}
+```{r, fig.cap = "Predicted 65% quantile of PE (pPE65, based on 4000 simulated datasets) from the global model, namely the median estimated 65% quantile of PE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels) for all present combinations of Ac-Sc per site and method. For predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination.", fig.height = 12}
 
 g1 <- plotPAdab(d.pred = df.pred5[df.pred5$meth == "direct ab",], 
        PApred = "q65", lower = "lwrq65", upper = "uprq65",

@@ -17,6 +17,7 @@ library(patchwork) # for combining plots
 library(ggdist) # plot densities
 # devtools::install_github("psyteachr/introdataviz")
 library(introdataviz)
+library(spatstat) # kernel density of sf object
 
 source("./R_model/Linear modelling workflow_support functions.R") 
 source("./help_functions.R") 
@@ -348,6 +349,63 @@ g <- gC + gD
 ggsave("./plots/plotCover.pdf", plot = gC, width = 18, height = 15, device = "pdf", units = "cm")
 ggsave("./plots/plotCoverSupp.pdf", plot = g, width = 30, height = 15, device = "pdf", units = "cm")
 
+#### 4) nextmatch lastmatch
+df.filter <- data.frame(signal = c("s0", "s1", "s2", NA, NA, NA),
+                        nm = c(NA, "(s0 nextmatch)", "(s1 nextmatch)", NA, NA, NA),
+                        y = 150.100,
+                        x = c(0, 1.1, 2.15, 0.7, 1.3, 2.65),
+                        color = c("darkblue", "darkorange", "grey30", "grey", "grey", "grey"))
+texp <- 1 ## expected time interval
+x0 <- df.filter$x[which(df.filter$signal == "s0")]
+c0 <- df.filter$color[which(df.filter$signal == "s0")]
+x1 <- df.filter$x[which(df.filter$signal == "s1")]
+c1 <- df.filter$color[which(df.filter$signal == "s1")]
+x2 <- df.filter$x[which(df.filter$signal == "s2")]
+
+g <- ggplot() + 
+  ## area for s0
+  geom_line(aes(x = x0+texp, y = c(150.050, 150.200)), color = c0, lty = "dashed") +
+  geom_rect(aes(xmin = x0+texp-0.5*texp, xmax = x0+texp+0.5*texp, ymin = 150.050, ymax = 150.200),
+            fill = c0, alpha = 0.2) +
+  geom_text(aes(x = x0+texp, y = 150.205), label = "window to search for s0 nextmatch", color = c0, size = 5) +
+  ## area for s1
+  geom_line(aes(x = x1+texp, y = c(150.050, 150.200)), color = c1, lty = "dashed") +
+  geom_rect(aes(xmin = x1+texp-0.5*texp, xmax = x1+texp+0.5*texp, ymin = 150.050, ymax = 150.200),
+            fill = c1, alpha = 0.2) +
+  geom_text(aes(x = x1+texp, y = 150.205), label = "window to search for s1 nextmatch", color = c1, size = 5) +
+  
+  ## lines s0
+  geom_line(aes(x = c(x0, x0+texp), y = 150.125), lwd = 1) +
+  geom_text(aes(x = mean(c(x0, x0+texp)), y = 150.13), label = "texp", size = 5) +
+
+  geom_line(aes(x = c(x0, x1), y = 150.135), color = c0, lwd = 1) +
+  geom_text(aes(x = mean(c(x0, x1)), y = 150.14), color = c0, label = "tact", size = 5) +
+  
+  geom_line(aes(x = c(x1, x0+texp), y = 150.145), color = c0, lwd = 1) +
+  geom_text(aes(x = mean(c(x1, x0+texp)), y = 150.15), color = c0, label = "Nextmatch delta", size = 5) +
+  
+  ## lines s1
+  geom_line(aes(x = c(x1, x1+texp), y = 150.125), lwd = 1) +
+  geom_text(aes(x = mean(c(x1, x1+texp)), y = 150.13), label = "texp", size = 5) +
+  
+  geom_line(aes(x = c(x1, x2), y = 150.135), color = c1, lwd = 1) +
+  geom_text(aes(x = mean(c(x1, x2)), y = 150.14), color = c1, label = "tact", size = 5) +
+  
+  geom_line(aes(x = c(x2, x1+texp), y = 150.145), color = c1, lwd = 1) +
+  geom_text(aes(x = mean(c(x2, x1+texp)), y = 150.15), color = c1, label = "Nextmatch delta", size = 5) +
+  
+  geom_point(aes(x = x, y = y), size = 5, color = df.filter$color, data = df.filter) +
+  geom_text(aes(label = signal, x = x, y = y-0.005), data = df.filter, size = 5, color = df.filter$color) +
+  geom_text(aes(label = nm, x = x, y = y-0.01), data = df.filter[!is.na(df.filter$nm),], size = 5, color = c(c0, c1)) +
+  
+  xlab("time [s]") +
+  ylab("frequency [MHz]") +
+  ylim(150.05, 150.21) +
+  theme_light(base_size = 15)
+  
+ggsave("./plots/plotNextmatch.pdf", plot = g, width = 30, height = 18, device = "pdf", units = "cm")
+
+
 #### 4) plot results -----------------------------------------------------------
 ## m1-4
 
@@ -609,8 +667,9 @@ g1 <- ggplot(tmp.m1) +
                .width = c(0.5, 0.95),
                #color = "black",
                fatten_point = 3,
+               point_color = "white",
                normalize = "groups", scale = 0.8, # "groups" ?
-               slab_alpha = 0.45, side = "left", pch = 17) +
+               slab_alpha = 0.45, side = "left", pch = 24) +
   scale_linewidth_continuous(range = c(15, 5)) + # Define range of linewidths (reverse!!)
   scale_color_manual("site", values = c("maisC" = "#440154", "maisD" = "#23898e")) +
   scale_fill_manual("site", values = c("maisC" = "#440154", "maisD" = "#23898e")) +
@@ -629,9 +688,10 @@ g4 <- ggplot() +
                .width = c(0.5, 0.95),
                #color = "black",
                fatten_point = 3,
+               point_color = "white",
                normalize = "groups", scale = 0.8, # "groups" ?
                slab_alpha = 0.6, side = "left",
-               data = tmp.m4, pch = 17) +
+               data = tmp.m4, pch = 24) +
   scale_linewidth_continuous(range = c(15, 5)) + # Define range of linewidths (reverse!!)
   scale_color_manual("site", values = c("maisC" = "#440154", "maisD" = "#23898e")) +
   scale_fill_manual("site", values = c("maisC" = "#440154", "maisD" = "#23898e")) +
@@ -663,7 +723,8 @@ g4c <- ggplot(data = df.m4, aes(x = group2, y = cover, fill = site, color = site
                #point_interval = NULL,
                aes(side = ifelse(allM2 == "yes", "left", "right"),
                    thickness = after_stat(pdf*n)), # scales to counts
-               normalize = "all", scale = 0.6) +
+           point_color = "white", pch = 21,
+           normalize = "all", scale = 0.6) +
   
   scale_color_manual("site", values = c("maisC" = "#440154", "maisD" = "#23898e")) +
   scale_fill_manual("site", values = c("maisC" = "#440154", "maisD" = "#23898e")) +
@@ -683,6 +744,7 @@ g4PE <- ggplot() +
            data = df.m4, aes(x = group2, y = PE, fill = site, color = site, alpha = allM2,
                              side = ifelse(allM2 == "yes", "left", "right"),
                              thickness = after_stat(pdf*n)), # scales to counts
+           point_color = "white", pch = 21,
            normalize = "all", scale = 0.6)  +  
   scale_color_manual("site", values = c("maisC" = "#440154", "maisD" = "#23898e")) +
   scale_fill_manual("site", values = c("maisC" = "#440154", "maisD" = "#23898e")) +
@@ -914,22 +976,34 @@ df.t5$thresh[df.t5$meth == "omni.ab" & df.t5$site == "maisC" & df.t5$Ac == 1] <-
 g1 <- ggplot() +
   geom_hline(yintercept = 0, lty = "dashed", color = "grey") +
   stat_eye(.width = NA, adjust = 3, 
-           #point_interval = NULL,
+           point_interval = NULL,
            mapping = aes(x = group2, y = pred_mod, fill = site, color = site, alpha = allM2,
                          side = "right",
                thickness = after_stat(pdf*n)), # scales to counts
            normalize = "all", scale = 0.6,
-           point_color = "black",
+           point_color = "white",
            data = df.t5, pch = 24) +
   
   stat_eye(.width = NA, adjust = 3, 
-           #point_interval = NULL,
+           point_interval = NULL,
            mapping = aes(x = group2, y = PE, fill = site, color = site, alpha = allM2,
                          side = "left",
                          thickness = after_stat(pdf*n)), # scales to counts
            normalize = "all", scale = 0.6,
-           point_color = "black",
+           point_color = "white",
            data = df.t5, pch = 21) +
+  
+  stat_pointinterval(.width = NA,
+                     mapping = aes(x = group2, y = pred_mod, fill = site, color = site, alpha = allM2,
+                                   side = "right"),
+                     point_color = "white", pch = 24,
+                     data = df.t5) +
+  
+  stat_pointinterval(.width = NA,
+                     mapping = aes(x = group2, y = PE, fill = site, color = site, alpha = allM2,
+                                   side = "left"),
+                     point_color = "white", pch = 21,
+                     data = df.t5) +
   
   scale_color_manual("site", values = c("maisC" = "#440154", "maisD" = "#23898e")) +
   scale_fill_manual("site", values = c("maisC" = "#440154", "maisD" = "#23898e")) +
@@ -950,6 +1024,7 @@ g2 <- ggplot() +
            mapping = aes(x = group2, y = diff, fill = site, color = site, alpha = allM2,
                          side = ifelse(allM2 == "yes", "left", "right"),
                          thickness = after_stat(pdf*n)), # scales to counts
+           point_color = "white", pch = 21,
            normalize = "all", scale = 0.6,
            data = df.t5) +
   
