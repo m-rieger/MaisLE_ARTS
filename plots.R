@@ -1054,6 +1054,87 @@ g <- g1 + g2
 ggsave("./plots/plotTest.pdf", plot = g, width = 34, height = 12, device = "pdf", units = "cm")
 
 
+df.t5 <- as.data.frame(df.t5)
+df.t5$Sc <- as.factor(df.t5$Sc)
+
+## summarize df.t5
+sum.t5 <- df.t5 %>% group_by(site, meth, Sc, Ac) %>%
+  summarise(nPoints = n(),
+            mdiff = median(diff),
+            lwr = quantile(diff, probs = 0.025),
+            upr = quantile(diff, probs = 0.975),
+            lwr25 = quantile(diff, probs = 0.25),
+            upr75 = quantile(diff, probs = 0.75), .groups = "drop"
+  )
+
+sum.t5 <- as.data.frame(sum.t5)
+
+sum.t5.2 <- df.t5 %>% group_by(site, meth, Sc, Ac) %>%
+  summarise(nPoints = n(),
+            mPE = median(pred_mod),
+            lwr = quantile(pred_mod, probs = 0.025),
+            upr = quantile(pred_mod, probs = 0.975),
+            lwr25 = quantile(pred_mod, probs = 0.25),
+            upr75 = quantile(pred_mod, probs = 0.75), .groups = "drop"
+  )
+
+sum.t5.2 <- as.data.frame(sum.t5.2)
+
+gdiff <- ggplot(sum.t5[sum.t5$meth == "direct.ab",]) + 
+
+  geom_hline(yintercept = 0, lty = "dashed", color = "grey40") +
+  geom_line(aes(x = Ac, y = mdiff, group = as.factor(Sc), color = as.factor(Sc)),
+            lwd = 1, alpha = 0.5, position = position_dodge(width = 0.4)) + 
+  geom_linerange(aes(x = Ac, ymin = lwr, ymax = upr,
+                     group = as.factor(Sc), color = as.factor(Sc)),
+                 lwd = 0.5, alpha = 0.7, position = position_dodge(width = 0.4)) + 
+  geom_linerange(aes(x = Ac, ymin = lwr25, ymax = upr75,
+                     group = as.factor(Sc), color = as.factor(Sc)),
+                 lwd = 1, alpha = 0.7, position = position_dodge(width = 0.4)) + 
+  
+  scale_color_viridis_d("Sc", option = "viridis") +
+  scale_fill_viridis_d("Sc", option = "viridis") +
+  facet_wrap(~site, ncol = 2, strip.position = "top") +
+  xlab("number of antennas") +
+  ylab("PE - pPE [m]") +
+  scale_x_continuous(breaks = c(4, 8, 12, 16, 20, 24, 28, 32), limits = c(0, 32)) +
+  theme_light(base_size = 16) +
+  theme(strip.background = element_blank(),
+        strip.text = element_blank())
+
+gpPE <- ggplot(sum.t5.2[sum.t5.2$meth == "direct.ab",]) + 
+  # geom_point(aes(x = Ac, y = PE, group = as.factor(Sc), color = as.factor(Sc)),
+  #            data = df.m4[df.m4$meth2 == "direct \nab",],
+  #            size = 0.5, alpha = 0.2, pch = 1, position = position_dodge(width = 0.3)) +
+  geom_line(aes(x = Ac, y = mPE, group = as.factor(Sc), color = as.factor(Sc)),
+            lwd = 1, alpha = 0.5, position = position_dodge(width = 0.4)) + 
+  geom_linerange(aes(x = Ac, ymin = lwr, ymax = upr,
+                     group = as.factor(Sc), color = as.factor(Sc)),
+                 lwd = 0.5, alpha = 0.7, position = position_dodge(width = 0.4)) + 
+  geom_linerange(aes(x = Ac, ymin = lwr25, ymax = upr75,
+                     group = as.factor(Sc), color = as.factor(Sc)),
+                 lwd = 1, alpha = 0.7, position = position_dodge(width = 0.4)) + 
+  # geom_point(aes(x = Ac, y = pred_mod, group = as.factor(Sc), color = as.factor(Sc)),
+  #                size = 1, alpha = 0.5, position = position_dodge(width = 0.3)) + 
+  scale_color_viridis_d("Sc", option = "viridis") +
+  facet_wrap(~site, ncol = 2, strip.position = "top") +
+  xlab("number of antennas") +
+  ylab("pPE [m]") +
+  scale_x_continuous(breaks = c(4, 8, 12, 16, 20, 24, 28, 32), limits = c(0, 32)) +
+  theme_light(base_size = 16) +
+  theme(strip.background = element_rect(fill = "grey60", color = "grey60"),
+        strip.text = element_text(size = 22, colour="white"),
+        axis.title.x = element_blank())
+
+layout <- "
+          A
+          B
+          "
+g <- gpPE + gdiff + plot_layout(design = layout)
+ggsave("./plots/plotPEdiff.pdf", plot = g, width = 34, height = 20, device = "pdf", units = "cm")
+
+
+
 ####5) table kfold -------------------------------------------------------------
 ## function for pseudo R2
 pR2 <- function(model, resp) {

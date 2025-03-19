@@ -279,7 +279,7 @@ plot.track(data = shp.est[shp.est$site == "maisC" & shp.est$tagID == 2 & shp.est
 ```
 
 ### maisC all meth. {-}
-```{r,  fig.cap = "Overview whether positions in maisC could be estimated by all methods ('yes', orange) or not ('no', grey) per testtrack (columns) and test transmitter (rows). Note that transmitter 2 was not used for test track C1.", fig.width = 10, fig.height = 7}
+```{r,  fig.cap = "Overview whether positions in maisC could be estimated by all methods ('yes', orange) or not ('no', grey) per testtrack (columns) and test transmitter (rows, the label depicts the transmitter's height above ground in m). Note that transmitter 2 was not used for test track C1.", fig.width = 10, fig.height = 7}
 plot.track2(data = shp.est[shp.est$site == "maisC" &  shp.est$meth2 == "direct ab",], data.stat = df.statC)
 ```
 
@@ -299,7 +299,7 @@ plot.track(data = shp.est[shp.est$site == "maisD" & shp.est$tagID == 1.5,], data
 ```
 
 ### maisD all meth. {-}
-```{r,  fig.cap = "Overview whether positions in mais D could be estimated by all methods ('yes', orange) or not ('no', grey) per testtrack (columns) and test transmitter (rows).", fig.width = 10, fig.height = 7}
+```{r,  fig.cap = "Overview whether positions in mais D could be estimated by all methods ('yes', orange) or not ('no', grey) per testtrack (columns) and test transmitter (rows, the label depicts the transmitter's height above ground in m).", fig.width = 10, fig.height = 7}
 plot.track2(data = shp.est[shp.est$site == "maisD" &  shp.est$meth2 == "direct ab",], data.stat = df.statD)
 ```
 
@@ -408,7 +408,7 @@ pairs(df, upper.panel = panel.cor, diag.panel = panel.hist, lower.panel = panel.
 ```
 
 
-## Position error and accuracy {.tabset}
+## Position error prediction {.tabset}
 
 
 ```{r}
@@ -441,7 +441,7 @@ plotPAdab <- function(d.pred, PApred, lower, upper, lower25, upper75, ytitle) {
     ylab(ytitle) +
     # ylim(0, 500) +
     scale_x_continuous(breaks = c(4, 8, 12, 16, 20, 24, 28, 32)) +
-    ylim(0, max(c(d.pred$upr, d.pred$uprq50, d.pred$uprq65), na.rm = T)) +
+    ylim(min(c(0, d.pred$lwr, d.pred$lwrq50, d.pred$lwrq65), na.rm = T), max(c(d.pred$upr, d.pred$uprq50, d.pred$uprq65), na.rm = T)) +
     theme_light(base_size = 16) +
     theme(strip.background = element_rect(fill = "grey60", color = "grey60"),
           strip.text = element_text(size = 15, colour="white"))  
@@ -451,12 +451,9 @@ plotPAdab <- function(d.pred, PApred, lower, upper, lower25, upper75, ytitle) {
 }
 
 
-plotPA <- function(d.sim, d.pred, PAsim, PApred, lower, upper, ytitle) {
+plotPA <- function(d.sim, PAsim, ytitle) {
   
   d.sim$PAsim <- d.sim[,PAsim]
-  d.pred$PApred <- d.pred[,PApred]
-  d.pred$lower <- d.pred[,lower]
-  d.pred$upper <- d.pred[,upper]
   
   g <- ggplot(d.sim) + 
 
@@ -470,22 +467,12 @@ plotPA <- function(d.sim, d.pred, PAsim, PApred, lower, upper, ytitle) {
                  slab_alpha = 0.5, side = "left") +
     scale_linewidth_continuous(range = c(15, 5)) + # Define range of linewidths (reverse!!)
 
-    # geom_split_violin(aes(x = as.factor(Ac), y = PAsim, fill = Sc, color = Sc),
-    #                   alpha = 0.4, trim = TRUE, scale = "count", width = 2, 
-    #                   data = d.sim) +
-    # 
-    # geom_point(aes(x = as.factor(Ac), y = PApred, group = Sc, color = Sc),
-    #           size = 3.5, alpha = 0.8) + 
-    # geom_linerange(aes(x = as.factor(Ac), y = PApred, ymin = lower, ymax = upper,
-    #                    group = Sc, color = Sc),
-    #                lwd = 1.5, alpha = 0.8) + 
-
     scale_color_manual(name = "Sc", values = color_values, breaks = all_levels) +
     scale_fill_manual(name = "Sc", values = fill_values, breaks = all_levels) +
     facet_wrap(~ paste0(meth, " - ", site), ncol = 2, strip.position = "top") +
     xlab("number of antennas") +
     ylab(ytitle) +
-    ylim(0, max(c(d.sim$sim.m, d.sim$sim.q50, d.sim$sim.q65), na.rm = T)) +
+    ylim(min(c(0, d.sim$PAsim)), max(d.sim$PAsim)) +
     theme_light(base_size = 16) +
     theme(strip.background = element_rect(fill = "grey60", color = "grey60"),
           strip.text = element_text(size = 15, colour="white")) +
@@ -497,9 +484,9 @@ plotPA <- function(d.sim, d.pred, PAsim, PApred, lower, upper, ytitle) {
 ```
 
 
-### PA {-}
+### pPE {-}
 
-```{r, fig.cap = "Predicted mean PE (pPE, based on 4000 simulated datasets) from the global model, namely the median pPE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels) for all present combinations of Ac-Sc per site and method. For predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination.", fig.height = 12}
+```{r, fig.cap = "Predicted mean PE (pPE, based on 4000 repetitions) from the global model, namely the median pPE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels) for all present combinations of Ac-Sc per site and method. For predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination.", fig.height = 12}
 
 g1 <- plotPAdab(d.pred = df.pred5[df.pred5$meth == "direct ab",], 
        PApred = "pred_mod", lower = "lwr", upper = "upr", 
@@ -507,12 +494,10 @@ g1 <- plotPAdab(d.pred = df.pred5[df.pred5$meth == "direct ab",],
        ytitle = "pPE [m]")
 
 g2 <- plotPA(d.sim = df.sim5[df.sim5$meth == "direct in",], 
-       d.pred = df.pred5[df.pred5$meth == "direct in",], 
        PAsim = "sim.m", PApred = "pred_mod", lower = "lwr", upper = "upr",
        ytitle = "pPE [m]")
 
 g3 <- plotPA(d.sim = df.sim5[df.sim5$meth %in% c("omni ab", "omni ml"),], 
-       d.pred = df.pred5[df.pred5$meth %in% c("omni ab", "omni ml"),], 
        PAsim = "sim.m", PApred = "pred_mod", lower = "lwr", upper = "upr",
        ytitle = "pPE [m]")
 
@@ -527,9 +512,37 @@ g
 
 ```
 
-### PA50 {-}
+### diff PE - pPE {-}
 
-```{r, fig.cap = "Predicted median PE (pPE50, based on 4000 simulated datasets) from the global model, namely the median estimated 50% quantile of PE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels) for all present combinations of Ac-Sc per site and method. For predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination.", fig.height = 12}
+```{r, fig.cap = "Difference between raw PE and predicted PE (pPE, based on 4000 repetitions) from the global model based on test tracks Ctest and Dtest, namely the median pPE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels). Positiones are summarized per present combinations of Ac-Sc per site and method. Note that this is based on raw data (not mean predictions), therefore showing more variance and larger CIs.", fig.height = 12}
+
+g1 <- plotPAdab(d.pred = sum.t5[sum.t5$meth == "direct.ab",], 
+       PApred = "mdiff", lower = "lwr", upper = "upr", 
+       lower25 = "lwr25", upper75 = "upr75",
+       ytitle = "PE - pPE [m]")
+
+g2 <- plotPA(d.sim = df.t5[df.t5$meth == "direct.in",], 
+       PAsim = "diff", 
+       ytitle = "PE - pPE [m]")
+
+g3 <- plotPA(d.sim = df.t5[df.t5$meth %in% c("omni.ab", "omni.ml"),], 
+       PAsim = "diff",
+       ytitle = "PE - pPE [m]")
+
+layout <- "
+A
+B
+C
+"
+
+g <- g1 + g2 + g3 + plot_layout(design = layout)
+g
+
+```
+
+### pPE q50 {-}
+
+```{r, fig.cap = "Predicted median PE (pPE50, based on 4000 repetitions) from the global model, namely the median estimated 50% quantile of PE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels) for all present combinations of Ac-Sc per site and method. For predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination.", fig.height = 12}
 
 g1 <- plotPAdab(d.pred = df.pred5[df.pred5$meth == "direct ab",], 
        PApred = "q50", lower = "lwrq50", upper = "uprq50",
@@ -537,13 +550,11 @@ g1 <- plotPAdab(d.pred = df.pred5[df.pred5$meth == "direct ab",],
        ytitle = "pPE50 [m]")
 
 g2 <- plotPA(d.sim = df.sim5[df.sim5$meth == "direct in",], 
-       d.pred = df.pred5[df.pred5$meth == "direct in",], 
-       PAsim = "sim.q50", PApred = "q50", lower = "lwrq50", upper = "uprq50",
+       PAsim = "sim.q50", 
        ytitle = "pPE50 [m]")
 
 g3 <- plotPA(d.sim = df.sim5[df.sim5$meth %in% c("omni ab", "omni ml"),], 
-       d.pred = df.pred5[df.pred5$meth %in% c("omni ab", "omni ml"),], 
-       PAsim = "sim.q50", PApred = "q50", lower = "lwrq50", upper = "uprq50",
+       PAsim = "sim.q50",
        ytitle = "pPE50 [m]")
 
 layout <- "
@@ -557,9 +568,9 @@ g
 
 ```
 
-### PA65 {-}
+### pPE q65 {-}
 
-```{r, fig.cap = "Predicted 65% quantile of PE (pPE65, based on 4000 simulated datasets) from the global model, namely the median estimated 65% quantile of PE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels) for all present combinations of Ac-Sc per site and method. For predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination.", fig.height = 12}
+```{r, fig.cap = "Predicted 65% quantile of PE (pPE65, based on 4000 repetitions) from the global model, namely the median estimated 65% quantile of PE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels) for all present combinations of Ac-Sc per site and method. For predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination.", fig.height = 12}
 
 g1 <- plotPAdab(d.pred = df.pred5[df.pred5$meth == "direct ab",], 
        PApred = "q65", lower = "lwrq65", upper = "uprq65",
@@ -567,13 +578,11 @@ g1 <- plotPAdab(d.pred = df.pred5[df.pred5$meth == "direct ab",],
        ytitle = "pPE65 [m]")
 
 g2 <- plotPA(d.sim = df.sim5[df.sim5$meth == "direct in",], 
-       d.pred = df.pred5[df.pred5$meth == "direct in",], 
-       PAsim = "sim.q65", PApred = "q65", lower = "lwrq65", upper = "uprq65",
+       PAsim = "sim.q65",
        ytitle = "pPE65 [m]")
 
 g3 <- plotPA(d.sim = df.sim5[df.sim5$meth %in% c("omni ab", "omni ml"),], 
-       d.pred = df.pred5[df.pred5$meth %in% c("omni ab", "omni ml"),], 
-       PAsim = "sim.q65", PApred = "q65", lower = "lwrq65", upper = "uprq65",
+       PAsim = "sim.q65", 
        ytitle = "pPE65 [m]")
 
 layout <- "
