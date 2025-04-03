@@ -17,11 +17,12 @@ library(kableExtra)
 # Methods
 
 ## Ground-truth data
+
 ```{r}
 # Properties of test tracks used to compare position estimations and accuracies for maisC (C1-4) and maisD (D1-
 # 4). N points is the number of recorded GPS positions (summarized in 2-second intervals) and N tags the number of used
 # transmitters.
-sum.p <- dplyr::select(sum.p, -c(site))
+if("site" %in% colnames(sum.p)) sum.p <- dplyr::select(sum.p, -c(site))
 
 colnames(sum.p)[colnames(sum.p) %in% c("trackID", "duration_h", "length_km")] <- c("track ID", "duration (h)", "length (km)") 
 
@@ -40,7 +41,211 @@ transmitters.",
 
 ```
 
+## Bearing estimation
+
+The bearings computed using the described method (x-axis) were compared to bearings computed from the positions recorded using a GPS track (y-axis), where the color indicated the error in bearing estimation. Received signals were matched to the GPS locations using the nearest time, hence GPS locations where no signal was received were not used for calibration. In the example, 10,543 signal detections with GPS location matches resulted in a median error of 4.5° and a root mean square error (RMSE) of 8.3°. While the median error indicated that the antenna might be rotated slightly by around 4.5 during the tests, the RMSE showed the variance in bearing estimates. Specifically the bearings near perpendicular to the antenna axes, i.e., 0°, 90°, 180° and 270°, had the largest errors. This was due to falsely selecting the antenna with the second strongest signal reception, which might happen due to the reception on the back lobe of the antenna.
+
+```{r, include=TRUE, fig.align="center", fig.cap = c("Example of linear bearing model applied to one station in maisC. x-axis = estimated bearings, y-axis = (true) bearings based on GPS locations from ground-truth data."), out.width = "400px"}
+knitr::include_graphics("./plots/bearing-model-crop.png")
+```
+
+## Distance estimation
+
+Fig. XX showed a calibration curve of an exponential power distance model fitted to the underlying calibration data. The received signals and GPS locations were matched based on the nearest time, as described in the previous section. The curve was optimized using non-linear least squares. In the shown example of the directional station, a calibration track of 7,371 GPS fixes achieved a median distance error of 32.7 m with a root mean square error of 49.7 m. The error in distance estimation was mainly caused by topography and vegetation in the test area as well as transmitter orientation. Note that the median distance error for omnidirectional stations was below 20 m in most cases, due to their uniform antenna characteristics.
+
+```{r, include=TRUE, fig.align="center", fig.cap = c("Exponential power distance model fit for one directional station in maisC."), out.width = "400px"}
+knitr::include_graphics("./plots/power-distance-model-crop.png")
+```
+
+## Angulation
+
+For the example we used three directional stations $s_0$, $s_1$ and $s_2$ each receiving the same signal of a transmitter.
+Based on the received signals strengths, $s_0$ selected the southern as the main and eastern as second antenna. 
+Using the received signal strengths and the configured maximum gain difference $\Delta m_ = 20$, the bearing was computed as follows:
+
+$$
+\begin{align}
+\Delta \omega_{s_0} &= (90° - 90° * \frac{-67 -(-68)}{20})~/~2 = 42.8° \\
+\omega_{s_0} &= 180° - 42.8° = 137.2°
+\end{align}
+$$
+
+The bearing of station $s_2$ was computed analog resulting in $\omega_{s_2} = 274.5°$.
+For $s_1$ no bearing could be estimated, since neither the eastern nor the western antenna detected the signal and hence could not be selected as second antenna to the main southern antenna.
+In terms of distance estimates in the presented illustrative example a fixed optimized curve of $d = 4 * 0.94^{p}$ was used (note that in a real world application, each station would have an individually fixed model).
+This results in distance estimations $d_{s_0} = 4 * 0.94^{-67} = 252.6~m$ and $d_{s_2} = 4 * 0.94^{-71} = 323.6~m$.
+Bearing and distance estimations are then used to compute pairwise intersections, which yielded one intersection in the presented example. 
+
+
+```{r, include=TRUE, fig.align="center", fig.cap=c("Exemplified position finding using angulation based on bearings."), out.width = "400px"}
+knitr::include_graphics("./plots/pos2-intersections.png")
+```
+
+## Antenna beams
+The antenna beam computations were performed using a detection range of $r = 1,300 m$ and a gain normalization of $p_n = 90 dB$.
+First, the gain normalization was used to compute per-antenna weights $W$ and the summed station weight $w$:
+
+$$
+\begin{align}
+W_{s_0} &= (-89, -68, -67, -83) + 90 = (1, 22, 23, 7) \\
+w_{s_0} &= \sum W_{s_0} = 53
+\end{align}
+$$
+
+Second, the relative positions $\Delta x$ and $\Delta y$ were computed using the weight difference on the respective axis divided by the station weight and multiplied with half the detection range. 
+
+$$
+\begin{align}
+\Delta x_{s_0} &= \frac{W_{s_0, 1} - W_{s_0, 3}}{w_{s_0}} * \frac{p}{2} = \frac{22-7}{53} * 650.0 = 184.0 m \\
+\Delta y_{s_0} &= \frac{W_{s_0, 0} - W_{s_0, 2}}{w_{s_0}} * \frac{p}{2} = \frac{1-23}{53} * 650.0 = -269.8 m
+\end{align}
+$$
+
+Third, the absolute locations were computed by adding the station coordinates, taking into account any configured rotation of the station.
+ 
+For every station with at least one received signal, a station location and a weight value are obtained, indicated by the colored plus symbol.
+Finally, using the weight $w$ of the stations, a combined position (weighted mean) was computed illustrated by the diamond marker.
+
+```{r, include=TRUE, fig.align="center", fig.cap=c("Exemplified position finding using antenna beams based on antenna geometry."), out.width = "400px"}
+knitr::include_graphics("./plots/pos2-antennabeams.png")
+```
+
+## Multilateration 
+
+For multilateration, the distance estimates per station were computed using the aforementioned exponentially fitted function $dist = 4 * 0.94^{power}$.
+This resulted in the distance estimates  
+$d_{S0} = 4 * 0.94^{-67} = 252.6 m$,  
+$d_{S1} = 4 * 0.94^{-78} = 499.0 m$ and  
+$d_{S2} = 4 * 0.94^{-71} = 323.6 m$.  
+The figure shows the distances as radius for the circles drawn around the center of the stations.
+An initial position is computed by the inverse distance weighted average of of the station positions.
+$x_0 = 0.437 * (200, 400) +  0.221 * (600, 700) +  0.341 * (800, 200) = (493.4, 398.1)$
+Starting at this initial position the location is optimized by minimizing the summed distance error using the Nelder-Mead method, resulting in the final position $(442.9, 243.5)$.
+
+```{r, include=TRUE, fig.align="center", fig.cap=c("Exemplified position finding using multilateration based on distances."), out.width = "400px"}
+knitr::include_graphics("./plots/pos2-multilaterations.png")
+```
+
+
+## Covered area
+
+```{r, fig.cap = "Theoretical areas where an estimated position can be located (based on the respective calculation per method). If the signal of a transmitter outside the area is detected, the estimated position will fall within the area. For directional antenna beams (direct ab) we used a detection range of 800 m for maisC and 900 m for maisD (see results section), for directional angulation (direct an) we assumed a maximum distance of 2*450 m which matches a maximum signal strength of approx. -80 dB, and for omnidirectional multilateration (omni ml) we assumed a maximum distance of 800 m. Note that the threoretical area does not imply that all true positions within this area can be estimated by the respective method. Copyright map data: OpenStreetMap contributors"}
+### convex hull for each method ------------------------------------------------
+dist_C <- 0.5*800
+dist_D <- 0.5*900
+
+dist_Can <- 2*450
+dist_Dan <- 2*450
+
+dist_Cml <- 800
+
+## maisC direct
+tmp <- st_transform(df.stat[df.stat$station.project_id == "maisC" & df.stat$type == "direct",], crs = crs)
+# antenna beams
+polyCdab <- tmp %>%
+  mutate(geometry = st_geometry(.) + c(dist_C, 0))
+polyCdab <- rbind(polyCdab,
+                   tmp %>% mutate(geometry = st_geometry(.) + c(-dist_C, 0)))
+polyCdab <- rbind(polyCdab,
+                   tmp %>% mutate(geometry = st_geometry(.) + c(0, dist_C)))
+polyCdab <- rbind(polyCdab,
+                   tmp %>% mutate(geometry = st_geometry(.) + c(0, -dist_C)))
+polyCdab <- st_set_crs(polyCdab, st_crs(tmp))
+
+polyCdab <- st_convex_hull(st_union(polyCdab))
+
+# angulation
+polyCdan <- st_buffer(tmp, dist = dist_Can)
+polyCdan <- st_intersection(polyCdan, polyCdan)
+polyCdan <- polyCdan[polyCdan$station.id != polyCdan$station.id.1, ]
+polyCdan <- st_convex_hull(st_union(st_combine(polyCdan)))
+
+## maisD direct
+tmp <- st_transform(df.stat[df.stat$station.project_id == "maisD" & df.stat$type == "direct",], crs = crs)
+# antenna beams
+polyDdab <- tmp %>%
+  mutate(geometry = st_geometry(.) + c(dist_D, 0))
+polyDdab <- rbind(polyDdab,
+                   tmp %>% mutate(geometry = st_geometry(.) + c(-dist_D, 0)))
+polyDdab <- rbind(polyDdab,
+                   tmp %>% mutate(geometry = st_geometry(.) + c(0, dist_D)))
+polyDdab <- rbind(polyDdab,
+                   tmp %>% mutate(geometry = st_geometry(.) + c(0, -dist_D)))
+polyDdab <- st_set_crs(polyDdab, st_crs(tmp))
+
+polyDdab <- st_convex_hull(st_union(polyDdab))
+
+# angulation
+polyDdan <- st_buffer(tmp, dist = dist_Dan)
+polyDdan <- st_intersection(polyDdan, polyDdan)
+polyDdan <- polyDdan[polyDdan$station.id != polyDdan$station.id.1, ]
+polyDdan <- st_convex_hull(st_union(st_combine(polyDdan)))
+
+## maisC omni
+# antenna beams
+polyCoab <- df.stat[df.stat$station.project_id == "maisC" & df.stat$type == "omni",]
+polyCoab <- st_convex_hull(st_union(polyCoab))
+
+# multilateration
+polyComl <- st_buffer(df.stat[df.stat$station.project_id == "maisC" & df.stat$type == "omni",], dist = dist_Cml)
+polyComl <- st_intersection(polyComl, polyComl)
+polyComl <- polyComl[polyComl$station.id != polyComl$station.id.1, ]
+polyComl <- st_convex_hull(st_union(st_combine(polyComl)))
+
+
+gC <- ggplot() + 
+  annotation_map_tile(type = "osm") +
+  geom_sf(data = polyCdan, alpha = 0.2, fill = "white", aes(lty = "direct an"), lwd = 1) +
+  geom_sf(data = polyComl, alpha = 0.2, fill = "grey60", aes(lty = "omni ml"), lwd = 1) +
+  geom_sf(data = polyCdab, alpha = 0.2, fill = "white", aes(lty = "direct ab"), lwd = 1) +
+  geom_sf(data = polyCoab, alpha = 0.2, fill = "grey60", aes(lty = "omni ab"), lwd = 1) +
+  geom_sf(data = df.stat[df.stat$station.project_id == "maisC",], 
+          aes(pch = type, fill = type), color = "black", stroke = 1.2, size = 3, alpha = 0.7) +
+  scale_shape_manual("station type", values = c("direct" = 23, "omni" = 21),
+                     guide = guide_legend(order = 2)) +
+  scale_fill_manual("station type", values = c("direct" = "white", "omni" = "grey60"),
+                    guide = guide_legend(order = 2)) +
+  scale_linetype_manual("method", values = c("direct an" = "dotted", "direct ab" = "solid", "omni ab" = "solid", "omni ml" = "dashed")) +
+  
+  annotation_scale(height = unit(0.4, "cm"), text_cex = 1, width_hint = 0.4, bar_cols = c("grey60", "white")) +
+  #coord_sf(xlim = c(dimC[1], dimC[3]), ylim = c(dimC[2], dimC[4]), expand = F) +
+  facet_grid(~"maisC") +
+  theme_void(base_size = 15) +
+  theme(legend.position = "right",
+        strip.background = element_rect(fill = "grey60", color = "grey60"),
+        strip.text = element_text(size = 30, colour="white"))
+
+gD <- ggplot() + 
+  annotation_map_tile(type = "osm") +
+  geom_sf(data = polyDdan, alpha = 0.2, fill = "white", aes(lty = "direct an"), lwd = 1) +
+  geom_sf(data = polyDdab, alpha = 0.2, fill = "white", aes(lty = "direct ab"), lwd = 1) +
+  geom_sf(data = df.stat[df.stat$station.project_id == "maisD",], 
+          aes(pch = type, fill = type), color = "black", stroke = 1.2, size = 3, alpha = 0.7) +
+  scale_shape_manual("station type", values = c("direct" = 23, "omni" = 21),
+                     guide = guide_legend(order = 2)) +
+  scale_fill_manual("station type", values = c("direct" = "white", "omni" = "grey60"),
+                    guide = guide_legend(order = 2)) +
+  scale_linetype_manual("method", values = c("direct an" = "dotted", "direct ab" = "solid", "omni ab" = "solid", "omni ml" = "dashed")) +
+  
+  #geom_sf(data = polyCoab, alpha = 0.2, fill = "grey60") +
+
+  annotation_scale(height = unit(0.4, "cm"), text_cex = 1, width_hint = 0.4, bar_cols = c("grey60", "white")) +
+  # coord_sf(xlim = c(dimD[1], dimD[3]), ylim = c(dimD[2], dimD[4]), expand = F) +
+  facet_grid(~"maisD") +
+  theme_void(base_size = 15) +
+  theme(legend.position = "none",
+        strip.background = element_rect(fill = "grey60", color = "grey60"),
+        strip.text = element_text(size = 30, colour="white"))
+
+g <- gC + gD
+g
+
+ggsave("./plots/plotCovArea.pdf", plot = g, width = 30, height = 15, device = "pdf", units = "cm")
+```
+
+
 ## Station cover
+
 ```{r, fig.cap = "Exemplified calculation of detection probability (left) and station cover (summed up detection probabilities across all stations, right) for directional antennas in maisC. Copyright map data: OpenStreetMap contributors"}
 ## plot example for methods
 shp.circ <- shp.circ[order(shp.circ$dens),]
@@ -168,13 +373,13 @@ shp.est$PE[shp.est$PE > 1000] <- 1000
 df.statC <- df.stat[df.stat$station.project_id == "maisC",]
 df.statC <- full_join(df.statC, 
                        data.frame(type = c("direct", "direct", "omni", "omni"),
-                                 meth2 = c("direct ab", "direct in", "omni ab", "omni ml")),
+                                 meth2 = c("direct ab", "direct an", "omni ab", "omni ml")),
                      by = "type")
 
 df.statD <- df.stat[df.stat$station.project_id == "maisD",]
 df.statD <- full_join(df.statD, 
                        data.frame(type = c("direct", "direct"),
-                                 meth2 = c("direct ab", "direct in")),
+                                 meth2 = c("direct ab", "direct an")),
                      by = "type")
 
 
@@ -257,52 +462,59 @@ plot.track2 <- function(data, data.stat) {
 
 ```
 
+### maisC 0.5m {.unnumbered}
 
-### maisC 0.5m {-}
 ```{r,  fig.cap = "Position errors (PE) of estimated positions per testtrack (columns) and method (rows) for a test transmitter at 0.5 m above ground in maisC. Ground-truth positions are displayed and colored by PE. Positions that could not be estimated are colored in gray. Note the log10 scaling of the PE color scale.", fig.width = 10, fig.height = 7}
 plot.track(data = shp.est[shp.est$site == "maisC" & shp.est$tagID == 0.5,], data.stat = df.statC)
 ```
 
-### maisC 1m {-}
+### maisC 1m {.unnumbered}
+
 ```{r,  fig.cap = "Position errors (PE) of estimated positions per testtrack (columns) and method (rows) for a test transmitter at 1 m above ground in maisC. Ground-truth positions are displayed and colored by PE. Positions that could not be estimated are colored in gray. Note the log10 scaling of the PE color scale.", fig.width = 10, fig.height = 7}
 plot.track(data = shp.est[shp.est$site == "maisC" & shp.est$tagID == 1,], data.stat = df.statC)
 ```
 
-### maisC 1.5m {-}
+### maisC 1.5m {.unnumbered}
+
 ```{r,  fig.cap = "Position errors (PE) of estimated positions per testtrack (columns) and method (rows) for a test transmitter at 1.5 m above ground in maisC. Ground-truth positions are displayed and colored by PE. Positions that could not be estimated are colored in gray. Note the log10 scaling of the PE color scale.", fig.width = 10, fig.height = 7}
 plot.track(data = shp.est[shp.est$site == "maisC" & shp.est$tagID == 1.5,], data.stat = df.statC)
 ```
 
-### maisC 2m {-}
+### maisC 2m {.unnumbered}
+
 ```{r,  fig.cap = "Position errors (PE) of estimated positions per testtrack (columns) and method (rows) for a test transmitter at 2 m above ground in maisC. Ground-truth positions are displayed and colored by PE. Positions that could not be estimated are colored in gray. Note the log10 scaling of the PE color scale.", fig.width = 10, fig.height = 7}
 plot.track(data = shp.est[shp.est$site == "maisC" & shp.est$tagID == 2 & shp.est$trackID != "C1",], data.stat = df.statC)
 ```
 
-### maisC all meth. {-}
+### maisC all meth. {.unnumbered}
+
 ```{r,  fig.cap = "Overview whether positions in maisC could be estimated by all methods ('yes', orange) or not ('no', grey) per testtrack (columns) and test transmitter (rows, the label depicts the transmitter's height above ground in m). Note that transmitter 2 was not used for test track C1.", fig.width = 10, fig.height = 7}
 plot.track2(data = shp.est[shp.est$site == "maisC" &  shp.est$meth2 == "direct ab",], data.stat = df.statC)
 ```
 
-### maisD 0.5m {-}
+### maisD 0.5m {.unnumbered}
+
 ```{r,  fig.cap = "Position errors (PE) of estimated positions per testtrack (columns) and method (rows) for a test transmitter at 0.5 m above ground in maisD. Ground-truth positions are displayed and colored by PE. Positions that could not be estimated are colored in gray. Note the log10 scaling of the PE color scale.", fig.width = 10, fig.height = 3.5}
 plot.track(data = shp.est[shp.est$site == "maisD" & shp.est$tagID == 0.5,], data.stat = df.statD)
 ```
 
-### maisD 1m {-}
+### maisD 1m {.unnumbered}
+
 ```{r,  fig.cap = "Position errors (PE) of estimated positions per testtrack (columns) and method (rows) for a test transmitter at 1 m above ground in maisD. Ground-truth positions are displayed and colored by PE. Positions that could not be estimated are colored in gray. Note the log10 scaling of the PE color scale.", fig.width = 10, fig.height = 3.5}
 plot.track(data = shp.est[shp.est$site == "maisD" & shp.est$tagID == 1,], data.stat = df.statD)
 ```
 
-### maisD 1.5m {-}
+### maisD 1.5m {.unnumbered}
+
 ```{r,  fig.cap = "Position errors (PE) of estimated positions per testtrack (columns) and method (rows) for a test transmitter at 1.5 m above ground in maisD. Ground-truth positions are displayed and colored by PE. Positions that could not be estimated are colored in gray. Note the log10 scaling of the PE color scale.", fig.width = 10, fig.height = 3.5}
 plot.track(data = shp.est[shp.est$site == "maisD" & shp.est$tagID == 1.5,], data.stat = df.statD)
 ```
 
-### maisD all meth. {-}
+### maisD all meth. {.unnumbered}
+
 ```{r,  fig.cap = "Overview whether positions in mais D could be estimated by all methods ('yes', orange) or not ('no', grey) per testtrack (columns) and test transmitter (rows, the label depicts the transmitter's height above ground in m).", fig.width = 10, fig.height = 7}
 plot.track2(data = shp.est[shp.est$site == "maisD" &  shp.est$meth2 == "direct ab",], data.stat = df.statD)
 ```
-
 
 ```{r}
 
@@ -332,11 +544,12 @@ plot.track2(data = shp.est[shp.est$site == "maisD" &  shp.est$meth2 == "direct a
 
 ```
 
-
 ## Correlations between predictors {.tabset}
 
-
 ```{r}
+
+df.m4$PE_log10 <- log10(df.m4$PE)
+
 ## helper functions for pairs()
 panel.hist <- function(x, ...) {
   usr <- par("usr")
@@ -371,45 +584,49 @@ panel.point <- function(x, y) {
 
 ```
 
-### direct ab - maisC {-}
-```{r, fig.cap = "Correlations between predictors (Ac = number of receiving antennas, Sc = number of receiving stations, cover = station cover (proxy for detection probability), maxSig = maximum received signal (dB), Weight = summed up normalized signals), including correlation coefficients (upper panels) and histograms (diagonal panels) for directional antenna beams in maisC.", fig.width = 10, fig.height = 5}
-df <- df.m4[df.m4$meth == "direct.ab" & df.m4$site == "maisC", c("Ac", "Sc", "cover", "maxSig", "Weight")]
+### direct ab - maisC {.unnumbered}
+
+```{r, fig.cap = "Correlations between predictors (Ac = number of receiving antennas, Sc = number of receiving stations, cover = station cover (proxy for detection probability), maxSig = maximum received signal (dB), Weight = summed up normalized signals), including correlation coefficients (upper panels) and histograms (diagonal panels) for directional antenna beams in maisC.", fig.width = 10, fig.height = 5.5}
+df <- df.m4[df.m4$meth == "direct.ab" & df.m4$site == "maisC", c("Ac", "Sc", "cover", "maxSig", "Weight", "PE_log10")]
 pairs(df, upper.panel = panel.cor, diag.panel = panel.hist, lower.panel = panel.point)
 ```
 
-### direct ab - maisD {-}
-```{r, fig.cap = "Correlations between predictors (Ac = number of receiving antennas, Sc = number of receiving stations, cover = station cover (proxy for detection probability), maxSig = maximum received signal (dB), Weight = summed up normalized signals), including correlation coefficients (upper panels) and histograms (diagonal panels) for directional antenna beams in maisD.", fig.width = 10, fig.height = 5}
-df <- df.m4[df.m4$meth == "direct.ab" & df.m4$site == "maisD", c("Ac", "Sc", "cover", "maxSig", "Weight")]
+### direct ab - maisD {.unnumbered}
+
+```{r, fig.cap = "Correlations between predictors (Ac = number of receiving antennas, Sc = number of receiving stations, cover = station cover (proxy for detection probability), maxSig = maximum received signal (dB), Weight = summed up normalized signals), including correlation coefficients (upper panels) and histograms (diagonal panels) for directional antenna beams in maisD.", fig.width = 10, fig.height = 5.5}
+df <- df.m4[df.m4$meth == "direct.ab" & df.m4$site == "maisD", c("Ac", "Sc", "cover", "maxSig", "Weight", "PE_log10")]
 pairs(df, upper.panel = panel.cor, diag.panel = panel.hist, lower.panel = panel.point)
 ```
 
-### direct in - maisC {-}
-```{r, fig.cap = "Correlations between predictors (Sc = number of receiving stations, cover = station cover (proxy for detection probability), maxSig = maximum received signal (dB)), including correlation coefficients (upper panels) and histograms (diagonal panels) for directional intersection in maisC.", fig.width = 10, fig.height = 5}
-df <- df.m4[df.m4$meth == "direct.in" & df.m4$site == "maisC", c("Sc", "cover", "maxSig")]
+### direct an - maisC {.unnumbered}
+
+```{r, fig.cap = "Correlations between predictors (Sc = number of receiving stations, cover = station cover (proxy for detection probability), maxSig = maximum received signal (dB)), including correlation coefficients (upper panels) and histograms (diagonal panels) for directional angulation in maisC.", fig.width = 10, fig.height = 5.5}
+df <- df.m4[df.m4$meth == "direct.in" & df.m4$site == "maisC", c("Sc", "cover", "maxSig", "PE_log10")]
 pairs(df, upper.panel = panel.cor, diag.panel = panel.hist, lower.panel = panel.point)
 ```
 
-### direct in - maisD {-}
-```{r, fig.cap = "Correlations between predictors (Sc = number of receiving stations, cover = station cover (proxy for detection probability), maxSig = maximum received signal (dB)), including correlation coefficients (upper panels) and histograms (diagonal panels) for directional intersection in maisD.", fig.width = 10, fig.height = 5}
-df <- df.m4[df.m4$meth == "direct.in" & df.m4$site == "maisD", c("Sc", "cover", "maxSig")]
+### direct an - maisD {.unnumbered}
+
+```{r, fig.cap = "Correlations between predictors (Sc = number of receiving stations, cover = station cover (proxy for detection probability), maxSig = maximum received signal (dB)), including correlation coefficients (upper panels) and histograms (diagonal panels) for directional angulation in maisD.", fig.width = 10, fig.height = 5.5}
+df <- df.m4[df.m4$meth == "direct.in" & df.m4$site == "maisD", c("Sc", "cover", "maxSig", "PE_log10")]
 pairs(df, upper.panel = panel.cor, diag.panel = panel.hist, lower.panel = panel.point)
 ```
 
-### omni ab - maisC {-}
-```{r, fig.cap = "Correlations between predictors (Sc = number of receiving stations, cover = station cover (proxy for detection probability), maxSig = maximum received signal (dB), Weight = summed up normalized signals), including correlation coefficients (upper panels) and histograms (diagonal panels) for omnidirectional antenna beams in maisC.", fig.width = 10, fig.height = 5}
-df <- df.m4[df.m4$meth == "omni.ab" & df.m4$site == "maisC", c("Sc", "cover", "maxSig", "Weight")]
+### omni ab - maisC {.unnumbered}
+
+```{r, fig.cap = "Correlations between predictors (Sc = number of receiving stations, cover = station cover (proxy for detection probability), maxSig = maximum received signal (dB), Weight = summed up normalized signals), including correlation coefficients (upper panels) and histograms (diagonal panels) for omnidirectional antenna beams in maisC.", fig.width = 10, fig.height = 5.5}
+df <- df.m4[df.m4$meth == "omni.ab" & df.m4$site == "maisC", c("Sc", "cover", "maxSig", "Weight", "PE_log10")]
 pairs(df, upper.panel = panel.cor, diag.panel = panel.hist, lower.panel = panel.point)
 ```
 
-### omni ml - maisC {-}
-```{r, fig.cap = "Correlations between predictors (Sc = number of receiving stations, cover = station cover (proxy for detection probability), maxSig = maximum received signal (dB)), including correlation coefficients (upper panels) and histograms (diagonal panels) for omnidirectional multilateration in maisC.", fig.width = 10, fig.height = 5}
-df <- df.m4[df.m4$meth == "omni.ml" & df.m4$site == "maisC", c("Sc", "cover", "maxSig")]
+### omni ml - maisC {.unnumbered}
+
+```{r, fig.cap = "Correlations between predictors (Sc = number of receiving stations, cover = station cover (proxy for detection probability), maxSig = maximum received signal (dB)), including correlation coefficients (upper panels) and histograms (diagonal panels) for omnidirectional multilateration in maisC.", fig.width = 10, fig.height = 5.5}
+df <- df.m4[df.m4$meth == "omni.ml" & df.m4$site == "maisC", c("Sc", "cover", "maxSig", "PE_log10")]
 pairs(df, upper.panel = panel.cor, diag.panel = panel.hist, lower.panel = panel.point)
 ```
-
 
 ## Position error prediction {.tabset}
-
 
 ```{r}
 
@@ -483,8 +700,7 @@ plotPA <- function(d.sim, PAsim, ytitle) {
 }
 ```
 
-
-### pPE {-}
+### pPE model {.unnumbered}
 
 ```{r, fig.cap = "Predicted mean PE (pPE, based on 4000 repetitions) from the global model, namely the median pPE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels) for all present combinations of Ac-Sc per site and method. For predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination.", fig.height = 12}
 
@@ -493,12 +709,12 @@ g1 <- plotPAdab(d.pred = df.pred5[df.pred5$meth == "direct ab",],
        lower25 = "lwr25", upper75 = "upr75",
        ytitle = "pPE [m]")
 
-g2 <- plotPA(d.sim = df.sim5[df.sim5$meth == "direct in",], 
-       PAsim = "sim.m", PApred = "pred_mod", lower = "lwr", upper = "upr",
+g2 <- plotPA(d.sim = df.sim5[df.sim5$meth == "direct an",], 
+       PAsim = "sim.m", 
        ytitle = "pPE [m]")
 
 g3 <- plotPA(d.sim = df.sim5[df.sim5$meth %in% c("omni ab", "omni ml"),], 
-       PAsim = "sim.m", PApred = "pred_mod", lower = "lwr", upper = "upr",
+       PAsim = "sim.m", 
        ytitle = "pPE [m]")
 
 layout <- "
@@ -512,9 +728,37 @@ g
 
 ```
 
-### diff PE - pPE {-}
+### pPE Ctest, Dtest {.unnumbered}
 
-```{r, fig.cap = "Difference between raw PE and predicted PE (pPE, based on 4000 repetitions) from the global model based on test tracks Ctest and Dtest, namely the median pPE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels). Positiones are summarized per present combinations of Ac-Sc per site and method. Note that this is based on raw data (not mean predictions), therefore showing more variance and larger CIs.", fig.height = 12}
+```{r, fig.cap = "Predicted PE (pPE, based on 4000 repetitions) for position estimates from test tracks *Ctest* and *Dtest*, namely the median pPE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels). Positiones are summarized per present combinations of Ac-Sc per site and method. Note that this is based on raw data (not mean predictions per Ac-Sc combination), therefore showing more variance and larger CIs.", fig.height = 12}
+
+g1 <- plotPAdab(d.pred = sum.t5.2[sum.t5.2$meth == "direct.ab",], 
+       PApred = "mPE", lower = "lwr", upper = "upr", 
+       lower25 = "lwr25", upper75 = "upr75",
+       ytitle = "pPE [m]")
+
+g2 <- plotPA(d.sim = df.t5[df.t5$meth == "direct.in",], 
+       PAsim = "pred_mod", 
+       ytitle = "pPE [m]")
+
+g3 <- plotPA(d.sim = df.t5[df.t5$meth %in% c("omni.ab", "omni.ml"),], 
+       PAsim = "pred_mod",
+       ytitle = "pPE [m]")
+
+layout <- "
+A
+B
+C
+"
+
+g <- g1 + g2 + g3 + plot_layout(design = layout)
+g
+
+```
+
+### diff PE - pPE Ctest, Dtest {.unnumbered}
+
+```{r, fig.cap = "Difference between raw PE and predicted PE (pPE, based on 4000 repetitions) for position estimates from test tracks *Ctest* and *Dtest*, namely the median difference (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels). Positiones are summarized per present combinations of Ac-Sc per site and method. Note that this is based on raw data (not mean predictions per Ac-Sc combination), therefore showing more variance and larger CIs.", fig.height = 12}
 
 g1 <- plotPAdab(d.pred = sum.t5[sum.t5$meth == "direct.ab",], 
        PApred = "mdiff", lower = "lwr", upper = "upr", 
@@ -540,58 +784,57 @@ g
 
 ```
 
-### pPE q50 {-}
+<!-- ### pPE q50 {.unnumbered} -->
 
 ```{r, fig.cap = "Predicted median PE (pPE50, based on 4000 repetitions) from the global model, namely the median estimated 50% quantile of PE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels) for all present combinations of Ac-Sc per site and method. For predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination.", fig.height = 12}
 
-g1 <- plotPAdab(d.pred = df.pred5[df.pred5$meth == "direct ab",], 
-       PApred = "q50", lower = "lwrq50", upper = "uprq50",
-       lower25 = "lwr25q50", upper75 = "upr75q50",
-       ytitle = "pPE50 [m]")
-
-g2 <- plotPA(d.sim = df.sim5[df.sim5$meth == "direct in",], 
-       PAsim = "sim.q50", 
-       ytitle = "pPE50 [m]")
-
-g3 <- plotPA(d.sim = df.sim5[df.sim5$meth %in% c("omni ab", "omni ml"),], 
-       PAsim = "sim.q50",
-       ytitle = "pPE50 [m]")
-
-layout <- "
-A
-B
-C
-"
-
-g <- g1 + g2 + g3 + plot_layout(design = layout)
-g
+# g1 <- plotPAdab(d.pred = df.pred5[df.pred5$meth == "direct ab",], 
+#        PApred = "q50", lower = "lwrq50", upper = "uprq50",
+#        lower25 = "lwr25q50", upper75 = "upr75q50",
+#        ytitle = "pPE50 [m]")
+# 
+# g2 <- plotPA(d.sim = df.sim5[df.sim5$meth == "direct an",], 
+#        PAsim = "sim.q50", 
+#        ytitle = "pPE50 [m]")
+# 
+# g3 <- plotPA(d.sim = df.sim5[df.sim5$meth %in% c("omni ab", "omni ml"),], 
+#        PAsim = "sim.q50",
+#        ytitle = "pPE50 [m]")
+# 
+# layout <- "
+# A
+# B
+# C
+# "
+# 
+# g <- g1 + g2 + g3 + plot_layout(design = layout)
+# g
 
 ```
 
-### pPE q65 {-}
+<!-- ### pPE q65 {.unnumbered} -->
 
 ```{r, fig.cap = "Predicted 65% quantile of PE (pPE65, based on 4000 repetitions) from the global model, namely the median estimated 65% quantile of PE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels) for all present combinations of Ac-Sc per site and method. For predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination.", fig.height = 12}
 
-g1 <- plotPAdab(d.pred = df.pred5[df.pred5$meth == "direct ab",], 
-       PApred = "q65", lower = "lwrq65", upper = "uprq65",
-       lower25 = "lwr25q65", upper75 = "upr75q65",
-       ytitle = "pPE65 [m]")
-
-g2 <- plotPA(d.sim = df.sim5[df.sim5$meth == "direct in",], 
-       PAsim = "sim.q65",
-       ytitle = "pPE65 [m]")
-
-g3 <- plotPA(d.sim = df.sim5[df.sim5$meth %in% c("omni ab", "omni ml"),], 
-       PAsim = "sim.q65", 
-       ytitle = "pPE65 [m]")
-
-layout <- "
-A
-B
-C
-"
-
-g <- g1 + g2 + g3 + plot_layout(design = layout)
-g
+# g1 <- plotPAdab(d.pred = df.pred5[df.pred5$meth == "direct ab",], 
+#        PApred = "q65", lower = "lwrq65", upper = "uprq65",
+#        lower25 = "lwr25q65", upper75 = "upr75q65",
+#        ytitle = "pPE65 [m]")
+# 
+# g2 <- plotPA(d.sim = df.sim5[df.sim5$meth == "direct an",], 
+#        PAsim = "sim.q65",
+#        ytitle = "pPE65 [m]")
+# 
+# g3 <- plotPA(d.sim = df.sim5[df.sim5$meth %in% c("omni ab", "omni ml"),], 
+#        PAsim = "sim.q65", 
+#        ytitle = "pPE65 [m]")
+# 
+# layout <- "
+# A
+# B
+# C
+# "
+# 
+# g <- g1 + g2 + g3 + plot_layout(design = layout)
+# g
 ```
-

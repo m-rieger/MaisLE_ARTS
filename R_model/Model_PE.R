@@ -1,6 +1,12 @@
 #### Model position error to define best method ####
 ####################################################-
 
+## CHANGE direct.in to direct.an ##
+###################################
+###################################
+###################################
+###################################
+
 rm(list = ls())
 
 ## read in support functions (adjusted from Santon et al. 2023, 
@@ -1322,7 +1328,7 @@ for(f in fL) {
   
   ## save data
   st_write(df.t, dsn = dsn, layer = "PA", append = F)
-  
+  df.t <- st_read(dsn = dsn, layer = "PA")
   shp.tmp <- shp.bird[shp.bird$Testtag == unique(df.t$Individual) &
                         shp.bird$date_start >= min(df.t$X_time) &
                         shp.bird$date_start <= max(df.t$X_time),]
