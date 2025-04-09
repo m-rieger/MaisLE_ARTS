@@ -42,6 +42,9 @@ df.stat <- st_transform(df.stat, crs = crsPlot)
 # df.stat <- df.stat %>% group_by(station.project_id, type) %>%
 #   mutate(minDist = min(st_distance(geometry))) %>% ungroup()
 
+# table for sites
+tab.sites <- read.csv("./data/tabSites.csv", encoding = "latin1")
+
 ## get dimensions for plotting
 ## get plotting dimensions
 dimC3 <- st_bbox(st_buffer(st_centroid(st_union(df.stat[df.stat$station.project_id == "maisC",])), dist = 1300))
