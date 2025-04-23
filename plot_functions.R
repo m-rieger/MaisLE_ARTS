@@ -39,11 +39,11 @@ plot.raster <- function(g, leg = " ", lim = c(0, 200)){
   require(ggnewscale)
   
   g <- g +
-    scale_fill_viridis_c(leg, direction = -1, option = "rocket", limits = lim, 
+    scale_fill_viridis_c(leg, direction = -1, end = 0.9, option = "inferno", limits = lim, 
                          oob = scales::oob_squish, na.value = c(NA, "black")) +
-    scale_color_viridis_c(leg, direction = -1, option = "rocket", limits = lim, 
+    scale_color_viridis_c(leg, direction = -1, end = 0.9, option = "inferno", limits = lim, 
                           oob = scales::oob_squish, na.value = c(NA, "black")) +
-    ggtitle(paste0(m, " - detR ", d)) +
+    ggtitle(paste0(m, " - r ", d)) +
     facet_wrap(~Individual) +
     annotation_scale(width_hint = 0.2, bar_cols = c("grey60", "white"), 
                      location = "tl", height = unit(0.15, "cm"))

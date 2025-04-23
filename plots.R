@@ -753,6 +753,20 @@ df.t5$thresh[df.t5$meth == "direct.ab" & df.t5$site == "maisD" & df.t5$Ac <= 3 &
 df.t5$thresh[df.t5$meth == "omni.ab" & df.t5$site == "maisC" & df.t5$Ac <= 2] <- "no"
 df.t5$thresh[df.t5$meth == "omni.ml" & df.t5$site == "maisC" & df.t5$Ac <= 2] <- "no"
 
+## add column to indicate whether position is kept due to thresholds
+df.t5$thresh2 <- "yes"
+df.t5$thresh2[df.t5$meth == "direct.ab" & df.t5$Ac < 2*df.t5$Sc | df.t5$Sc < 3] <- "no"
+df.t5$thresh2[df.t5$meth == "direct.in" & df.t5$Sc < 3] <- "no"
+df.t5$thresh2[df.t5$meth == "omni.ab" & df.t5$site == "maisC" & df.t5$Sc < 3] <- "no"
+df.t5$thresh2[df.t5$meth == "omni.ml" & df.t5$site == "maisC" & df.t5$Sc < 3] <- "no"
+
+## add column to indicate whether position is kept due to thresholds
+df.t5$thresh3 <- "yes"
+df.t5$thresh3[df.t5$meth == "direct.ab" & df.t5$Ac < 1.5*df.t5$Sc | df.t5$Sc < 3] <- "no"
+df.t5$thresh3[df.t5$meth == "direct.in" & df.t5$Sc < 3] <- "no"
+df.t5$thresh3[df.t5$meth == "omni.ab" & df.t5$site == "maisC" & df.t5$Sc < 3] <- "no"
+df.t5$thresh3[df.t5$meth == "omni.ml" & df.t5$site == "maisC" & df.t5$Sc < 3] <- "no"
+
 df.t5 <- st_as_sf(df.t5, coords = c("lon", "lat"), crs = crsLL)
 
 ## get core area (convex hull of stations)
@@ -1009,11 +1023,27 @@ df.meth <- left_join(df.meth,
                      by = c("ID" = "group"))
 
 df.meth <- left_join(df.meth,
-                     df.t5[df.t5$core == TRUE,] %>% group_by(group) %>% 
+                     df.t5[df.t5$thresh2 == "yes",] %>% group_by(group) %>% 
                        summarize(MAE4 = mean(abs(diff)), 
                                  meanPA4 = mean(pred_mod),
                                  meanPE4 = mean(PE),
                                  meanDiff4 = mean(diff)),
+                     by = c("ID" = "group"))
+
+df.meth <- left_join(df.meth,
+                     df.t5[df.t5$thresh3 == "yes",] %>% group_by(group) %>% 
+                       summarize(MAE5 = mean(abs(diff)), 
+                                 meanPA5 = mean(pred_mod),
+                                 meanPE5 = mean(PE),
+                                 meanDiff5 = mean(diff)),
+                     by = c("ID" = "group"))
+
+df.meth <- left_join(df.meth,
+                     df.t5[df.t5$core == TRUE,] %>% group_by(group) %>% 
+                       summarize(MAE6 = mean(abs(diff)), 
+                                 meanPA6 = mean(pred_mod),
+                                 meanPE6 = mean(PE),
+                                 meanDiff6 = mean(diff)),
                      by = c("ID" = "group"))
 
 df.meth <- left_join(df.meth,
@@ -1031,6 +1061,16 @@ df.meth <- left_join(df.meth,
                      by = c("site", "meth"))
 
 df.meth <- left_join(df.meth,
+                     df.t5[df.t5$thresh2 == "yes",] %>% group_by(site, meth) %>% 
+                       summarize(nPthresh2 = n(), .groups = "drop"), 
+                     by = c("site", "meth"))
+
+df.meth <- left_join(df.meth,
+                     df.t5[df.t5$thresh3 == "yes",] %>% group_by(site, meth) %>% 
+                       summarize(nPthresh3 = n(), .groups = "drop"), 
+                     by = c("site", "meth"))
+
+df.meth <- left_join(df.meth,
                      df.t5[df.t5$core == T,] %>% group_by(site, meth) %>% 
                        summarize(nPcore = n(), .groups = "drop"), 
                      by = c("site", "meth"))
@@ -1043,6 +1083,8 @@ df.meth <- left_join(df.meth,
 df.meth$propPfull <- round(df.meth$nPfull/df.meth$nPtot*100, 0)
 df.meth$propPallM <- round(df.meth$nPallM/df.meth$nPtot*100, 0)
 df.meth$propPthresh <- round(df.meth$nPthresh/df.meth$nPtot*100, 0)
+df.meth$propPthresh2 <- round(df.meth$nPthresh2/df.meth$nPtot*100, 0)
+df.meth$propPthresh3 <- round(df.meth$nPthresh3/df.meth$nPtot*100, 0)
 df.meth$propPcore <- round(df.meth$nPcore/df.meth$nPtot*100, 0)
 
 colL <- c("meanPE", "meanPE2", "meanPE3", "meanPE4", "meanPA", "meanPA2", "meanPA3", "meanPA4", 

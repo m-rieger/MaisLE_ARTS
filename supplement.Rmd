@@ -62,10 +62,10 @@ knitr::include_graphics("./plots/bearing-model-crop.png")
 
 ## Distance estimation
 
-Fig. XX showed a calibration curve of an exponential power distance model fitted to the underlying calibration data. The received signals and GPS locations were matched based on the nearest time, as described in the previous section. The curve was optimized using non-linear least squares. In the shown example of the directional station, a calibration track of 7,371 GPS fixes achieved a median distance error of 32.7 m with a root mean square error of 49.7 m. The error in distance estimation was mainly caused by topography and vegetation in the test area as well as transmitter orientation. Note that the median distance error for omnidirectional stations was below 20 m in most cases, due to their uniform antenna characteristics.
+Fig. XX showed a calibration curve of an exponential power distance model fitted to the underlying calibration data. The received signals and GPS locations were matched based on the nearest time, as described in the previous section. The curve was optimized using non-linear least squares. In the shown example of the directional station, a calibration track of 7,371 detected GPS fixes achieved a median distance error of 32.7 m with a root mean square error of 49.7 m. For the omnidirectional station, a calibration track of 13,014 detected GPS fixes achieved a median distance error of 24.4 m with a root mean square error of 60.2 m. The smaller distance error for omnidirectional stations is due to their uniform antenna characteristic compared to the directional characteristic. The error in distance estimation was mainly caused by topography and vegetation in the test area as well as transmitter orientation.
 
-```{r, include=TRUE, fig.align="center", fig.cap = c("Exponential power distance model fit for one directional station in maisC."), out.width = "400px"}
-knitr::include_graphics("./plots/power-distance-model-crop.png")
+```{r, include=TRUE, fig.align="center", fig.cap = c("Exponential power distance model fit for one directional (*left*) and one omnidirectional (*right*) station in maisC."), out.width = "800px"}
+knitr::include_graphics("./plots/Distance_model.png")
 ```
 
 ## Angulation
@@ -140,7 +140,7 @@ knitr::include_graphics("./plots/pos2-multilaterations.png")
 
 ## Covered area
 
-```{r, fig.cap = "Theoretical areas where an estimated position can be located (based on the respective calculation per method). If the signal of a transmitter outside the area is detected, the estimated position will fall within the area. For directional antenna beams (direct ab) we used a detection range of 800 m for maisC and 900 m for maisD (see results section), for directional angulation (direct an) we assumed a maximum distance of 2*450 m which matches a maximum signal strength of approx. -80 dB, and for omnidirectional multilateration (omni ml) we assumed a maximum distance of 800 m. Note that the threoretical area does not imply that all true positions within this area can be estimated by the respective method. Copyright map data: OpenStreetMap contributors"}
+```{r, fig.cap = "Theoretical areas where an estimated position can be located (based on the respective calculation per method). If the signal of a transmitter outside the area is detected, the estimated position will fall within the area. For directional antenna beams (direct ab) we used a detection range of 800 m for maisC and 900 m for maisD (see results section), for directional angulation (direct an) we assumed a maximum distance of 2*450 m which matches a maximum signal strength of approx. -80 dB, and for omnidirectional multilateration (omni ml) we assumed a maximum distance of 450 m. Note that the threoretical area does not imply that all true positions within this area can be estimated by the respective method. Copyright map data: OpenStreetMap contributors"}
 ### convex hull for each method ------------------------------------------------
 dist_C <- 0.5*800
 dist_D <- 0.5*900
@@ -148,7 +148,7 @@ dist_D <- 0.5*900
 dist_Can <- 2*450
 dist_Dan <- 2*450
 
-dist_Cml <- 800
+dist_Cml <- 450
 
 ## maisC direct
 tmp <- st_transform(df.stat[df.stat$station.project_id == "maisC" & df.stat$type == "direct",], crs = crs)

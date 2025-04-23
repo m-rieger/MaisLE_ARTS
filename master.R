@@ -1,51 +1,59 @@
 #### master script ####
 
 rm(list = ls())
-#install.packages("raster")
 #### 1) packages ---------------------------------------------------------------
-library(ggdist)
-library(tidyverse)
-library(sf)
-library(data.table)
-library(here)
-library(geosphere)
-library(lubridate)
-#library(spatstat) # density distribution for sf objects
-library(raster) # density as raster
-library(stars)
-library(terra)
-library(ggspatial) # for annotation bar
-library(ggnewscale) # adding several (color, fill) scales to ggplot
-library(zoo) # roll mean
+pckgs <- c(
+  "ggdist",
+  "tidyverse",
+  "sf",
+  "data.table",
+  "here",
+  "geosphere",
+  "lubridate",
+  "raster", # density as raster
+  "stars",
+  "terra",
+  "ggspatial", # for annotation bar
+  "ggnewscale", # adding several color and fill scales to ggplot
+  "zoo" # roll mean
+  )
 
+## install packages if not already installed
+for (i in pckgs) {
+  if (!i %in% installed.packages()) {
+    install.packages(i, dependencies = TRUE)
+  }
+}
+## load packages
+sapply(pckgs, require, character.only = TRUE); rm(pckgs)
 
 ####  2) variables -------------------------------------------------------------
 ## 2a) data --------------------------------------------------------------------
 ## should data be read in new (TRUE) or loaded (FALSE)
-READ <- FALSE # read in or load data
+READ <- TRUE # read in or load data
 # chose data type (animal data or testtag data)
-dtyp <- "cali" # "animal", "testtag" or "cali"
+# dtyp <- "cali"
 # chose time interval in Jupyter data (usually 2 sec)
 t <- "2 sec" # "x sec"
 # minimum number of stations per position
-NStat <- 1
+# NStat <- 1
 # minimum number of antennas per position
-NAnt <- 1
+# NAnt <- 1
 # rolling mean for mean positions
-rollM <- 15
+# rollM <- 15
 
 ## 2b) spatial data ------------------------------------------------------------
-crs <- 31467 # Gauss Krüger in m
+crs     <- 31467 # Gauss Krüger in m
 crsPlot <- 3857 # 
-crsLL <- 4326 # lon lat in degree
+crsLL   <- 4326 # lon lat in degree
 
 ## 2c) raster data -------------------------------------------------------------
-## stations to be included in stations density
-stations <- c("c1l1", "c2l1", "c3l1", "c4l1", "c5l1", "c6l1", "c7l1", "c8l1", "c9l1", "c10l1",
+## stations to be included in station cover
+stat.direct <- c("c1l1", "c2l1", "c3l1", "c4l1", "c5l1", "c6l1", "c7l1", "c8l1", "c9l1", "c10l1",
               "d1l1", "d2l1", "d3l1", "d4l1", "d5l1", "d6l1", "d7l1", "d8l1")
+stat.omni <- c("s1l1", "s2l1", "s3l1", "s4l1", "s5l1", "s6l1", "s7l1", "s8l1", "s9l1", "s10l1")
 
-
-rast_buf <- 800 # buffer around stations to make raster
+rast_buf <- 700 # buffer around stations to make raster
 rast_res <- 10  # Change resolution as needed (in meter) for stat density raster
 rast_inc <- 5  # Change resolution as needed (in meter) for point summary raster (raster_resoultion*raster_incr)
 

@@ -3,10 +3,9 @@
 
 #### 0) create other files -----------------------------------------------------
 ## raster resolution (rast_buf buffer around stations)
-rast_ext <- extent(st_buffer(shp.stat, dist = rast_buf))
+rast_ext <- extent(st_buffer(shp.stat, dist = rast_buf*1.1))
 
-
-## mean loctions from shp.GPS (per time.int t based on Jupyter)
+## mean locations from shp.GPS (per time.int t based on Jupyter)
 shp.GPS <- shp.GPS %>%
   dplyr::mutate(lon.true = sf::st_coordinates(.)[,1],
                 lat.true = sf::st_coordinates(.)[,2]) %>%
@@ -20,154 +19,16 @@ shp.GPS <- shp.GPS %>% group_by(X_time, site) %>%
   summarise(lat.true = mean(lat.true, na.rm = T),
             lon.true = mean(lon.true, na.rm = T), .groups = "drop")
 
-#### 1) loop through gpkg-files ------------------------------------------------
+#### 1) merge estimated positions with true positions --------------------------
 if(READ) {
+  ## create folder for saved gpkg
+  if(!dir.exists("./data/cali/savedFiles")) dir.create("./data/cali/savedFiles")
   
-  ## get all files and create folder for saved files
-  df.L <- list.files(paste0("../data/data_", dtyp, "/"), pattern = ".gpkg")
-  # df.L <- df.L[85:100]
+  #### 1.1) read in data (raw data output from position calculation) -----------
+  df1 <- st_read(dsn = "./data/cali/Data_cali_raw_maisC.gpkg", layer = "unfiltered")
+  df2 <- st_read(dsn = "./data/cali/Data_cali_raw_maisD.gpkg", layer = "unfiltered")
   
-  if(!dir.exists(paste0("../data/data_", dtyp, "/savedFiles"))) {
-    dir.create(paste0("../data/data_", dtyp, "/savedFiles"))}
-  
-  ## exclude -mean files
-  # df.Lm <- df.L[grep("-mean", df.L)]
-  df.L <- df.L[-grep("-mean", df.L)]
-  
-  df.L1 <- df.L[grep("antennabeams.gpkg", df.L)]
-  df.L2 <- df.L[grep("antennabeam_s", df.L)]
-  df.L3 <- df.L[grep("multilateration", df.L)]
-  df.L4 <- df.L[grep("intersections", df.L)]
-  
-  # df.Lm1 <- df.Lm[grep("antennabeams-mean.gpkg", df.Lm)]
-  # df.Lm2 <- df.Lm[grep("antennabeam_s-mean", df.Lm)]
-  # df.Lm3 <- df.Lm[grep("multilateration-mean", df.Lm)]
-  # df.Lm4 <- df.Lm[grep("intersections-mean", df.Lm)]
-  
-  #### 1.1) normal data --------------------------------------------------------
-  ## antennabeam quadrologger
-  df1 <- data.frame()
-  
-  for(i in df.L1) {
-    tmp <- st_read(paste0("../data/data_", dtyp, "/", i))
-    
-    ## transform crs to lon lat and save crs
-    tmp <- st_transform(tmp, crs = crsLL)
-    
-    ## get Individual and Transmitter
-    ind <- unique(tmp$Individual)
-    trans <- unique(tmp$Transmitter)
-    
-    ## get coordinates from geometry
-    tmp <- tmp %>%
-      dplyr::mutate(lon = sf::st_coordinates(.)[,1],
-                    lat = sf::st_coordinates(.)[,2]) %>%
-      st_drop_geometry()
-    
-    ## add cols
-    tmp$detR <- strsplit(i, "_")[[1]][2]
-    tmp$ant <- strsplit(i, "_")[[1]][3]
-    tmp$Distance..m..min <- NA
-    tmp$meth <- "direct.ab"
-    
-    df1 <- rbind(df1, tmp)
-    
-  }
-  
-  ## antennabeam monologger
-  df2 <- data.frame()
-  
-  for(i in df.L2) {
-    tmp <- st_read(paste0("../data/data_", dtyp, "/", i))
-    
-    ## transform crs to lon lat and save crs
-    tmp <- st_transform(tmp, crs = crsLL)
-    
-    ## get Individual and Transmitter
-    ind <- unique(tmp$Individual)
-    trans <- unique(tmp$Transmitter)
-    
-    ## get coordinates from geometry
-    tmp <- tmp %>%
-      dplyr::mutate(lon = sf::st_coordinates(.)[,1],
-                    lat = sf::st_coordinates(.)[,2]) %>%
-      st_drop_geometry()
-    
-    ## add cols
-    tmp$detR <- "no"
-    tmp$Distance..m..min <- NA
-    tmp$ant <- "1-10"
-    tmp$meth <- "omni.ab"
-    
-    df2 <- rbind(df2, tmp)
-    
-  }
-  
-  ## multilateration monologger
-  df3 <- data.frame()
-  
-  for(i in df.L3) {
-    tmp <- st_read(paste0("../data/data_", dtyp, "/", i))
-    
-    ## transform crs to lon lat and save crs
-    tmp <- st_transform(tmp, crs = crsLL)
-    
-    ## get Individual and Transmitter
-    ind <- unique(tmp$Individual)
-    trans <- unique(tmp$Transmitter)
-    
-    ## get coordinates from geometry
-    tmp <- tmp %>%
-      dplyr::mutate(lon = sf::st_coordinates(.)[,1],
-                    lat = sf::st_coordinates(.)[,2]) %>%
-      st_drop_geometry()
-    
-    ## add cols
-    tmp$detR <- "no"
-    tmp$Weight <- NA
-    tmp$ant <- "1-10"
-    tmp$Antenna.Count <- tmp$Station.Count
-    tmp$meth <- "omni.ml"
-    
-    df3 <- rbind(df3, tmp)
-    
-  }
-  
-  ## intersection quadrologger
-  df4 <- data.frame()
-  
-  for(i in df.L4) {
-    tmp <- st_read(paste0("../data/data_", dtyp, "/", i))
-    
-    ## transform crs to lon lat and save crs
-    tmp <- st_transform(tmp, crs = crsLL)
-    
-    ## get Individual and Transmitter
-    ind <- unique(tmp$Individual)
-    trans <- unique(tmp$Transmitter)
-    
-    ## get coordinates from geometry
-    tmp <- tmp %>%
-      dplyr::mutate(lon = sf::st_coordinates(.)[,1],
-                    lat = sf::st_coordinates(.)[,2]) %>%
-      st_drop_geometry()
-    
-    ## add cols
-    tmp$detR <- "no"
-    tmp$Weight <- NA
-    tmp$Antenna.Count <- 2*tmp$Station.Count
-    tmp$ant <- strsplit(i, "_")[[1]][3]
-    tmp$meth <- "direct.in"
-    
-    df4 <- rbind(df4, tmp)
-    
-  }
-  
-  df <- do.call("rbind", list(df1, df2, df3, df4))
-  rm(df1); rm(df2); rm(df3); rm(df4)
-  
-
-  df <- dplyr::select(df, -c("Planner", "Transmitter", "Transmitter.Id"))
+  df <- rbind(df1, df2); rm(df1); rm(df2)
   
   #### 1.2) merge & add GT data, expand time -----------------------------------
   ## add date (to filter each testtrack)
@@ -177,22 +38,28 @@ if(READ) {
   
   ## merge GPS with df by site and time
   df <- left_join(df, 
-                  shp.GPS[, c("X_time", "lat.true", "lon.true", "site")],
-                  by = c("site", "X_time")) # many-to-many relationship?
-  df <- unique(df)
-  df <- df[!is.na(df$lat.true),]
+                  shp.GPS[, c("X_time", "lon.true", "lat.true", "site")],
+                  by = c("site", "X_time"))
+  df <- df[!is.na(df$lat.true),] # due to gaps in test tracks
   
-  #### 1.3) position error ---------------------------------------------------
+  #### 1.3) position error -----------------------------------------------------
+  df <-  df %>%
+    dplyr::mutate(lon = sf::st_coordinates(.)[,1],
+                  lat = sf::st_coordinates(.)[,2]) %>%
+    st_drop_geometry()
+  
   ## here you need only data != na in lon lat (to compute distances)
+  # NA or NaN values exist for positions with received signal(s) but a failed 
+  # calculation, e.g. because intersection lines do not intersect (direct an)
   df <- df[!is.na(df$lon), ] %>% rowwise %>%
     mutate(PE = distm(x = c(lon, lat),
                             y = c(lon.true, lat.true))) %>%
     ungroup()  
 
-  ## write df
+  ## write df as gpkg
   df <- st_as_sf(df, coords = c("lon", "lat"), crs = crsLL)
   
-  dsn <- paste0("../data/data_", dtyp, "/savedFiles/Data_cali_raw.gpkg")
+  dsn <- "./data/cali/savedFiles/Data_cali_raw.gpkg"
   st_write(df, layer = 'unfiltered', append = F, dsn = dsn, 
            layer_options = "GEOMETRY_NAME=geometry")
 
@@ -205,87 +72,105 @@ if(READ) {
 #### 2) stations density -------------------------------------------------------
 
 ## read df
-dsn <- paste0("../data/data_", dtyp, "/savedFiles/Data_cali_raw.gpkg")
+dsn <- "./data/cali/savedFiles/Data_cali_raw.gpkg"
 df <- st_read(layer = 'unfiltered', dsn = dsn)
 
-b100 <- b200 <- b300 <- b400 <- b500 <- b600 <- b700 <- shp.buffer <- list()
-df.r <- NULL
+shp.buffer <- list()
+r.direct <- r.omni <- NULL
 
-# Create an empty raster
+#### 2.1) create station density raster ----------------------------------------
+## Create an empty raster
 r <- raster(rast_ext, resolution = rast_res)
 
-for(i in 1:length(stations)) {
-  s <- stations[i]
-  
+radii <- seq(100, rast_buf, by = 100)
+densities <- seq(1, 0.1, length.out = length(radii))
+
+## calculate station density for directional stations
+for (s in stat.direct) {
   df.p <- shp.stat[shp.stat$station.id == s,]
-  b100[[s]] <- st_buffer(df.p, dist = 100)
-  b200[[s]] <- st_buffer(df.p, dist = 200)
-  b300[[s]] <- st_buffer(df.p, dist = 300)
-  b400[[s]] <- st_buffer(df.p, dist = 400)
-  b500[[s]] <- st_buffer(df.p, dist = 500)
-  b600[[s]] <- st_buffer(df.p, dist = 600)
-  b700[[s]] <- st_buffer(df.p, dist = 700)
+  buf <- list()
   
-  b700[[s]] <- st_difference(b700[[s]], b600[[s]])
-  b600[[s]] <- st_difference(b600[[s]], b500[[s]])
-  b500[[s]] <- st_difference(b500[[s]], b400[[s]])
-  b400[[s]] <- st_difference(b400[[s]], b300[[s]])
-  b300[[s]] <- st_difference(b300[[s]], b200[[s]])
-  b200[[s]] <- st_difference(b200[[s]], b100[[s]])
+  ## create buffer circles
+  for (i in seq_along(radii)) buf[[i]] <- st_buffer(df.p, dist = radii[i])
   
-  b100[[s]]$dens <- 1
-  b200[[s]]$dens <- 0.85
-  b300[[s]]$dens <- 0.7
-  b400[[s]]$dens <- 0.55
-  b500[[s]]$dens <- 0.4
-  b600[[s]]$dens <- 0.25
-  b700[[s]]$dens <- 0.1
-  b100[[s]] <- b100[[s]][, "dens"]
-  b200[[s]] <- b200[[s]][, "dens"]
-  b300[[s]] <- b300[[s]][, "dens"]
-  b400[[s]] <- b400[[s]][, "dens"]
-  b500[[s]] <- b500[[s]][, "dens"]
-  b600[[s]] <- b600[[s]][, "dens"]
-  b700[[s]] <- b700[[s]][, "dens"]
-  shp.buffer[[s]] <- rbind(b100[[s]], b200[[s]])
-  shp.buffer[[s]] <- rbind(shp.buffer[[s]], b300[[s]])
-  shp.buffer[[s]] <- rbind(shp.buffer[[s]], b400[[s]])
-  shp.buffer[[s]] <- rbind(shp.buffer[[s]], b500[[s]])
-  shp.buffer[[s]] <- rbind(shp.buffer[[s]], b600[[s]])
-  shp.buffer[[s]] <- rbind(shp.buffer[[s]], b700[[s]])
+  ## create buffer rings (based on circles)
+  for (i in length(buf):2) buf[[i]] <- st_difference(buf[[i]], buf[[i - 1]])
   
+  ## assign density
+  for (i in seq_along(buf)) {
+    buf[[i]]$dens <- densities[i]
+    buf[[i]] <- buf[[i]][, "dens"]
+  }
+  
+  ## merge buffers
+  shp.buffer[[s]] <- do.call(rbind, buf)
+  
+  ## rasterize
   r.tmp <- raster::rasterize(shp.buffer[[s]], r, field = "dens", fun = sum)
   r.tmp[is.na(r.tmp)] <- 0
-  if(s == stations[1]) df.r <- r.tmp
-  else df.r <- df.r + r.tmp
-
   
+  ## and sum up rasters
+  if (s == stat.direct[1]) r.direct <- r.tmp
+  else r.direct <- r.direct + r.tmp
 }
 
-b100 <- do.call(rbind, Map(cbind, b100, station = names(b100), buffer = 100))
-b200 <- do.call(rbind, Map(cbind, b200, station = names(b200), buffer = 200))
-b300 <- do.call(rbind, Map(cbind, b300, station = names(b300), buffer = 300))
-b400 <- do.call(rbind, Map(cbind, b400, station = names(b400), buffer = 400))
-b500 <- do.call(rbind, Map(cbind, b500, station = names(b500), buffer = 500))
-b600 <- do.call(rbind, Map(cbind, b600, station = names(b600), buffer = 600))
-b700 <- do.call(rbind, Map(cbind, b700, station = names(b700), buffer = 700))
-bfull <- do.call(rbind, list(b100, b200, b300, b400, b500, b600, b700))
+## calculate station density for directional stations
+for (s in stat.omni) {
+  df.p <- shp.stat[shp.stat$station.id == s,]
+  buf <- list()
+  
+  ## create buffer circles
+  for (i in seq_along(radii)) buf[[i]] <- st_buffer(df.p, dist = radii[i])
+  
+  ## create buffer rings (based on circles)
+  for (i in length(buf):2) buf[[i]] <- st_difference(buf[[i]], buf[[i - 1]])
+  
+  ## assign density
+  for (i in seq_along(buf)) {
+    buf[[i]]$dens <- densities[i]
+    buf[[i]] <- buf[[i]][, "dens"]
+  }
+  
+  ## merge buffers
+  shp.buffer[[s]] <- do.call(rbind, buf)
+  
+  ## rasterize
+  r.tmp <- raster::rasterize(shp.buffer[[s]], r, field = "dens", fun = sum)
+  r.tmp[is.na(r.tmp)] <- 0
+  
+  ## and sum up rasters
+  if (s == stat.omni[1]) r.omni <- r.tmp
+  else r.omni <- r.omni + r.tmp
+}
 
-st_write(bfull, layer = 'circles', append = F, 
-         dsn = paste0("../data/data_", dtyp, "/savedFiles/Data_cali_circles.gpkg"))
+## merge density rings in one shape, label station type
+shp.buffer <- do.call(rbind, Map(cbind, shp.buffer, station = names(shp.buffer)))
+shp.buffer$type <- "direct"
+shp.buffer$type[shp.buffer$station %in% stat.omni] <- "omni"
 
-## transform to sf object and crs to lat-lon
-df.r2 <- df.r
-dsn <- paste0("../data/data_", dtyp, "/savedFiles/Data_cali_raster.gpkg")
+## save shp file
+dsn <- paste0("./data/cali/savedFiles/Data_cali_raster.gpkg")
+st_write(shp.buffer, layer = 'density_rings', append = F, dsn = dsn)
 
-df.r <- st_make_valid(st_as_sf(st_as_stars(df.r), point = FALSE, merge = TRUE, connect8 = TRUE))
-colnames(df.r) <- c("dens", "geometry")
-df.r <- st_transform(df.r, crs = crs(df))
-st_write(df.r, layer = 'rast_raster', append = F, dsn = dsn, 
+## transform raster to sf object and crs to lat-lon
+r.direct2 <- st_make_valid(st_as_sf(st_as_stars(r.direct), point = FALSE, merge = TRUE, connect8 = TRUE))
+r.direct2$type = "direct"
+
+r.omni2 <- st_make_valid(st_as_sf(st_as_stars(r.omni), point = FALSE, merge = TRUE, connect8 = TRUE))
+r.omni2$type = "omni"
+
+r.shp <- rbind(r.direct2, r.omni2); rm(r.direct2); rm(r.omni2)
+
+colnames(r.shp) <- c("dens", "type", "geometry")
+
+r.shp <- st_transform(r.shp, crs = crs(df))
+st_write(r.shp, layer = 'density_raster', append = F, dsn = dsn, 
          layer_options = "GEOMETRY_NAME=geometry")
 
-## intersect df.r with df
-# e.g. try this https://gis.stackexchange.com/questions/271268/assigning-raster-values-to-spatial-point-using-r
+#### 2.2) intersect with data (estimated and true) -----------------------------
+## add type to df
+df$type <- "direct"
+df$type[df$meth %in% c("omni.ab", "omni.ml")] <- "omni"
 
 ## get df based on true positions
 df.t <-  df %>%
@@ -296,75 +181,54 @@ df.t <- st_as_sf(df.t[!is.na(df.t$lon.true) & !is.na(df.t$lat.true),],
                  coords = c("lon.true", "lat.true"), crs = crs(df))
 
 # get raster values for each point
-df$dens   <- extract(df.r2, df)
-df.t$dens <- extract(df.r2, df.t)
+df$dens[df$type == "direct"] <- extract(r.direct, df[df$type == "direct",])
+df.t$dens[df.t$type == "direct"] <- extract(r.direct, df.t[df.t$type == "direct",])
+df$dens[df$type == "omni"] <- extract(r.omni, df[df$type == "omni",])
+df.t$dens[df.t$type == "omni"] <- extract(r.omni, df.t[df.t$type == "omni",])
 
-dsn <- paste0("../data/data_", dtyp, "/savedFiles/Data_cali_raster.gpkg")
-st_write(df.r, layer = 'shp_raster', append = F, dsn = dsn, 
+dsn <- paste0("./data/cali/savedFiles/Data_cali_density.gpkg")
+st_write(df, layer = 'density_est', append = F, dsn = dsn, 
          layer_options = "GEOMETRY_NAME=geometry")
-dsn <- paste0("../data/data_", dtyp, "/savedFiles/Data_cali_density.gpkg")
-st_write(df, layer = 'density', append = F, dsn = dsn, 
+st_write(df.t, layer = 'density_true', append = F, dsn = dsn, 
          layer_options = "GEOMETRY_NAME=geometry")
-st_write(df.t, layer = 'density_gps', append = F, dsn = dsn, 
-         layer_options = "GEOMETRY_NAME=geometry")
-
-
-## plot PE error depending on dens (indicator for how good the station cover is)
-# ggplot(df.test) + 
-#   # geom_point(aes(x = dens, y = PE, color = detR, group = detR),
-#   #            pch = 1, alpha = 0.2,
-#   #            position = position_dodge(width = 0.5)) +
-#   geom_smooth(aes(x = dens, y = PE, group = detR, color = detR), method = "glm", formula = y ~ poly(x, 2)) +
-#   geom_smooth(aes(x = dens, y = PE.m, group = detR, color = detR), method = "glm", formula = y ~ poly(x, 2), data = df.test.m, lty = "dashed") +
-#   facet_wrap(~Individual, scales = "free_y") +
-#   scale_color_viridis_d() +
-#   theme_light()
-
-# intersect df.r (raster as polygon) with df, df.m, df.t
-## -> this does need a lot of time
-# df.int <- sf::st_intersection(df.r, df[df$Individual == "TT090C" & df$meth == "direct.ab" & df$detR == "800m" & df$ant == "1-10",])
 
 #### 3) raster per area with position error ------------------------------------
 
 if(READ) {
   
   ## create raster (rast_inc*bigger than first raster)
-  r <- raster(extent(st_buffer(shp.stat, dist = rast_buf)), resolution = rast_res*rast_inc)
+  r <- raster(extent(st_buffer(shp.stat, dist = rast_buf*1.1)), resolution = rast_res*rast_inc)
   
   ## change crs of df to match raster (Gauss-Krueger in m)
   df <- st_transform(df, crs = crs)
   df.t <- st_transform(df.t, crs = crs)
   
-  ## rename PE
-  df$dist <- df$PE # use PE or raw positions to true
-  df.t$dist <- df.t$PE # use PE of mean positions to true
-  
-  ## loop through Individuals, methods, detR
+  ## loop through Individuals, methods, r
   shp <- NULL
   
   for(s in c("pos", "pos.gps")) {
     
     ## define source of data
-    if(s == "pos")      dat <- df[!is.na(df$dist),]
-    if(s == "pos.gps")  dat <- df.t[!is.na(df.t$dist),]
+    if(s == "pos")      dat <- df[!is.na(df$PE),]
+    if(s == "pos.gps")  dat <- df.t[!is.na(df.t$PE),]
     
     for(p in unique(dat$site)) {
       
       for(m in unique(dat$meth[dat$site == p])) {
         
-        for(d in unique(dat$detR[dat$site == p & dat$meth == m])) {
+        for(detr in unique(dat$r[dat$site == p & dat$meth == m])) {
           
           ## raster all individuals
-          tmp <- dat[dat$site == p & dat$meth == m & dat$detR == d,]
+          tmp <- dat[dat$site == p & dat$meth == m & dat$r == detr,]
           
           ## get attributes per raster cell (mean, median, sd, ..)
-          r.mean   <- raster::rasterize(tmp, r, field = tmp$dist, fun = mean)
-          r.median <- raster::rasterize(tmp, r, field = tmp$dist, fun = median)
-          r.sd     <- raster::rasterize(tmp, r, field = tmp$dist, fun = sd)
-          r.var    <- raster::rasterize(tmp, r, field = tmp$dist, fun = var)
-          r.min    <- raster::rasterize(tmp, r, field = tmp$dist, fun = min)
-          r.max    <- raster::rasterize(tmp, r, field = tmp$dist, fun = max)
-          r.N      <- raster::rasterize(tmp, r, field = tmp$dist, fun = "count")
+          r.mean   <- raster::rasterize(tmp, r, field = tmp$PE, fun = mean)
+          r.median <- raster::rasterize(tmp, r, field = tmp$PE, fun = median)
+          r.sd     <- raster::rasterize(tmp, r, field = tmp$PE, fun = sd)
+          r.var    <- raster::rasterize(tmp, r, field = tmp$PE, fun = var)
+          r.min    <- raster::rasterize(tmp, r, field = tmp$PE, fun = min)
+          r.max    <- raster::rasterize(tmp, r, field = tmp$PE, fun = max)
+          r.N      <- raster::rasterize(tmp, r, field = tmp$PE, fun = "count")
           ## stack raster files and add variable means
           r.stack <- stack(r.mean, r.median, r.sd, r.var, r.min, r.max, r.N)
           names(r.stack) <- c("mean", "median", "sd", "var", "min", "max", "N")
@@ -374,27 +238,27 @@ if(READ) {
           
           ## add looping variables
           r.stack$source     <- s
-          r.stack$site    <- p
+          r.stack$site       <- p
           r.stack$Individual <- "all"
           r.stack$meth       <- m
-          r.stack$detR       <- d
+          r.stack$r          <- detr
 
           ## merge with previous data
           shp <- rbind(shp, r.stack)
           
           ## raster per individual
-          for(i in unique(dat$Individual[dat$site == p & dat$meth == m & dat$detR == d])) {
+          for(i in unique(dat$Individual[dat$site == p & dat$meth == m & dat$r == detr])) {
               
-            tmp <- dat[dat$site == p & dat$Individual == i & dat$meth == m & dat$detR == d,]
+            tmp <- dat[dat$site == p & dat$Individual == i & dat$meth == m & dat$r == detr,]
             
             ## get attributes per raster cell (mean, median, sd, ..)
-            r.mean   <- raster::rasterize(tmp, r, field = tmp$dist, fun = mean)
-            r.median <- raster::rasterize(tmp, r, field = tmp$dist, fun = median)
-            r.sd     <- raster::rasterize(tmp, r, field = tmp$dist, fun = sd)
-            r.var    <- raster::rasterize(tmp, r, field = tmp$dist, fun = var)
-            r.min    <- raster::rasterize(tmp, r, field = tmp$dist, fun = min)
-            r.max    <- raster::rasterize(tmp, r, field = tmp$dist, fun = max)
-            r.N      <- raster::rasterize(tmp, r, field = tmp$dist, fun = "count")
+            r.mean   <- raster::rasterize(tmp, r, field = tmp$PE, fun = mean)
+            r.median <- raster::rasterize(tmp, r, field = tmp$PE, fun = median)
+            r.sd     <- raster::rasterize(tmp, r, field = tmp$PE, fun = sd)
+            r.var    <- raster::rasterize(tmp, r, field = tmp$PE, fun = var)
+            r.min    <- raster::rasterize(tmp, r, field = tmp$PE, fun = min)
+            r.max    <- raster::rasterize(tmp, r, field = tmp$PE, fun = max)
+            r.N      <- raster::rasterize(tmp, r, field = tmp$PE, fun = "count")
             ## stack raster files and add variable means
             r.stack <- stack(r.mean, r.median, r.sd, r.var, r.min, r.max, r.N)
             names(r.stack) <- c("mean", "median", "sd", "var", "min", "max", "N")
@@ -404,10 +268,10 @@ if(READ) {
             
             ## add looping variables
             r.stack$source     <- s
-            r.stack$site    <- p
+            r.stack$site       <- p
             r.stack$Individual <- i
             r.stack$meth       <- m
-            r.stack$detR       <- d
+            r.stack$r          <- detr
 
             ## merge with previous data
             shp <- rbind(shp, r.stack)
@@ -423,19 +287,16 @@ if(READ) {
   } # end of s
   
   ## save data (split by source of data)
-  dsn <- paste0("../data/data_", dtyp, "/savedFiles/Data_cali_raster.gpkg")
-  st_write(shp[shp$source == "pos",], layer = 'raster', append = F, dsn = dsn, 
+  dsn <- paste0("./data/cali/savedFiles/Data_cali_raster.gpkg")
+  st_write(shp, layer = 'raster_site', append = F, dsn = dsn, 
            layer_options = "GEOMETRY_NAME=geometry")
-  st_write(shp[shp$source == "pos.gps",], layer = 'raster_gps', append = F, dsn = dsn, 
-           layer_options = "GEOMETRY_NAME=geometry")
+
   
 }
 
 ## read data
-dsn <- paste0("../data/data_", dtyp, "/savedFiles/Data_cali_raster.gpkg")
-shp <- st_read(layer = 'raster', dsn = dsn)
-shp.t <- st_read(layer = 'raster_gps', dsn = dsn)
+dsn <- paste0("./data/cali/savedFiles/Data_cali_raster.gpkg")
+shp <- st_read(layer = 'raster_site', dsn = dsn)
 
 ## run markdown to visualize output
-# rmarkdown::render(input = here("R_pre", "plotError.Rmd"))
-# 
+rmarkdown::render(input = here("R_pre", "plotError.Rmd"))
