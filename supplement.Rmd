@@ -39,7 +39,7 @@ if("site" %in% colnames(sum.p)) sum.p <- dplyr::select(sum.p, -c(site))
 colnames(sum.p)[colnames(sum.p) %in% c("trackID", "duration_h", "length_km")] <- c("track ID", "duration (h)", "length (km)") 
 
 kbl(sum.p,
-             caption = "Properties of test tracks used to compare position estimations and accuracies for maisC (<em>C1-3, Ctest</em>) and maisD (<em>D1-3, Ctest</em>). <em>N points</em> is the number of recorded GPS positions (summarized in 2-second intervals) and <em>N tags</em> the number of used transmitters.",
+             caption = "Properties of test tracks used to compare position estimations and errors for maisC (<em>C1-3, Ctest</em>) and maisD (<em>D1-3, Ctest</em>). <em>N points</em> is the number of recorded GPS fixes (summarized in 2-second intervals) and <em>N tags</em> the number of used transmitters.",
       row.names = F,
       escape = FALSE,
       align = c("llrrrr")) %>%
@@ -211,10 +211,10 @@ polyDoab <- st_convex_hull(st_union(polyDoab))
 
 gC <- ggplot() + 
   annotation_map_tile(type = "osm") +
-  geom_sf(data = polyCdan, alpha = 0.2, fill = "white", aes(lty = "direct an"), lwd = 1) +
-  geom_sf(data = polyComl, alpha = 0.2, fill = "grey60", aes(lty = "omni ml"), lwd = 1) +
-  geom_sf(data = polyCdab, alpha = 0.2, fill = "white", aes(lty = "direct ab"), lwd = 1) +
-  geom_sf(data = polyCoab, alpha = 0.2, fill = "grey60", aes(lty = "omni ab"), lwd = 1) +
+  geom_sf(data = polyCdan, alpha = 0.3, fill = "white", aes(lty = "direct an"), lwd = 1) +
+  geom_sf(data = polyComl, alpha = 0.3, fill = "grey60", aes(lty = "omni ml"), lwd = 1) +
+  geom_sf(data = polyCdab, alpha = 0.3, fill = "white", aes(lty = "direct ab"), lwd = 1) +
+  geom_sf(data = polyCoab, alpha = 0.3, fill = "grey60", aes(lty = "omni ab"), lwd = 1) +
   geom_sf(data = df.stat[df.stat$station.project_id == "maisC",], 
           aes(pch = type, fill = type), color = "black", stroke = 1.2, size = 3, alpha = 0.7) +
   scale_shape_manual("station type", values = c("direct" = 23, "omni" = 21),
@@ -223,8 +223,7 @@ gC <- ggplot() +
                     guide = guide_legend(order = 2)) +
   scale_linetype_manual("method", values = c("direct an" = "dotted", "direct ab" = "solid", "omni ab" = "solid", "omni ml" = "dashed")) +
   
-  annotation_scale(height = unit(0.4, "cm"), text_cex = 1, width_hint = 0.4, bar_cols = c("grey60", "white")) +
-  #coord_sf(xlim = c(dimC[1], dimC[3]), ylim = c(dimC[2], dimC[4]), expand = F) +
+  annotation_scale(height = unit(0.4, "cm"), text_cex = 1, width_hint = 0.4, style = "ticks") +
   facet_grid(~"maisC") +
   theme_void(base_size = 15) +
   theme(legend.position = "right",
@@ -233,8 +232,8 @@ gC <- ggplot() +
 
 gD <- ggplot() + 
   annotation_map_tile(type = "osm") +
-  geom_sf(data = polyDdan, alpha = 0.2, fill = "white", aes(lty = "direct an"), lwd = 1) +
-  geom_sf(data = polyDdab, alpha = 0.2, fill = "white", aes(lty = "direct ab"), lwd = 1) +
+  geom_sf(data = polyDdan, alpha = 0.3, fill = "white", aes(lty = "direct an"), lwd = 1) +
+  geom_sf(data = polyDdab, alpha = 0.3, fill = "white", aes(lty = "direct ab"), lwd = 1) +
   geom_sf(data = df.stat[df.stat$station.project_id == "maisD",], 
           aes(pch = type, fill = type), color = "black", stroke = 1.2, size = 3, alpha = 0.7) +
   scale_shape_manual("station type", values = c("direct" = 23, "omni" = 21),
@@ -243,20 +242,14 @@ gD <- ggplot() +
                     guide = guide_legend(order = 2)) +
   scale_linetype_manual("method", values = c("direct an" = "dotted", "direct ab" = "solid", "omni ab" = "solid", "omni ml" = "dashed")) +
   
-  #geom_sf(data = polyCoab, alpha = 0.2, fill = "grey60") +
 
-  annotation_scale(height = unit(0.4, "cm"), text_cex = 1, width_hint = 0.4, bar_cols = c("grey60", "white")) +
-  # coord_sf(xlim = c(dimD[1], dimD[3]), ylim = c(dimD[2], dimD[4]), expand = F) +
+  annotation_scale(height = unit(0.4, "cm"), text_cex = 1, width_hint = 0.4, style = "ticks") +
   facet_grid(~"maisD") +
   theme_void(base_size = 15) +
   theme(legend.position = "none",
         strip.background = element_rect(fill = "grey60", color = "grey60"),
         strip.text = element_text(size = 30, colour="white"))
 
-g <- gC + gD
-g
-
-ggsave("./plots/plotCovArea.pdf", plot = g, width = 30, height = 15, device = "pdf", units = "cm")
 ```
 
 
@@ -273,7 +266,7 @@ g1 <- ggplot() +
           fill = "white", color = "black", stroke = 1.2, size = 3, alpha = 0.7) + 
   scale_fill_viridis_c("detection \nprobability", direction = -1, option = "rocket", 
                        end = 0.9, alpha = 0.4, breaks = c(0.1, 0.25, 0.4, 0.55, 0.7, 0.85, 1)) +
-  annotation_scale(height = unit(0.4, "cm"), text_cex = 1, width_hint = 0.4, bar_cols = c("grey60", "white")) +
+  annotation_scale(height = unit(0.4, "cm"), text_cex = 1, width_hint = 0.4, style = "ticks") +
   facet_wrap(~ "1 station") +
   theme_void(base_size = 15) +
   theme(legend.position = "none",
@@ -288,7 +281,7 @@ g2 <- ggplot() +
           fill = "white", color = "black", stroke = 1.2, size = 3, alpha = 0.7) + 
   scale_fill_viridis_c("detection \nprobability", direction = -1, option = "rocket", 
                        end = 0.9, alpha = 0.4, breaks = c(0.1, 0.25, 0.4, 0.55, 0.7, 0.85, 1)) +
-  annotation_scale(height = unit(0.4, "cm"), text_cex = 1, width_hint = 0.4, bar_cols = c("grey60", "white")) +
+  annotation_scale(height = unit(0.4, "cm"), text_cex = 1, width_hint = 0.4, style = "ticks") +
   facet_wrap(~ "2 stations") +
   theme_void(base_size = 15) +
   theme(legend.position = "right",
@@ -314,7 +307,7 @@ gC <- ggplot(shp.r) +
                     guide = guide_legend(order = 2)) +
   # geom_sf(data = df[100000:100100,], pch = 1, color = "grey80", alpha = 0.5) + # check whether dimensions are correct
   coord_sf(xlim = c(dimC2[1], dimC2[3]), ylim = c(dimC2[2], dimC2[4]), expand = F) +
-  annotation_scale(height = unit(0.4, "cm"), text_cex = 1, width_hint = 0.4, bar_cols = c("grey60", "white")) +
+  annotation_scale(height = unit(0.4, "cm"), text_cex = 1, width_hint = 0.4, style = "ticks") +
   facet_wrap(~"maisC") +
   theme_void(base_size = 15) +
   theme(legend.position = "right",
@@ -337,7 +330,7 @@ gD <- ggplot(shp.r) +
                     guide = guide_legend(order = 2)) +
   # geom_sf(data = df[100000:100100,], pch = 1, color = "grey80", alpha = 0.5) + # check whether dimensions are correct
   coord_sf(xlim = c(dimD2[1], dimD2[3]), ylim = c(dimD2[2], dimD2[4]), expand = F) +
-  annotation_scale(height = unit(0.4, "cm"), text_cex = 1, width_hint = 0.4, bar_cols = c("grey60", "white")) +
+  annotation_scale(height = unit(0.4, "cm"), text_cex = 1, width_hint = 0.4, style = "ticks") +
   facet_wrap(~"maisD") +
   theme_void(base_size = 15) +
   theme(legend.position = "none",
@@ -355,21 +348,21 @@ g
 ## Estimated positions {.tabset}
 
 ```{r}
-df.m4$X_time <- as.POSIXct(df.m4$X_time)
-df.m4$time <- as.numeric(format(df.m4$X_time, "%H")) + as.numeric(format(df.m4$X_time, "%M"))/60
+df.m2$X_time <- as.POSIXct(df.m2$X_time)
+df.m2$time <- as.numeric(format(df.m2$X_time, "%H")) + as.numeric(format(df.m2$X_time, "%M"))/60
 shp.p$X_time <- shp.p$time
 shp.p$time <- as.numeric(format(shp.p$X_time, "%H")) + as.numeric(format(shp.p$X_time, "%M"))/60
 shp.p$date <- as.Date(shp.p$X_time)
 
-## df.m4 as shp
-shp.m4 <- st_as_sf(df.m4, coords = c("lon", "lat"), crs = crsLL)
+## df.m2 as shp
+shp.m4 <- st_as_sf(df.m2, coords = c("lon", "lat"), crs = crsLL)
 shp.est <- NULL
 
-for(m in unique(df.m4$meth2)) {
+for(m in unique(df.m2$meth2)) {
   
-  for(t in unique(df.m4$tagID)) {
-    s <- unique(df.m4$site[df.m4$meth2 == m & df.m4$tagID == t])
-    tmp.p <- left_join(shp.p[shp.p$site %in% s,], df.m4[df.m4$meth2 == m & df.m4$tagID == t, c("X_time", "PE", "lon", "lat", "allM2")],
+  for(t in unique(df.m2$tagID)) {
+    s <- unique(df.m2$site[df.m2$meth2 == m & df.m2$tagID == t])
+    tmp.p <- left_join(shp.p[shp.p$site %in% s,], df.m2[df.m2$meth2 == m & df.m2$tagID == t, c("X_time", "PE", "lon", "lat", "allM2")],
                    by = c("X_time"))
     tmp.p$meth2 <- m
     tmp.p$tagID <- t
@@ -564,7 +557,7 @@ plot.track2(data = shp.est[shp.est$site == "maisD" &  shp.est$meth2 == "direct a
 
 ```{r}
 
-df.m4$PE_log10 <- log10(df.m4$PE)
+df.m2$PE_log10 <- log10(df.m2$PE)
 
 ## helper functions for pairs()
 panel.hist <- function(x, ...) {
@@ -603,42 +596,42 @@ panel.point <- function(x, y) {
 ### direct ab - maisC {.unnumbered}
 
 ```{r, fig.cap = "Correlations between predictors (Ac = number of receiving antennas, Sc = number of receiving stations, cover = station cover (proxy for detection probability), maxSig = maximum received signal (dB), Weight = summed up normalized signals), including correlation coefficients (upper panels) and histograms (diagonal panels) for directional antenna beams in maisC. For comparison, the log10-scaled response variable PE is given as well (PE_log10).", fig.width = 10, fig.height = 5.5}
-df <- df.m4[df.m4$meth == "direct.ab" & df.m4$site == "maisC", c("Ac", "Sc", "cover", "maxSig", "Weight", "PE_log10")]
+df <- df.m2[df.m2$meth == "direct.ab" & df.m2$site == "maisC", c("Ac", "Sc", "cover", "maxSig", "Weight", "PE_log10")]
 pairs(df, upper.panel = panel.cor, diag.panel = panel.hist, lower.panel = panel.point)
 ```
 
 ### direct ab - maisD {.unnumbered}
 
 ```{r, fig.cap = "Correlations between predictors (Ac = number of receiving antennas, Sc = number of receiving stations, cover = station cover (proxy for detection probability), maxSig = maximum received signal (dB), Weight = summed up normalized signals), including correlation coefficients (upper panels) and histograms (diagonal panels) for directional antenna beams in maisD. For comparison, the log10-scaled response variable PE is given as well (PE_log10).", fig.width = 10, fig.height = 5.5}
-df <- df.m4[df.m4$meth == "direct.ab" & df.m4$site == "maisD", c("Ac", "Sc", "cover", "maxSig", "Weight", "PE_log10")]
+df <- df.m2[df.m2$meth == "direct.ab" & df.m2$site == "maisD", c("Ac", "Sc", "cover", "maxSig", "Weight", "PE_log10")]
 pairs(df, upper.panel = panel.cor, diag.panel = panel.hist, lower.panel = panel.point)
 ```
 
 ### direct an - maisC {.unnumbered}
 
 ```{r, fig.cap = "Correlations between predictors (Sc = number of receiving stations, cover = station cover (proxy for detection probability), maxSig = maximum received signal (dB)), including correlation coefficients (upper panels) and histograms (diagonal panels) for directional angulation in maisC. For comparison, the log10-scaled response variable PE is given as well (PE_log10).", fig.width = 10, fig.height = 5.5}
-df <- df.m4[df.m4$meth == "direct.in" & df.m4$site == "maisC", c("Sc", "cover", "maxSig", "PE_log10")]
+df <- df.m2[df.m2$meth == "direct.an" & df.m2$site == "maisC", c("Sc", "cover", "maxSig", "PE_log10")]
 pairs(df, upper.panel = panel.cor, diag.panel = panel.hist, lower.panel = panel.point)
 ```
 
 ### direct an - maisD {.unnumbered}
 
 ```{r, fig.cap = "Correlations between predictors (Sc = number of receiving stations, cover = station cover (proxy for detection probability), maxSig = maximum received signal (dB)), including correlation coefficients (upper panels) and histograms (diagonal panels) for directional angulation in maisD. For comparison, the log10-scaled response variable PE is given as well (PE_log10).", fig.width = 10, fig.height = 5.5}
-df <- df.m4[df.m4$meth == "direct.in" & df.m4$site == "maisD", c("Sc", "cover", "maxSig", "PE_log10")]
+df <- df.m2[df.m2$meth == "direct.an" & df.m2$site == "maisD", c("Sc", "cover", "maxSig", "PE_log10")]
 pairs(df, upper.panel = panel.cor, diag.panel = panel.hist, lower.panel = panel.point)
 ```
 
 ### omni ab - maisC {.unnumbered}
 
 ```{r, fig.cap = "Correlations between predictors (Sc = number of receiving stations, cover = station cover (proxy for detection probability), maxSig = maximum received signal (dB), Weight = summed up normalized signals), including correlation coefficients (upper panels) and histograms (diagonal panels) for omnidirectional antenna beams in maisC. For comparison, the log10-scaled response variable PE is given as well (PE_log10).", fig.width = 10, fig.height = 5.5}
-df <- df.m4[df.m4$meth == "omni.ab" & df.m4$site == "maisC", c("Sc", "cover", "maxSig", "Weight", "PE_log10")]
+df <- df.m2[df.m2$meth == "omni.ab" & df.m2$site == "maisC", c("Sc", "cover", "maxSig", "Weight", "PE_log10")]
 pairs(df, upper.panel = panel.cor, diag.panel = panel.hist, lower.panel = panel.point)
 ```
 
 ### omni ml - maisC {.unnumbered}
 
 ```{r, fig.cap = "Correlations between predictors (Sc = number of receiving stations, cover = station cover (proxy for detection probability), maxSig = maximum received signal (dB)), including correlation coefficients (upper panels) and histograms (diagonal panels) for omnidirectional multilateration in maisC. For comparison, the log10-scaled response variable PE is given as well (PE_log10).", fig.width = 10, fig.height = 5.5}
-df <- df.m4[df.m4$meth == "omni.ml" & df.m4$site == "maisC", c("Sc", "cover", "maxSig", "PE_log10")]
+df <- df.m2[df.m2$meth == "omni.ml" & df.m2$site == "maisC", c("Sc", "cover", "maxSig", "PE_log10")]
 pairs(df, upper.panel = panel.cor, diag.panel = panel.hist, lower.panel = panel.point)
 ```
 
@@ -647,7 +640,7 @@ pairs(df, upper.panel = panel.cor, diag.panel = panel.hist, lower.panel = panel.
 ```{r}
 
 # get Sc levels and colors
-all_levels <- levels(df.sim5$Sc)
+all_levels <- levels(df.sim3$Sc)
 fill_values <- color_values <- viridis::viridis(length(all_levels))  # Generates 10 distinct colors
 
 plotPAdab <- function(d.pred, PApred, lower, upper, lower25, upper75, ytitle) {
@@ -720,16 +713,16 @@ plotPA <- function(d.sim, PAsim, ytitle) {
 
 ```{r, fig.cap = "Predicted mean PE (pPE, based on 4000 repetitions) from the global model, namely the median pPE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels) for all present combinations of Ac-Sc per site and method. For predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination.", fig.height = 12}
 
-g1 <- plotPAdab(d.pred = df.pred5[df.pred5$meth == "direct ab",], 
+g1 <- plotPAdab(d.pred = df.pred3[df.pred3$meth == "direct.ab",], 
        PApred = "pred_mod", lower = "lwr", upper = "upr", 
        lower25 = "lwr25", upper75 = "upr75",
        ytitle = "pPE [m]")
 
-g2 <- plotPA(d.sim = df.sim5[df.sim5$meth == "direct an",], 
+g2 <- plotPA(d.sim = df.sim3[df.sim3$meth == "direct.an",], 
        PAsim = "sim.m", 
        ytitle = "pPE [m]")
 
-g3 <- plotPA(d.sim = df.sim5[df.sim5$meth %in% c("omni ab", "omni ml"),], 
+g3 <- plotPA(d.sim = df.sim3[df.sim3$meth %in% c("omni.ab", "omni.ml"),], 
        PAsim = "sim.m", 
        ytitle = "pPE [m]")
 
@@ -748,16 +741,16 @@ g
 
 ```{r, fig.cap = "Predicted PE (pPE, based on 4000 repetitions) for position estimates from test tracks *Ctest* and *Dtest*, namely the median pPE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels). Positiones are summarized per present combinations of Ac-Sc per site and method. Note that this is based on raw data (not mean predictions per Ac-Sc combination), therefore showing more variance and larger CIs.", fig.height = 12}
 
-g1 <- plotPAdab(d.pred = sum.t5.2[sum.t5.2$meth == "direct.ab",], 
+g1 <- plotPAdab(d.pred = sum.t3.2[sum.t3.2$meth == "direct.ab",], 
        PApred = "mPE", lower = "lwr", upper = "upr", 
        lower25 = "lwr25", upper75 = "upr75",
        ytitle = "pPE [m]")
 
-g2 <- plotPA(d.sim = df.t5[df.t5$meth == "direct.in",], 
+g2 <- plotPA(d.sim = df.t3[df.t3$meth == "direct.an",], 
        PAsim = "pred_mod", 
        ytitle = "pPE [m]")
 
-g3 <- plotPA(d.sim = df.t5[df.t5$meth %in% c("omni.ab", "omni.ml"),], 
+g3 <- plotPA(d.sim = df.t3[df.t3$meth %in% c("omni.ab", "omni.ml"),], 
        PAsim = "pred_mod",
        ytitle = "pPE [m]")
 
@@ -776,16 +769,16 @@ g
 
 ```{r, fig.cap = "Difference between raw PE and predicted PE (pPE, based on 4000 repetitions) for position estimates from test tracks *Ctest* and *Dtest*, namely the median difference (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels). Positiones are summarized per present combinations of Ac-Sc per site and method. Note that this is based on raw data (not mean predictions per Ac-Sc combination), therefore showing more variance and larger CIs.", fig.height = 12}
 
-g1 <- plotPAdab(d.pred = sum.t5[sum.t5$meth == "direct.ab",], 
+g1 <- plotPAdab(d.pred = sum.t3[sum.t3$meth == "direct.ab",], 
        PApred = "mdiff", lower = "lwr", upper = "upr", 
        lower25 = "lwr25", upper75 = "upr75",
        ytitle = "PE - pPE [m]")
 
-g2 <- plotPA(d.sim = df.t5[df.t5$meth == "direct.in",], 
+g2 <- plotPA(d.sim = df.t3[df.t3$meth == "direct.an",], 
        PAsim = "diff", 
        ytitle = "PE - pPE [m]")
 
-g3 <- plotPA(d.sim = df.t5[df.t5$meth %in% c("omni.ab", "omni.ml"),], 
+g3 <- plotPA(d.sim = df.t3[df.t3$meth %in% c("omni.ab", "omni.ml"),], 
        PAsim = "diff",
        ytitle = "PE - pPE [m]")
 
@@ -800,31 +793,59 @@ g
 
 ```
 
-<!-- ### pPE q50 {.unnumbered} -->
+### pPE model q50 {.unnumbered}
 
-```{r, fig.cap = "Predicted median PE (pPE50, based on 4000 repetitions) from the global model, namely the median estimated 50% quantile of PE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels) for all present combinations of Ac-Sc per site and method. For predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination.", fig.height = 12}
+```{r, fig.cap = "Predicted median PE (pPE50, based on 4000 repetitions) from the global model, namely the median pPE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels) for all present combinations of Ac-Sc per site and method. For predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination. This could be done for any desired quantile (e.g. 65 % quantile instead of 50 % quantile).", fig.height = 12}
 
-# g1 <- plotPAdab(d.pred = df.pred5[df.pred5$meth == "direct ab",], 
-#        PApred = "q50", lower = "lwrq50", upper = "uprq50",
-#        lower25 = "lwr25q50", upper75 = "upr75q50",
-#        ytitle = "pPE50 [m]")
-# 
-# g2 <- plotPA(d.sim = df.sim5[df.sim5$meth == "direct an",], 
-#        PAsim = "sim.q50", 
-#        ytitle = "pPE50 [m]")
-# 
-# g3 <- plotPA(d.sim = df.sim5[df.sim5$meth %in% c("omni ab", "omni ml"),], 
-#        PAsim = "sim.q50",
-#        ytitle = "pPE50 [m]")
-# 
-# layout <- "
-# A
-# B
-# C
-# "
-# 
-# g <- g1 + g2 + g3 + plot_layout(design = layout)
-# g
+g1 <- plotPAdab(d.pred = df.pred3[df.pred3$meth == "direct.ab",],
+       PApred = "q50", lower = "lwrq50", upper = "uprq50",
+       lower25 = "lwr25q50", upper75 = "upr75q50",
+       ytitle = "pPE50 [m]")
+
+g2 <- plotPA(d.sim = df.sim3[df.sim3$meth == "direct.an",],
+       PAsim = "sim.q50",
+       ytitle = "pPE50 [m]")
+
+g3 <- plotPA(d.sim = df.sim3[df.sim3$meth %in% c("omni.ab", "omni.ml"),],
+       PAsim = "sim.q50",
+       ytitle = "pPE50 [m]")
+
+layout <- "
+A
+B
+C
+"
+
+g <- g1 + g2 + g3 + plot_layout(design = layout)
+g
+
+```
+
+### pPE Ctest, Dtest q50 {.unnumbered}
+
+```{r, fig.cap = "Predicted median PE (pPE50, based on 4000 repetitions) for position estimates from test tracks *Ctest* and *Dtest*, namely the median pPE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels). Positiones are summarized per present combinations of Ac-Sc per site and method. Note that this is based on raw data (not mean predictions per Ac-Sc combination), therefore showing more variance and larger CIs.", fig.height = 12}
+
+g1 <- plotPAdab(d.pred = sum.t3.2[sum.t3.2$meth == "direct.ab",], 
+       PApred = "mPEq50", lower = "lwrq50", upper = "uprq50", 
+       lower25 = "lwr25q50", upper75 = "upr75q50",
+       ytitle = "pPE50 [m]")
+
+g2 <- plotPA(d.sim = df.t3[df.t3$meth == "direct.an",], 
+       PAsim = "q50", 
+       ytitle = "pPE50 [m]")
+
+g3 <- plotPA(d.sim = df.t3[df.t3$meth %in% c("omni.ab", "omni.ml"),], 
+       PAsim = "q50",
+       ytitle = "pPE50 [m]")
+
+layout <- "
+A
+B
+C
+"
+
+g <- g1 + g2 + g3 + plot_layout(design = layout)
+g
 
 ```
 
@@ -832,16 +853,16 @@ g
 
 ```{r, fig.cap = "Predicted 65% quantile of PE (pPE65, based on 4000 repetitions) from the global model, namely the median estimated 65% quantile of PE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels) for all present combinations of Ac-Sc per site and method. For predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination.", fig.height = 12}
 
-# g1 <- plotPAdab(d.pred = df.pred5[df.pred5$meth == "direct ab",], 
+# g1 <- plotPAdab(d.pred = df.pred3[df.pred3$meth == "direct ab",], 
 #        PApred = "q65", lower = "lwrq65", upper = "uprq65",
 #        lower25 = "lwr25q65", upper75 = "upr75q65",
 #        ytitle = "pPE65 [m]")
 # 
-# g2 <- plotPA(d.sim = df.sim5[df.sim5$meth == "direct an",], 
+# g2 <- plotPA(d.sim = df.sim3[df.sim3$meth == "direct an",], 
 #        PAsim = "sim.q65",
 #        ytitle = "pPE65 [m]")
 # 
-# g3 <- plotPA(d.sim = df.sim5[df.sim5$meth %in% c("omni ab", "omni ml"),], 
+# g3 <- plotPA(d.sim = df.sim3[df.sim3$meth %in% c("omni ab", "omni ml"),], 
 #        PAsim = "sim.q65", 
 #        ytitle = "pPE65 [m]")
 # 

@@ -114,7 +114,7 @@ for (s in stat.direct) {
   else r.direct <- r.direct + r.tmp
 }
 
-## calculate station density for directional stations
+## calculate station density for omnidirectional stations
 for (s in stat.omni) {
   df.p <- shp.stat[shp.stat$station.id == s,]
   buf <- list()

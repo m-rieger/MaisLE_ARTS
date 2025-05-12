@@ -9,7 +9,7 @@ crsPlot <- 3857 #
 crsLL <- 4326 # lon lat in degree
 
 #### 1) data for stations ------------------------------------------------------
-df.stat <- read.csv(here("data", "station.csv"))
+df.stat <- read.csv("../data/station.csv")
 
 ## reduce to stations included in analysis; remove columns
 df.stat <- df.stat[df.stat$analysis == "yes",]
@@ -212,4 +212,58 @@ st_write(df[df$Project == "maisC",], layer = 'unfiltered', append = F, dsn = dsn
          layer_options = "GEOMETRY_NAME=geometry")
 dsn <- paste0("./data/cali/Data_cali_raw_maisD.gpkg")
 st_write(df[df$Project == "maisD",], layer = 'unfiltered', append = F, dsn = dsn, 
+         layer_options = "GEOMETRY_NAME=geometry")
+
+#### 4) animal test data -------------------------------------------------------
+## prepare testdata of animals form maisC
+
+## get handheld data
+df.bird <- read.csv("../data/data_test/GTdata_full_bird.csv")
+## get needed animals
+df.bird <- df.bird[c(grep("S-cG11-", df.bird$ID), grep("R1-cR8-", df.bird$ID)),]
+
+df.bird$date_start <- as.POSIXct(df.bird$date_start, tz = "UTC")
+df.bird$date_start <- with_tz(df.bird$date_start, "CET")
+df.bird$date_stop <- as.POSIXct(df.bird$date_stop, tz = "UTC")
+df.bird$date_stop <- with_tz(df.bird$date_stop, "CET")
+colnames(df.bird)[colnames(df.bird) %in% c("lon", "lat")] <- c("lon.true", "lat.true")
+
+## summarize df.bird by ID and transform to sf
+shp.bird <- df.bird %>% group_by(lon.true, lat.true, ID, Testtag) %>%
+  summarize(date_start = min(date_start),
+            date_stop = max(date_stop), .groups = "drop")
+shp.bird <- st_as_sf(shp.bird, coords = c("lat.true", "lon.true"), crs = crsLL)
+
+## list files with estimated positions
+fL <- list.files(path = "../data/data_test/", pattern = "antennabeams.gpkg")
+fL <- c(fL[grep(fL, pattern = "GT11_S")], fL[grep(fL, pattern = "RO08_R1")])
+
+df.t <- NULL
+for(f in fL) {
+  
+  dsn <- paste0("../data/data_test/", f)
+  tmp <- st_read(dsn = dsn)
+  tmp <- st_transform(tmp, crs = crsLL)  
+  
+  # get original positions from manual tracking
+  tmp <- left_join(tmp, df.bird[, c("Testtag", "date_start", "lat.true", "lon.true", "ID")], 
+                    by = c("Individual" = "Testtag", "X_time" = "date_start"))
+  
+  colnames(tmp)[colnames(tmp) %in% c("Station.Count", "Antenna.Count", "Signal.max")] <- c("Sc", "Ac", "maxSig")
+  
+  df.t <- rbind(df.t, tmp)
+}
+
+## remove unnecessary IDs
+df.t <- dplyr::select(df.t, -c("Planner", "Transmitter", "Transmitter.Id", "Transmitter.Model"))
+
+## remove "eurofins-" for anonymity
+df.t$Stations <- str_replace_all(df.t$Stations, "eurofins-maisC-", "")
+
+## save files
+dsn <- "./data/animal/Data_animal_raw_maisC.gpkg"
+st_write(df.t, layer = 'unfiltered', append = F, dsn = dsn, 
+         layer_options = "GEOMETRY_NAME=geometry")
+dsn <- "./data/animal/Data_animal_handheld_maisC.gpkg"
+st_write(shp.bird, layer = 'handheld', append = F, dsn = dsn, 
          layer_options = "GEOMETRY_NAME=geometry")
