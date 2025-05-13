@@ -63,9 +63,6 @@ if(READ) {
   st_write(df, layer = 'unfiltered', append = F, dsn = dsn, 
            layer_options = "GEOMETRY_NAME=geometry")
 
-  ## run markdown to visualize output
-  rmarkdown::render(input = here("R_pre", "plotCali.Rmd"), 
-                    output_format = "bookdown::html_document2")
 }
 
 

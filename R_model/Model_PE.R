@@ -1,37 +1,19 @@
 #### Model position error to define best method ####
 ####################################################-
 
-rm(list = ls())
-
 ## read in support functions (adjusted from Santon et al. 2023, 
 # -> https://github.com/MSSanton/glmms_workflow)
-source("./R_model/Linear modelling workflow_support functions.R") 
+# source("./R_model/Linear modelling workflow_support functions.R") 
 
-## read in helper functions (e.g. for rolling mean)
-source("./help_functions.R") 
 
 # increase memory size per worker
 options(future.globals.maxSize = 1000 * 1024^2)
-
-## load additional packages
-library(dplyr)
-library(sf)
-library(ggeffects) # to predict gams (in fast way)
-library(parallel)
-#library(purrr) # kfold
-#library(caret) # kfold
-library(zoo) #rollM
-library(geosphere) # distm()
-library(ggspatial)
-library(lubridate)
 
 ## global options
 theme_set(theme_light()) # ggplot theme 
 nsim <- 500 # number of simulations for distribution predictions
 SAMP <- FALSE # use sample (nsamp, TRUE) or full data (FALSE)
 nsamp <- 20000 # number of samples to use (subsample of whole data for faster modelling)
-
-crsLL <- 4326 # coordinates in lon lat
 
 ## load Lookup table for models
 # df.mod <- read.csv("./data/Lookup_model.csv")
@@ -66,13 +48,13 @@ dat$tagID[dat$Individual %in% c("TT163C", "TT298D", "TT164D", "TT014D")] <- 1.0
 dat$tagID[dat$Individual %in% c("TT240C", "TT090D")] <- 0.5
 dat$tagID[dat$Individual %in% c("TT298C")] <- 2.0
 
+#### 1) m1 to get r for meth = direct.ab -----------------------------------####
+#------------------------------------------------------------------------------#
 ## empty dfs for storing all results
 df.coef <- NULL
 df.pred <- NULL
 df.sim <- NULL
 
-#### 1) m1 to get r for meth = direct.ab ------------------------------------####
-#------------------------------------------------------------------------------#
 m <- "direct.ab"
 
 for(s in c("maisC", "maisD")) {
@@ -88,7 +70,8 @@ for(s in c("maisC", "maisD")) {
   df <- df %>% filter(!is.na(PE) & !is.na(tagID) & !is.na(r) & !is.na(cover))
 
   # ## use sample only (remove for final version)
-  if(SAMP & nsamp <= nrow(df)) df <- df[sample(c(rep(TRUE, nsamp), rep(FALSE, nrow(df)-nsamp)), nrow(df) ,replace = F),]
+  if(SAMP & nsamp <= nrow(df)) df <- df[sample(c(rep(TRUE, nsamp), 
+                                                 rep(FALSE, nrow(df)-nsamp)), nrow(df) ,replace = F),]
   
   pdf(paste0("./output_model/output_m1_", s, "_", m, ".pdf"), height = 10, width = 10)
   
@@ -132,7 +115,7 @@ for(s in c("maisC", "maisD")) {
                         "tagID" = NA)
   
   # get model prediction (summarized)
-  tmp.pred <- post_predictN(data = df, modelTMB = mod,
+  tmp.pred <- predict.glmmTMB(data = df, modelTMB = mod,
                            sims = TRUE, nsim = 4000,# save model simulations in mod.sims
                            newdat = newdat, component = "all",
                            DISP = T)
@@ -217,6 +200,10 @@ dat <- dat[!(dat$site == "maisD" & dat$meth == "direct.ab" & dat$r != 900),]
 
 #### 2) m2 to get best meth ------------------------------------------------####
 #------------------------------------------------------------------------------#
+## empty dfs for storing all results
+df.coef <- NULL
+df.pred <- NULL
+df.sim <- NULL
 
 for(s in c("maisC", "maisD")) {
  
@@ -283,7 +270,7 @@ for(s in c("maisC", "maisD")) {
                         "tagID" = NA)
 
   # get model prediction (summarized)
-  tmp.pred <- post_predictN(data = df, modelTMB = mod,
+  tmp.pred <- predict.glmmTMB(data = df, modelTMB = mod,
                             sims = TRUE, nsim = 4000, # does not save model simulations in mod.sims
                             newdat = newdat,
                             DISP = T, 
@@ -481,13 +468,13 @@ for(s in c("maisC", "maisD")) {
     newdat <- newdat[!is.nan(newdat$maxSig_z),] # remove NaNs due to non-present combinations
     
     ## predict for newdat
-    tmp.pred <- post_predictN(data = df, modelTMB = mod,
+    tmp.pred <- predict.glmmTMB(data = df, modelTMB = mod,
                               sims = TRUE, nsim = 4000, # does save model simulations in mod.sims
                               newdat = dplyr::select(newdat, -c(Sc, Ac)),
                               DISP = T,
                               component = "all")
     ## predict for original data
-    tmp.pred2 <- post_predictN(data = df, modelTMB = mod,
+    tmp.pred2 <- predict.glmmTMB(data = df, modelTMB = mod,
                                sims = F, nsim = 4000, # does not save model simulations in mod.sims
                                newdat = dplyr::select(df, -c(Sc, Ac, Weight, maxSig, cover)),
                                DISP = F,
@@ -602,7 +589,7 @@ for(s in c("maisC", "maisD")) {
     newdat$cover_z <- (df.t$cover-mean(df$cover)) / sd(df$cover)
     newdat$Weight_z <- (df.t$Weight-mean(df$Weight)) / sd(df$Weight)
     
-    tmp.pred <- post_predictN(data = df, modelTMB = mod,
+    tmp.pred <- predict.glmmTMB(data = df, modelTMB = mod,
                               sims = TRUE, nsim = 1000,
                               newdat = newdat,
                               DISP = T,
@@ -682,7 +669,7 @@ newdat$cover_z <- (df.t$cover-mean(df$cover)) / sd(df$cover)
 newdat$Weight_z <- (df.t$Weight-mean(df$Weight)) / sd(df$Weight)
 
 ## predict position errors
-tmp.pred <- post_predictN(data = df, modelTMB = mod,
+tmp.pred <- predict.glmmTMB(data = df, modelTMB = mod,
                           sims = TRUE, nsim = 4000,
                           newdat = newdat,
                           DISP = T,

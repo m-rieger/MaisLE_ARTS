@@ -9,12 +9,14 @@ pckgs <- c(
   "data.table",
   "here",
   "geosphere",
-  "lubridate",
   "raster", # density as raster
   "stars",
   "terra",
   "ggspatial", # for annotation bar
   "ggnewscale", # adding several color and fill scales to ggplot
+  "ggeffects", # to predict gams (in a fast way)
+  "parallel", 
+  "glmmTMB", # models
   "zoo" # roll mean
   )
 
@@ -31,16 +33,8 @@ sapply(pckgs, require, character.only = TRUE); rm(pckgs)
 ## 2a) data --------------------------------------------------------------------
 ## should data be read in new (TRUE) or loaded (FALSE)
 READ <- TRUE # read in or load data
-# chose data type (animal data or testtag data)
-# dtyp <- "cali"
 # chose time interval in Jupyter data (usually 2 sec)
 t <- "2 sec" # "x sec"
-# minimum number of stations per position
-# NStat <- 1
-# minimum number of antennas per position
-# NAnt <- 1
-# rolling mean for mean positions
-# rollM <- 15
 
 ## 2b) spatial data ------------------------------------------------------------
 crs     <- 31467 # Gauss Krüger in m
@@ -60,7 +54,6 @@ rast_inc <- 5  # Change resolution as needed (in meter) for point summary raster
 ## 2d) plotting ----------------------------------------------------------------
 bs <- 14 # basesize
 
-
 #### 3) data -------------------------------------------------------------------
 
 ## stations
@@ -73,11 +66,8 @@ shp.GPS  <- st_read(here("data", "Testtracks_points.gpkg"))
 
 #### 4) functions --------------------------------------------------------------
 source("plot_functions.R")
-
-rmean <- function(x, width) {
-  zoo::rollapply(x, width = width, 
-                 FUN = mean, fill = NA, na.rm = T, partial = TRUE)
-}
+source("help_functions.R")
 
 #### 5) run analysis
 source("./R_pre/mergeCali.R")
+source("./R_model/Model_PE.R") ## check whether all helper functions work (might need some more packages)

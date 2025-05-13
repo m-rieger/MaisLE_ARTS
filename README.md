@@ -1,2 +1,47 @@
 # MaisLE_ARTS
-repository for ARTS paper (comparing methods)
+
+repository for manuscript 'Optimizing positing finding and accuracy of wildlife movement data using the trackIT Automated Radiotelemetry System' containing data and R scripts.  
+
+## scripts
+
+- `0_dataprep.R`: needed for internal data preparation  
+- `help_functions.R`: helper functions  
+- `master.R`: master script running all subscripts in /R_pre  
+- `plot_functions.R`: helper functions for plotting  
+- `plots.R`: script to produce plots for manuscript, also running `supplement.Rmd`  
+- `supplement.Rmd`: supplement of manuscript  
+- `/R_model`: scripts used in modelling process
+  - `Linear modelling workflow_support functions.R`: helper functions supporting modelling process  
+  - `Model_PE.R`: modelling process (m1, m2, m3.1, m3.2, m3.3 and predictive performance tests)  
+- `/R_pre`: scripts used to check and prepare data before modelling (sourced by `master.R`)  
+  - `mergeCali.R`: merges position estimates with GPS fixes and station cover  
+  - `plotError.Rmd`: visual output of spatial distribution of position error, e.g., to check for blind spots in your study area   
+
+## data (`/data`)
+
+- `/animal`: telemetry data for one Great Tit and one European Robin  
+  - `Data_animal_Handheld_maisC.gpkg`: handheld data  
+  - `Data_animal_raw_maisC.gpkg`: estimated positions using directional antenna beams  
+- `/cali`: telemetry data from test tracks  
+  - `Data_cali_raw_maisC.gpkg`: estimated positions from test tracks in maisC  
+  - `Data_cali_raw_maisD.gpkg`: estimated positions from test tracks in maisD  
+  - `/savedFiles`: saved output from `mergeCali.R`  
+    - `Data_cali_density.gpgk`: layers `xx` and `xx`  
+    - `Data_cali_raster.gpkg`: layers `xx` and `xx`  
+    - `Data_cali_raw.gpkg`: layers `xx` and `xx`  
+- `Isolines_*`: isolines of maisC and maisD, needed for plotting  
+- `Station.gpkg`: locations of stations and station characteristics  
+- `Testtracks_lines.gpkg`: test tracks as lines  
+- `Testtracks_points.gpkg`: test tracks as points  
+- `vg2500_bld_ganz*`: outline of German federal states, needed for plotting  
+    
+## output (`/output_model`)
+
+- `data_m*.csv`: data used for the respective modelling process  
+- `data_test_m3*.csv`: data used for testing predictive performance of models m3  
+- `model_*.RDS`: model files  
+- `model-coefficients_*.csv`: model coefficients  
+- `model-predictions_*.csv`: model predictions for specific predictor combinations 
+- `model-predictions2_m3.csv`: model predictions of m3 for raw data  
+- `model-simulations_*.csv`: 
+
