@@ -117,7 +117,7 @@ for(f in fileL) df.t3 <- rbind(df.t3, read.csv(here("output_model", f)))
 ## using ggspatial (better)
 
 gC <- ggplot() + 
-  annotation_map_tile(type = "osm") +
+  annotation_map_tile(type = "osm", alpha = 0.4) +
   geom_sf(data = isoC, alpha = 0.3, aes(color = z)) +
   scale_color_viridis_c("elevation \n(m asl)", direction = -1, option = "rocket",
                         guide = guide_colorbar(order = 1)) +
@@ -139,7 +139,7 @@ gC <- ggplot() +
          fill = guide_legend(position = "right"))
 
 gD <- ggplot() + 
-  annotation_map_tile(type = "osm") +
+  annotation_map_tile(type = "osm", alpha = 0.4) +
   geom_sf(data = isoD, alpha = 0.3, aes(color = z)) +
   scale_color_viridis_c("elevation \n(m asl)", direction = -1, option = "rocket",
                         guide = guide_colorbar(order = 1)) +
@@ -227,11 +227,12 @@ write.csv(sum.p, "./plots/tabTesttracks.csv", row.names = F)
 
 
 gC <- ggplot() + 
-  annotation_map_tile(type = "osm") +
+  annotation_map_tile(type = "osm", alpha = 0.4) +
   geom_sf(data = shp.p[shp.p$site == "maisC",], 
           alpha = 0.2, aes(color = trackID), pch = 1) +
   scale_color_viridis_d("track", option = "viridis", begin = 0.1, end = 0.9,
-                        guide = guide_legend(order = 1, override.aes = list(alpha = 1, size = 2, stroke = 1))) +
+                        guide = guide_legend(order = 1, override.aes = list(alpha = 1, size = 2, stroke = 1)),
+                        labels = c("C1" = "C1, D1", "C2" = "C2, D2", "C3" = "C3, D3", "Ctest" = "Ctest, Dtest  ")) +
   new_scale_color() +
   geom_sf(data = df.stat[df.stat$station.project_id == "maisC",], 
           aes(pch = type, fill = type), color = "black", stroke = 1.2, size = 3, alpha = 0.7) +
@@ -248,7 +249,7 @@ gC <- ggplot() +
         strip.text = element_text(size = 30, colour="white"))
 
 gD <- ggplot() + 
-  annotation_map_tile(type = "osm") +
+  annotation_map_tile(type = "osm", alpha = 0.4) +
   geom_sf(data = shp.p[shp.p$site == "maisD",], 
           alpha = 0.2, aes(color = trackID), pch = 1) +
   scale_color_viridis_d("track", option = "viridis", begin = 0.1, end = 0.9,
@@ -264,7 +265,7 @@ gD <- ggplot() +
   coord_sf(xlim = c(dimD[1], dimD[3]), ylim = c(dimD[2], dimD[4]), expand = F) +
   facet_grid(~"maisD") +
   theme_void(base_size = 15) +
-  theme(legend.position = "right",
+  theme(legend.position = "none",
         strip.background = element_rect(fill = "grey60", color = "grey60"),
         strip.text = element_text(size = 30, colour="white"))
 
@@ -469,7 +470,7 @@ g4 <- ggplot() +
         strip.background = element_blank())
 
 g4c <- ggplot(data = df.m2, aes(x = group2, y = cover, fill = site, color = site, alpha = allM2)) +
-  stat_eye(.width = NA, adjust = 3, 
+  stat_eye(.width = NA, adjust = 5, 
                #point_interval = NULL,
                aes(side = ifelse(allM2 == "yes", "left", "right"),
                    thickness = after_stat(pdf*n)), # scales to counts
@@ -1040,12 +1041,12 @@ df.bird <- st_read("./data/animal/Data_animal_handheld_maisC.gpkg")
 
 df.bird$time <- as.numeric(format(df.bird$date_start, "%H")) + as.numeric(format(df.bird$date_start, "%M"))/60
 
-df.t <- df.t[sample(c(rep(TRUE, 20000), rep(FALSE, nrow(df.t)-20000)), nrow(df.t) ,replace = F),]
+# df.t <- df.t[sample(c(rep(TRUE, 20000), rep(FALSE, nrow(df.t)-20000)), nrow(df.t) ,replace = F),]
 
 g2 <- ggplot() + 
   geom_sf(aes(shape = "ClGT2"), alpha = 0.7, size = 4, stroke = 1, data = df.t[1,]) +
   geom_sf(aes(shape = "ClRO2"), alpha = 0.7, size = 4, stroke = 1, data = df.t[1,]) +        
-  annotation_map_tile(type = "osm") +
+  annotation_map_tile(type = "osm", alpha = 0.4) +
   # est. data
   geom_sf(aes(color = time, shape = Individual, size = pPE), alpha = 0.15, df.t[df.t$Ac > df.t$Sc,]) +
   # handheld data
@@ -1057,8 +1058,8 @@ g2 <- ggplot() +
   geom_sf(data = df.stat[df.stat$station.project_id == "maisC" & df.stat$type == "direct",], 
           color = "black", fill = "white", stroke = 1.2, size = 5, alpha = 0.7, aes(shape = "A")) +
   scale_shape_manual(name = "position", values = c("A" = 23, "ClGT11" = 1, "ClGT2" = 21, "ClRO08" = 2, "ClRO2" = 24), 
-                     labels = c("A" = "directional \nstation", "ClGT11" = "Great Tit (ARTS)", "ClGT2" = "Great Tit (handheld)", 
-                                "ClRO08" = "European \nRobin (ARTS)", "ClRO2" = "European \nRobin (handheld)")) +
+                     labels = c("A" = "directional \nstation", "ClGT11" = "Great Tit (direct ab)", "ClGT2" = "Great Tit (handheld)", 
+                                "ClRO08" = "European Robin \n(direct ab)", "ClRO2" = "European Robin \n(handheld)")) +
   scale_size_continuous(name = "pPE", range = c(1, 7)) +
   # scale_size_continuous("PA est. points",range = c(2, 10)) +
   # coord_sf(xlim = c(dim[1], dim[3]), ylim = c(dim[2], dim[4])) +

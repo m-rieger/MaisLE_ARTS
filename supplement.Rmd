@@ -210,7 +210,7 @@ polyDoab <- df.stat[df.stat$station.project_id == "maisD" & df.stat$type == "dir
 polyDoab <- st_convex_hull(st_union(polyDoab))
 
 gC <- ggplot() + 
-  annotation_map_tile(type = "osm") +
+  annotation_map_tile(type = "osm", alpha = 0.4) +
   geom_sf(data = polyCdan, alpha = 0.3, fill = "white", aes(lty = "direct an"), lwd = 1) +
   geom_sf(data = polyComl, alpha = 0.3, fill = "grey60", aes(lty = "omni ml"), lwd = 1) +
   geom_sf(data = polyCdab, alpha = 0.3, fill = "white", aes(lty = "direct ab"), lwd = 1) +
@@ -231,7 +231,7 @@ gC <- ggplot() +
         strip.text = element_text(size = 30, colour="white"))
 
 gD <- ggplot() + 
-  annotation_map_tile(type = "osm") +
+  annotation_map_tile(type = "osm", alpha = 0.4) +
   geom_sf(data = polyDdan, alpha = 0.3, fill = "white", aes(lty = "direct an"), lwd = 1) +
   geom_sf(data = polyDdab, alpha = 0.3, fill = "white", aes(lty = "direct ab"), lwd = 1) +
   geom_sf(data = df.stat[df.stat$station.project_id == "maisD",], 
@@ -250,6 +250,10 @@ gD <- ggplot() +
         strip.background = element_rect(fill = "grey60", color = "grey60"),
         strip.text = element_text(size = 30, colour="white"))
 
+g <- gC + gD
+
+g
+
 ```
 
 
@@ -259,7 +263,7 @@ gD <- ggplot() +
 ## plot example for methods
 shp.circ <- shp.circ[order(shp.circ$dens),]
 g1 <- ggplot() + 
-  annotation_map_tile(type = "osm") +
+  annotation_map_tile(type = "osm", alpha = 0.4) +
   geom_sf(aes(fill = dens), color = NA, 
           data = shp.circ[shp.circ$station == "c1l1",], lwd = 2) + 
   geom_sf(data = df.stat[df.stat$station.id == "c1l1",], pch = 23, 
@@ -274,7 +278,7 @@ g1 <- ggplot() +
         strip.text = element_text(size = 18, colour="white"))
 
 g2 <- ggplot() + 
-  annotation_map_tile(type = "osm") +
+  annotation_map_tile(type = "osm", alpha = 0.4) +
   geom_sf(aes(fill = dens), color = NA, 
           data = shp.circ[shp.circ$station %in% c("c1l1", "c2l1"),], lwd = 2) + 
   geom_sf(data = df.stat[df.stat$station.id %in% c("c1l1", "c2l1"),], pch = 23, 
@@ -291,7 +295,7 @@ g2 <- ggplot() +
 
 ## plot raster (= merged polygons)
 gC <- ggplot(shp.r) +
-  annotation_map_tile(type = "osm") +
+  annotation_map_tile(type = "osm", alpha = 0.4) +
   geom_sf(aes(fill = dens, color = dens)) +
   scale_fill_viridis_c("station cover", direction = -1, option = "rocket", na.value = NA, limits = c(0.1, NA), end = 0.9) +
   scale_color_viridis_c("station cover", direction = -1, option = "rocket", na.value = NA, limits = c(0.1, NA), end = 0.9) +
@@ -315,7 +319,7 @@ gC <- ggplot(shp.r) +
         strip.text = element_text(size = 18, colour="white"))
 
 gD <- ggplot(shp.r) +
-  annotation_map_tile(type = "osm") +
+  annotation_map_tile(type = "osm", alpha = 0.4) +
   geom_sf(aes(fill = dens, color = dens), lwd = 0.1) +
   scale_fill_viridis_c("station cover", direction = -1, option = "rocket", na.value = NA, limits = c(0.1, NA), end = 0.9) +
   scale_color_viridis_c("station cover", direction = -1, option = "rocket", na.value = NA, limits = c(0.1, NA), end = 0.9) +
@@ -395,7 +399,7 @@ df.statD <- full_join(df.statD,
 plot.track <- function(data, data.stat) {
   
   g <- ggplot() + 
-    annotation_map_tile(type = "osm") +
+    annotation_map_tile(type = "osm", alpha = 0.4) +
     geom_sf(data = data, 
             alpha = 0.2, aes(color = log10(PE)), pch = 1) +
   
@@ -440,7 +444,7 @@ plot.track <- function(data, data.stat) {
 plot.track2 <- function(data, data.stat) {
   
   g <- ggplot() + 
-    annotation_map_tile(type = "osm") +
+    annotation_map_tile(type = "osm", alpha = 0.4) +
     geom_sf(data = data, 
             alpha = 0.2, aes(color = allM2), pch = 1) +
   
