@@ -822,6 +822,103 @@ ppcheck_fun <- function(data, modelTMB, response, predictor, n.sim) {
   print(plot.output)
 }
 
+# Theme with a legend from Santon et al. 2023
+plot0.1 <- theme(axis.title.x = 
+                   element_text(
+                     margin = margin(t = 10),
+                     color = "Black", 
+                     size = 17), 
+                 axis.title.y = 
+                   element_text(
+                     margin = margin(r = 20),
+                     color = "Black", 
+                     size = 17), 
+                 axis.text = 
+                   element_text(
+                     color = "Black",
+                     size = 13), 
+                 axis.line = 
+                   element_line(
+                     color = "Black",
+                     linewidth = 0.5), 
+                 axis.ticks = element_line(color = "Black"),
+                 panel.background = element_rect(fill = "white"),
+                 panel.grid.minor = element_line(color = "White"),
+                 plot.title = 
+                   element_text(
+                     size = 17,
+                     face = "bold",
+                     hjust = 0),
+                 plot.subtitle = 
+                   element_text(
+                     size = 15,
+                     hjust = 0.5),
+                 strip.text.x = 
+                   element_text(
+                     size = 15,
+                     color = "black", 
+                     face = "bold"),
+                 strip.background = 
+                   element_rect(
+                     color = "white",
+                     fill = "white", 
+                     linewidth = 1, 
+                     linetype = "solid"),
+                 legend.background = element_blank(), 
+                 legend.title = 
+                   element_text(
+                     colour = "black",
+                     size = 13, 
+                     face = "bold"), 
+                 legend.text = 
+                   element_text(
+                     colour = "black",
+                     size = 12),
+                 legend.key.width = unit(1.5, "lines"), 
+                 legend.key = element_rect(fill = NA))
+
+# Same theme without a legend:
+plot0 <- plot0.1 + theme(legend.position = "none")
+
+## get coefficient estimates, from Santon et al. 2023
+
+comp_int <- function(modelTMB, ci_range, effects, component) {
+  
+  if(missing(ci_range)) ci_range = 0.95
+  if(missing(effects)) effects = "all"
+  if(missing(component)) component = "all"
+  
+  if(effects == "random") {
+    message("NOTE: you selected to display random effects, only. This 
+will generate an error message in case your model does not contain any 
+random effect.")}
+  # We use the parameters function (from package 'parameters') to extract model coefficients:
+  temp <- parameters(modelTMB,
+                     ci = ci_range,
+                     iterations = 10000,
+                     effects = effects,
+                     component = component)
+  
+  # We simplify the output to effect estimates and their SE / CI, but remove null hypothesis test info:
+  if(effects == "all") {
+    output.cols <- c("Parameter", "Coefficient", "SE", "CI_low", "CI_high", "Effects", "Group", "Component")     # c(1:3,5:6,10:12)
+    if(length(temp) < 12) {  # length can be 10 or 11 in the absence of random component.
+      output.cols <- c("Parameter", "Coefficient", "SE", "CI_low", "CI_high", "Effects")  # c(1:3,5:6,10)
+      message("HINT: Model contains no random component")
+    }
+  }
+  
+  if(effects == "random") {
+    output.cols <- c("Parameter", "Coefficient", "SE", "CI_low", "CI_high", "Effects", "Group", "Component")   # c(1:3,5:9)
+  }
+  if(effects == "fixed") {
+    output.cols <- c("Parameter", "Coefficient", "SE", "CI_low", "CI_high", "Effects")  # c(1:3,5:6, 10)
+  }
+  print(temp[, output.cols])
+  
+}
+
+
 ## rolling mean
 rmean <- function(x, width) {
   zoo::rollapply(x, width = width, 

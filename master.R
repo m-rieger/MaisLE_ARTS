@@ -4,6 +4,7 @@ rm(list = ls())
 #### 1) packages ---------------------------------------------------------------
 pckgs <- c(
   "ggdist",
+  "parameters", # for coefficient estimates
   "tidyverse",
   "sf",
   "data.table",

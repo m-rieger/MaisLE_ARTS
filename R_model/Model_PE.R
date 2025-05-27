@@ -15,8 +15,8 @@ nsim <- 500 # number of simulations for distribution predictions
 SAMP <- FALSE # use sample (nsamp, TRUE) or full data (FALSE)
 nsamp <- 20000 # number of samples to use (subsample of whole data for faster modelling)
 
-## load Lookup table for models
-# df.mod <- read.csv("./data/Lookup_model.csv")
+# create folder to store output
+if(!dir.exists("./output_model")) dir.create("./output_model")
 
 ## load data
 dsn <- paste0("./data/cali/savedFiles/Data_cali_density.gpkg")
