@@ -17,7 +17,9 @@ pckgs <- c(
   "ggnewscale", # adding several color and fill scales to ggplot
   "ggeffects", # to predict gams (in a fast way)
   "parallel", 
+  "MASS", # for mvrnorm in predictions
   "glmmTMB", # models
+  "future.apply", # to parallelise raw data simulations
   "zoo" # roll mean
   )
 

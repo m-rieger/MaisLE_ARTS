@@ -158,7 +158,7 @@ quant.rlnorm <- function(m, # matrix with mean
 
 ## get model predictions, adapted from 'A versatile workflow for linear modelling in R' by
 #  Matteo Santon, Fraenzi Korner-Nievergelt, Nico Michiels, Nils Anthes (2023)
-predict.glmmTMB <- function(data, mod, newdat, sims = F, nsim = 10000, DISP = F) { 
+pred.glmmTMB <- function(data, mod, newdat, sims = F, nsim = 10000, DISP = F) { 
   
   # # Make sure table comes as dataframe, and all character vectors are factors (sometimes this causes issues):
   # data <- as.data.frame(data)
@@ -261,204 +261,38 @@ predict.glmmTMB <- function(data, mod, newdat, sims = F, nsim = 10000, DISP = F)
   
 }
 
-## residual plots, from Santon et al 2023
-
-residual_plots <- function(data, modelTMB, response) {
+## scale numeric predictors to mean = 0 and SD = 1, from Santon et al. 2023
+z_transform <- function(data, predictors) {
   
   data <- as.data.frame(data)
   
-  residuals <- data[,FALSE]
+  predictors <- na.omit(predictors)
   
-  residuals$mod.res <- simulateResiduals(fittedModel = modelTMB)$scaledResiduals 
-  residuals$mod.fit <- simulateResiduals(fittedModel = modelTMB)$fittedPredictedResponse 
-  residuals$mod.fit.rank <- rank(residuals$mod.fit, ties.method = "average") 
-  residuals$mod.fit.rank <- residuals$mod.fit.rank / max(residuals$mod.fit.rank)
+  if(length(predictors) == 0) stop("ERROR: No NUMERIC predictor has been specified. Skip this step if none is available.")
   
-  formula <- paste(gsub(".~","", formula(modelTMB, fixed.only = T))[3], collapse = "")
-  
-  # Remove offset from model formulation if present:
-  if(length(modelTMB$call$offset) > 0) { 
-    offset <- paste("+ offset(", paste(as.character(modelTMB$call$offset), collapse = "("), ")", sep = "")
-    formula <- paste(gsub(offset, "", formula, fixed = TRUE), collapse = "")
-    formula <- paste(gsub(")","",formula, fixed = TRUE), collapse = "")
-  }
-  
-  temp <- unlist(str_split(formula, "\\+"))
-  temp <- unlist(str_split(temp, "\\*"))         # solves interaction if expressed with "\\*"
-  temp <- str_replace_all(temp, fixed(" "), "")  # remove ""
-  
-  remove_me <- temp[str_detect(temp, pattern = (":"))] # extract interactions 
-  
-  if(length(remove_me) > 0) {
-    fixed.pred <- temp[-match(remove_me, temp)]
-  } else {
-    fixed.pred <- temp
-  }
-  
-  poly_form <- fixed.pred[str_detect(fixed.pred, pattern = "poly")] # find poly formula if present.
-  
-  if(length(poly_form) > 0) {
-    poly_col <- gsub(" ", "", gsub(",", "", gsub("poly\\(|\\)|x\\=|[[:digit:]])||degree = [[:digit:]],|,raw=TRUE|raw=T|raw=FALSE|raw=F,|, |degree=[[:digit:]],|, |[[:digit:]]", "", poly_form)))
-    # OLD version: gsub(" ", "", gsub("poly\\(|\\)|x\\=|[[:digit:]])||degree = [[:digit:]],|,|degree=[[:digit:]],|, |[[:digit:]],|, raw=TRUE|raw=T|raw=FALSE|raw=F", "", poly_form))
+  if(sum(sapply(data[predictors], FUN = is.numeric)) != length(predictors)) 
+  { stop("ERROR: You either have no NUMERIC predictors (skip this step), or some specified predictors are not numeric (specify numeric predictors only).")} else {
     
-    for (i in 1:length(poly_form)) {
-      fixed.pred <- str_replace_all(fixed.pred, fixed(poly_form[i]), poly_col[i])
-    }
-  } # change name of the formula to real column in list of fixed predictors
-  
-  # QQ-plot of model residuals 
-  plot1 <- list(ggplot(residuals, aes(sample = mod.res)) +
-                  scale_y_continuous(limits = c(0,1)) +
-                  labs(x = "Standardised expected quantiles", 
-                       y = "Standardised observed quantiles", 
-                       title = "QQ-plot of standardised residuals") +
-                  geom_qq(distribution = stats::qunif) +
-                  geom_abline() +
-                  theme(aspect.ratio = 1) +
-                  plot0
-  )
-  
-  # Residual against fitted value plot - should show no pattern:
-  plot2 <- list(ggplot(data = residuals, aes(x = mod.fit.rank, y = mod.res)) +
-                  {if (length(fixed.pred) == 1 && is.factor(data[,fixed.pred]) && length(fixef(modelTMB)$zi) == 0) 
-                    geom_boxplot(outlier.shape = NA, 
-                                 data = residuals, 
-                                 aes(x = mod.fit.rank, 
-                                     y = mod.res, 
-                                     group = as.factor(mod.fit.rank)), 
-                                 col = "black", alpha = 1)} +
-                  {if (is.factor(data[,fixed.pred]) == F) 
-                    geom_smooth(data = residuals, 
-                                aes(x = mod.fit.rank, y = mod.res), 
-                                method = "glm", se = F, col = "blue")} +
-                  scale_y_continuous(limits = c(0,1)) +
-                  labs(x = "Model predictions (ranked)", 
-                       y = "Standardised residuals", 
-                       title = "Residuals against fitted values") +
-                  geom_hline(yintercept = c(0.25, 0.50, 0.75), lty = 2, col = "grey60") +
-                  geom_quasirandom(method = "smiley", alpha = 0.6) +
-                  theme(aspect.ratio = 1) +
-                  plot0
-  )
-  
-  
-  # QQ-plot of model random intercepts 
-  if(length(mod$sdr$diag.cov.random) != 0) { 
-    rand <- ranef(modelTMB)$cond
+    num <- colnames(dplyr::select_if(data[predictors], is.numeric))
     
-    if (length(ranef(modelTMB)$cond) > 0) {
-      plot3 <- lapply(1:length(ranef(modelTMB)$cond), function(ran) { 
-        ggplot(rand[[ran]], aes(sample = rand[[ran]][,1])) +
-          #scale_y_continuous(limits = c(0,1)) +
-          labs(x = "Theoretical quantiles", 
-               y = paste("Random intercept deviations for", names(ranef(modelTMB)$cond)[ran]), 
-               title = paste(paste("QQ-plot for random intercept", names(ranef(modelTMB)$cond)[ran]))) +
-          geom_qq(distribution = stats::qnorm) +
-          stat_qq_line() +
-          theme(aspect.ratio = 1) +
-          plot0
-      }
-      )
-    }} else {plot3 <- NULL
-    }
-  
-  plot <- c(plot1, plot2, plot3)
-  
-  plot <- plot[!unlist(lapply(plot,is.null))]
-  
-  do.call("grid.arrange", c(plot, nrow = ceiling(log(length(plot) + 0.1))))
-  
+    temp_list <- lapply(as.list(data[num]), scale)
+    names(temp_list) <- paste(num,"_z", sep = "") 
+    return(temp_list)
+  }
 }
 
-
-## residual plots for predictors, from Santon et al 2023
-
-residual_plots_predictors <- function(data, modelTMB, predictors) {
-  
-  data <- as.data.frame(data)
-  
-  if(length(na.omit(predictors)) < 1) {
-    stop("ERROR: Please enter at least one predictor.")
-  } else {
-    
-    predictors <- na.omit(predictors)  
-    num <- colnames(dplyr::select_if(data[predictors], is.numeric))
-    fac <- colnames(dplyr::select_if(data[predictors], is.factor))
-    data$mod.res <- simulateResiduals(fittedModel = modelTMB)$scaledResiduals # from DHARMa
-    
-    if(length(num) > 1) {
-      suppressWarnings(reshape2::melt(data, measure.vars = c(num), value.name = "value", variable.name = "num"))} -> dat_plot
-    
-    if(length(num) > 1) {
-      plot1 <- lapply(levels(as.factor(dat_plot$num)), function(num_value) {
-        ggplot(subset(dat_plot, num == num_value), aes(x = value, y = mod.res)) + 
-          scale_y_continuous(limits = c(0,1)) +
-          geom_point() +
-          geom_smooth(method = "gam", se = F) +
-          geom_hline(yintercept = c(0.25, 0.50, 0.75), lty = 2, col = "grey60") +
-          labs(y = "Standardised residuals", 
-               x = num_value, 
-               title = "") +
-          theme(aspect.ratio = 1) +
-          plot0
-      })
-    } else {
-      
-      if(length(num) == 1) {
-        plot1 <- list(ggplot(data, aes(x = !!sym(num), y = mod.res)) + 
-                        scale_y_continuous(limits = c(0,1)) +
-                        geom_point() +
-                        geom_smooth(method = "glm", se = F) +
-                        geom_hline(yintercept = c(0.25, 0.50, 0.75), lty = 2, col = "grey60") +
-                        labs(y = "Standardised residuals", 
-                             x = num, 
-                             title = "") +
-                        theme(aspect.ratio = 1) +
-                        plot0
-        )
-      }  else {plot1 <- NULL}}
-    
-    if(length(fac) > 1) {
-      suppressWarnings(reshape2::melt(data, measure.vars = c(fac), value.name = "levels", variable.name = "fac"))} -> dat_plot
-    
-    if(length(fac) > 1)  {
-      plot2 <- lapply(levels(as.factor(dat_plot$fac)), function(fac_value) {
-        ggplot(subset(dat_plot, fac == fac_value), aes(x = levels, y = mod.res)) + 
-          scale_y_continuous(limits = c(0,1)) +
-          geom_boxplot() + 
-          geom_quasirandom(method = "smiley", alpha = 0.6) +
-          labs(y = "Standardised residuals", x = fac_value, title = "") +
-          theme(aspect.ratio = 1) +
-          plot0
-      }
-      )
-    } else {
-      
-      if(length(fac) == 1) {
-        plot2 <- list(ggplot(data, aes(x = !!sym(fac), y = mod.res)) + 
-                        geom_boxplot() + 
-                        geom_quasirandom(method = "smiley", alpha = 0.6) +
-                        scale_y_continuous(limits = c(0,1)) +
-                        labs(y = "Standardised residuals", x = fac, title = "") +
-                        theme(aspect.ratio = 1) +
-                        plot0)
-      }  else{plot2 <- NULL}}
-    
-    plot <- c(plot1, plot2)
-    
-    plot <- plot[!unlist(lapply(plot,is.null))]
-    
-    do.call("grid.arrange", c(plot, nrow = ceiling(log(length(plot) + 0.1))))
-  }
+## rescale numeric predictors, from Santon et al. 2023
+back_z_transform <- function(predictor, z_predictor) {
+  (z_predictor * sd(predictor)) + mean(predictor)
 }
 
 ## posterior predictive checks: mean, adapted from Santon et al 2023
 
-mean.sim <- function(data, modelTMB, response, predictor, n.sim) {
+mean.sim <- function(data, mod, response, predictor, n.sim) {
   
   data <- as.data.frame(data)
   
-  sims <- simulate(modelTMB, nsim = n.sim, seed = 9) 
+  sims <- simulate(mod, nsim = n.sim, seed = 9) 
   
   if(!missing(predictor) && !is.null(predictor) && length(na.omit(predictor)) > 0) { 
     
@@ -470,7 +304,7 @@ mean.sim <- function(data, modelTMB, response, predictor, n.sim) {
     
     if(sum(sapply(data[predictor], FUN = is.numeric)) == length(predictor))  {stop("ERROR: The predictor must be a factor.")} else {
       
-      if (modelTMB$modelInfo$family[1] == "binomial" | modelTMB$modelInfo$family[1] == "betabinomial") {
+      if (mod$modelInfo$family[1] == "binomial" | mod$modelInfo$family[1] == "betabinomial") {
         list_sims <- lapply(sims, function(x) {
           cbind("estimate" = x[,1]/(x[,1] + x[,2]), data %>% dplyr::select(!!sym(predictor)))
         }
@@ -500,7 +334,7 @@ mean.sim <- function(data, modelTMB, response, predictor, n.sim) {
       
     }}  else { # not grouped by a predictor
       
-      if (modelTMB$modelInfo$family[1] == "binomial" | modelTMB$modelInfo$family[1] == "betabinomial") {
+      if (mod$modelInfo$family[1] == "binomial" | mod$modelInfo$family[1] == "betabinomial") {
         list_sims <- lapply(sims, function(x) {
           "estimate" = x[,1]/(x[,1] + x[,2])
         }
@@ -559,11 +393,11 @@ mean.sim <- function(data, modelTMB, response, predictor, n.sim) {
 
 ## posterior predictive checks: median, adapted from Santon et al 2023
 
-median.sim <- function(data, modelTMB, response, predictor, n.sim) {
+median.sim <- function(data, mod, response, predictor, n.sim) {
   
   data <- as.data.frame(data)
   
-  sims <- simulate(modelTMB, nsim = n.sim, seed = 9) 
+  sims <- simulate(mod, nsim = n.sim, seed = 9) 
   
   if(!missing(predictor) && !is.null(predictor) && length(na.omit(predictor)) > 0) { 
     
@@ -575,7 +409,7 @@ median.sim <- function(data, modelTMB, response, predictor, n.sim) {
     
     if(sum(sapply(data[predictor], FUN = is.numeric)) == length(predictor))  {stop("ERROR: The predictor must be a factor.")} else {
       
-      if (modelTMB$modelInfo$family[1] == "binomial" | modelTMB$modelInfo$family[1] == "betabinomial") {
+      if (mod$modelInfo$family[1] == "binomial" | mod$modelInfo$family[1] == "betabinomial") {
         list_sims <- lapply(sims, function(x) {
           cbind("estimate" = x[,1]/(x[,1] + x[,2]), data %>% dplyr::select(!!sym(predictor)))
         }
@@ -605,7 +439,7 @@ median.sim <- function(data, modelTMB, response, predictor, n.sim) {
       
     }}  else { # not grouped by a predictor
       
-      if (modelTMB$modelInfo$family[1] == "binomial" | modelTMB$modelInfo$family[1] == "betabinomial") {
+      if (mod$modelInfo$family[1] == "binomial" | mod$modelInfo$family[1] == "betabinomial") {
         list_sims <- lapply(sims, function(x) {
           "estimate" = x[,1]/(x[,1] + x[,2])
         }
@@ -664,11 +498,11 @@ median.sim <- function(data, modelTMB, response, predictor, n.sim) {
 
 ## posterior predictive checks: SD, adapted from Santon et al 2023
 
-sd.sim <- function(data, modelTMB, response, predictor, n.sim) {
+sd.sim <- function(data, mod, response, predictor, n.sim) {
   
   data <- as.data.frame(data)
   
-  sims <- simulate(modelTMB, nsim = n.sim, seed = 9) 
+  sims <- simulate(mod, nsim = n.sim, seed = 9) 
   
   if(!missing(predictor) && !is.null(predictor) && length(na.omit(predictor)) > 0) { 
     
@@ -680,7 +514,7 @@ sd.sim <- function(data, modelTMB, response, predictor, n.sim) {
     
     if(sum(sapply(data[predictor], FUN = is.numeric)) == length(predictor))  {stop("ERROR: The predictor must be a factor.")} else {
       
-      if (modelTMB$modelInfo$family[1] == "binomial" | modelTMB$modelInfo$family[1] == "betabinomial") {
+      if (mod$modelInfo$family[1] == "binomial" | mod$modelInfo$family[1] == "betabinomial") {
         list_sims <- lapply(sims, function(x) {
           cbind("estimate" = x[,1]/(x[,1] + x[,2]), data %>% dplyr::select(!!sym(predictor)))
         }
@@ -710,7 +544,7 @@ sd.sim <- function(data, modelTMB, response, predictor, n.sim) {
       
     }}  else { # not grouped by a predictor
       
-      if (modelTMB$modelInfo$family[1] == "binomial" | modelTMB$modelInfo$family[1] == "betabinomial") {
+      if (mod$modelInfo$family[1] == "binomial" | mod$modelInfo$family[1] == "betabinomial") {
         list_sims <- lapply(sims, function(x) {
           "estimate" = x[,1]/(x[,1] + x[,2])
         }
@@ -768,11 +602,11 @@ sd.sim <- function(data, modelTMB, response, predictor, n.sim) {
 }
 
 ## posterior predictive checks: data distribution, adapted from Santon et al 2023
-ppcheck_fun <- function(data, modelTMB, response, predictor, n.sim) {
+ppcheck_fun <- function(data, mod, response, predictor, n.sim) {
   
   data <- as.data.frame(data)
   
-  sims <- simulate(modelTMB, nsim = n.sim, seed = 9) # simulate data from the model
+  sims <- simulate(mod, nsim = n.sim, seed = 9) # simulate data from the model
   
   if(!missing(predictor) && !is.null(predictor) && length(na.omit(predictor)) > 0) { 
     
@@ -784,7 +618,7 @@ ppcheck_fun <- function(data, modelTMB, response, predictor, n.sim) {
     
     if(sum(sapply(data[predictor], FUN = is.numeric)) == length(predictor)) {stop("ERROR: The predictor must be a factor")} else {
       
-      if (modelTMB$modelInfo$family[1] == "binomial" | modelTMB$modelInfo$family[1] == "betabinomial") {
+      if (mod$modelInfo$family[1] == "binomial" | mod$modelInfo$family[1] == "betabinomial") {
         simulations <- lapply(sims, function(x) {
           "value" = x[,1]/(x[,1] + x[,2])})}
       else {
@@ -793,7 +627,7 @@ ppcheck_fun <- function(data, modelTMB, response, predictor, n.sim) {
       }
       simulations <- cbind(reshape::melt(simulations), data %>% dplyr::select(!!sym(predictor)), row.names = NULL)
     }} else {
-      if (modelTMB$modelInfo$family[1] == "binomial" | modelTMB$modelInfo$family[1] == "betabinomial") {
+      if (mod$modelInfo$family[1] == "binomial" | mod$modelInfo$family[1] == "betabinomial") {
         simulations <- lapply(sims, function(x) {
           "value" = x[,1]/(x[,1] + x[,2])})
       } else {
@@ -882,7 +716,7 @@ plot0 <- plot0.1 + theme(legend.position = "none")
 
 ## get coefficient estimates, from Santon et al. 2023
 
-comp_int <- function(modelTMB, ci_range, effects, component) {
+comp_int <- function(mod, ci_range, effects, component) {
   
   if(missing(ci_range)) ci_range = 0.95
   if(missing(effects)) effects = "all"
@@ -893,7 +727,7 @@ comp_int <- function(modelTMB, ci_range, effects, component) {
 will generate an error message in case your model does not contain any 
 random effect.")}
   # We use the parameters function (from package 'parameters') to extract model coefficients:
-  temp <- parameters(modelTMB,
+  temp <- parameters(mod,
                      ci = ci_range,
                      iterations = 10000,
                      effects = effects,

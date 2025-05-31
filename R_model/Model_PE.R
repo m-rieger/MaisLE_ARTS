@@ -84,20 +84,15 @@ for(s in c("maisC", "maisD")) {
                  # family = Gamma(link = "log"),
                  data = df)
   saveRDS(mod, paste0("./output_model/model_m1_", s, "_", m, ".RDS"))
-  
-  ## check residual plots (functions from Santon et al. 2023)
-  # residual_plots(data = df, modelTMB = mod, response = "PE")
-  # residual_plots_predictors(data = df, modelTMB = mod, predictors = "r")
-  
+
   ## check dispersion parameters using raw (observed) and simulated values
-  # disp.sim(data = df, modelTMB = mod, response = "PE", predictor = "r", n.sim = nsim)
-  sd.sim(data = df, modelTMB = mod, response = "PE", predictor = "r", n.sim = nsim)
-  mean.sim(data = df, modelTMB = mod, response = "PE", predictor = "r", n.sim = nsim)
-  median.sim(data = df, modelTMB = mod, response = "PE", predictor = "r", n.sim = nsim)
-  ppcheck_fun(data = df, modelTMB = mod, response = "PE", predictor = "r", n.sim = nsim)
+  sd.sim(data = df, mod = mod, response = "PE", predictor = "r", n.sim = nsim)
+  mean.sim(data = df, mod = mod, response = "PE", predictor = "r", n.sim = nsim)
+  median.sim(data = df, mod = mod, response = "PE", predictor = "r", n.sim = nsim)
+  ppcheck_fun(data = df, mod = mod, response = "PE", predictor = "r", n.sim = nsim)
   
   ## model coefficients and R2
-  tmp.coef <- comp_int(modelTMB = mod,
+  tmp.coef <- comp_int(mod = mod,
            ci_range = 0.95,
            effects = "all",  
            component = "all")
@@ -115,9 +110,9 @@ for(s in c("maisC", "maisD")) {
                         "tagID" = NA)
   
   # get model prediction (summarized)
-  tmp.pred <- predict.glmmTMB(data = df, modelTMB = mod,
+  tmp.pred <- pred.glmmTMB(data = df, mod = mod,
                            sims = TRUE, nsim = 4000,# save model simulations in mod.sims
-                           newdat = newdat, component = "all",
+                           newdat = newdat, 
                            DISP = T)
   tmp.pred$model <- "m1"
   tmp.pred$site <- s
@@ -177,11 +172,6 @@ for(s in c("maisC", "maisD")) {
           theme_light(base_size = 14) +
           theme(legend.position = "none"))
   
-  
-  ## pairwise comparison
-  pairwise_comparisons(data = df, modelTMB = mod, predictors = "r",
-                       component = "cond", dispScale = "response", contrasts = "all")
-
   df %>% group_by(r) %>% 
     summarise(mean = mean(PE), median = median(PE), SD = sd(PE), n = n())
   
@@ -218,7 +208,7 @@ for(s in c("maisC", "maisD")) {
   write.csv(df, paste0("./output_model/data_m2_", s, ".csv"), row.names = F)
   
   ## only sample timestamps present in all methods
-  df <- df %>% group_by(X_time, tagID) %>% # and same tagIDs???
+  df <- df %>% group_by(X_time, tagID) %>% # and same tagIDs
     mutate(Nmeth = length(unique(meth)),
            nP = n()) %>%
     ungroup()
@@ -241,19 +231,14 @@ for(s in c("maisC", "maisD")) {
 
   saveRDS(mod, paste0("./output_model/model_m2_", s, "_all.RDS"))
 
-  ## check residual plots (functions from Santon et al. 2023)
-  # residual_plots(data = df, modelTMB = mod, response = "PE")
-  # residual_plots_predictors(data = df, modelTMB = mod, predictors = "Sc")
-
   ## check dispersion parameters using raw (observed) and simulated values
-  # disp.sim(data = df, modelTMB = mod, response = "PE", predictor = "meth", n.sim = nsim)
-  sd.sim(data = df, modelTMB = mod, response = "PE", predictor = "meth", n.sim = nsim)
-  mean.sim(data = df, modelTMB = mod, response = "PE", predictor = "meth", n.sim = nsim)
-  median.sim(data = df, modelTMB = mod, response = "PE", predictor = "meth", n.sim = nsim)
-  ppcheck_fun(data = df, modelTMB = mod, response = "PE", predictor = "meth", n.sim = nsim)
+  sd.sim(data = df, mod = mod, response = "PE", predictor = "meth", n.sim = nsim)
+  mean.sim(data = df, mod = mod, response = "PE", predictor = "meth", n.sim = nsim)
+  median.sim(data = df, mod = mod, response = "PE", predictor = "meth", n.sim = nsim)
+  ppcheck_fun(data = df, mod = mod, response = "PE", predictor = "meth", n.sim = nsim)
 
   ## model coefficients and R2
-  tmp.coef <- comp_int(modelTMB = mod,
+  tmp.coef <- comp_int(mod = mod,
                        ci_range = 0.95,
                        effects = "all",
                        component = "all")
@@ -270,11 +255,10 @@ for(s in c("maisC", "maisD")) {
                         "tagID" = NA)
 
   # get model prediction (summarized)
-  tmp.pred <- predict.glmmTMB(data = df, modelTMB = mod,
+  tmp.pred <- pred.glmmTMB(data = df, mod = mod,
                             sims = TRUE, nsim = 4000, # does not save model simulations in mod.sims
                             newdat = newdat,
-                            DISP = T, 
-                            component = "all")
+                            DISP = T)
 
   tmp.pred$model <- "m2"
   tmp.pred$site <- s
@@ -384,7 +368,7 @@ for(s in c("maisC", "maisD")) {
     df <- df %>% filter(if_all(all_of(c(pred, "PE", "tagID")), ~ !is.na(.)))
     df.t <- df.t %>% filter(if_all(all_of(c(pred, "PE", "tagID")), ~ !is.na(.)))
     
-    pdf(paste0("./output_model/output_m5_", s, "_", m, ".pdf"), height = 10, width = 10)
+    pdf(paste0("./output_model/output_m3_", s, "_", m, ".pdf"), height = 10, width = 10)
     
     print(ggplot(df) + geom_histogram(aes(x = PE)) +
             geom_histogram(aes(x = PE), data = df.t, fill = "lightgrey") + 
@@ -424,18 +408,14 @@ for(s in c("maisC", "maisD")) {
     df$sdPE <- apply(xx, 1, sd)
     write.csv(df, paste0("./output_model/data_m3_", s, "_", m, ".csv"), row.names = F)
     
-    ## check residual plots (functions from Santon et al. 2023)
-    # residual_plots(data = df, modelTMB = mod, response = "PE")
-    residual_plots_predictors(data = df, modelTMB = mod, predictors = "Sc")
-    
     ## check dispersion parameters using raw (observed) and simulated values
-    sd.sim(data = df, modelTMB = mod, response = "PE", n.sim = nsim)
-    mean.sim(data = df, modelTMB = mod, response = "PE", n.sim = nsim)
-    median.sim(data = df, modelTMB = mod, response = "PE", n.sim = nsim)
-    ppcheck_fun(data = df, modelTMB = mod, response = "PE", n.sim = nsim)
+    sd.sim(data = df, mod = mod, response = "PE", n.sim = nsim)
+    mean.sim(data = df, mod = mod, response = "PE", n.sim = nsim)
+    median.sim(data = df, mod = mod, response = "PE", n.sim = nsim)
+    ppcheck_fun(data = df, mod = mod, response = "PE", n.sim = nsim)
     
     ## model coefficients and R2
-    tmp.coef <- comp_int(modelTMB = mod,
+    tmp.coef <- comp_int(mod = mod,
                          ci_range = 0.95,
                          effects = "all",
                          component = "all")
@@ -468,17 +448,15 @@ for(s in c("maisC", "maisD")) {
     newdat <- newdat[!is.nan(newdat$maxSig_z),] # remove NaNs due to non-present combinations
     
     ## predict for newdat
-    tmp.pred <- predict.glmmTMB(data = df, modelTMB = mod,
+    tmp.pred <- pred.glmmTMB(data = df, mod = mod,
                               sims = TRUE, nsim = 4000, # does save model simulations in mod.sims
                               newdat = dplyr::select(newdat, -c(Sc, Ac)),
-                              DISP = T,
-                              component = "all")
+                              DISP = T)
     ## predict for original data
-    tmp.pred2 <- predict.glmmTMB(data = df, modelTMB = mod,
+    tmp.pred2 <- pred.glmmTMB(data = df, mod = mod,
                                sims = F, nsim = 4000, # does not save model simulations in mod.sims
                                newdat = dplyr::select(df, -c(Sc, Ac, Weight, maxSig, cover)),
-                               DISP = F,
-                               component = "all")
+                               DISP = F)
     
     tmp.pred$model <- "m3"
     tmp.pred$site <- s
@@ -589,11 +567,10 @@ for(s in c("maisC", "maisD")) {
     newdat$cover_z <- (df.t$cover-mean(df$cover)) / sd(df$cover)
     newdat$Weight_z <- (df.t$Weight-mean(df$Weight)) / sd(df$Weight)
     
-    tmp.pred <- predict.glmmTMB(data = df, modelTMB = mod,
+    tmp.pred <- pred.glmmTMB(data = df, mod = mod,
                               sims = TRUE, nsim = 1000,
                               newdat = newdat,
-                              DISP = T,
-                              component = "all")
+                              DISP = T)
     
     
     ## simulate raw data an get quantile (here: median)
@@ -669,11 +646,10 @@ newdat$cover_z <- (df.t$cover-mean(df$cover)) / sd(df$cover)
 newdat$Weight_z <- (df.t$Weight-mean(df$Weight)) / sd(df$Weight)
 
 ## predict position errors
-tmp.pred <- predict.glmmTMB(data = df, modelTMB = mod,
+tmp.pred <- pred.glmmTMB(data = df, mod = mod,
                           sims = TRUE, nsim = 4000,
                           newdat = newdat,
-                          DISP = T,
-                          component = "all")
+                          DISP = T)
 
 
 # ## simulate raw data an get quantile (here: median and q65)
