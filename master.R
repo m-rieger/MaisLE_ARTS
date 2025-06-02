@@ -52,7 +52,7 @@ stat.omni <- c("s1l1", "s2l1", "s3l1", "s4l1", "s5l1", "s6l1", "s7l1", "s8l1", "
 
 rast_buf <- 700 # buffer around stations to make raster
 rast_res <- 10  # Change resolution as needed (in meter) for stat density raster
-rast_inc <- 5  # Change resolution as needed (in meter) for point summary raster (raster_resoultion*raster_incr)
+rast_inc <- 5  # Change resolution as needed (in meter) for point summary raster (raster_res*raster_incr)
 
 ## 2d) plotting ----------------------------------------------------------------
 bs <- 14 # basesize
@@ -72,5 +72,5 @@ source("plot_functions.R")
 source("help_functions.R")
 
 #### 5) run analysis
-source("./R_pre/mergeCali.R")
-source("./R_model/Model_PE.R") ## check whether all helper functions work (might need some more packages)
+source("./R/mergeCali.R")
+source("./R/Model_PE.R") ## check whether all helper functions work (might need some more packages)
