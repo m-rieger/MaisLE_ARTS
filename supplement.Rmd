@@ -1,8 +1,6 @@
 ---
 title: "Supplement of 'Optimizing Position Finding and Accuracy of wildlife movement
 data using the trackIT Automated Radiotelemetry System'"
-author: "Mirjam R. Rieger, Jan Schmitt, Paula Machin, Johann Musculus, Ralf Dittrich,
-Thomas K. Gottschalk, Jannis Gottwald, Patrick Lampe, Jonas Höchst"
 output: bookdown::html_document2
 always_allow_html: true
 language: eng
@@ -57,15 +55,15 @@ kbl(sum.p,
 The bearings computed using the described method (x-axis) were compared to bearings computed from the positions recorded using a GPS track (y-axis), where the color indicated the error in bearing estimation. Received signals were matched to the GPS locations using the nearest time, hence GPS locations where no signal was received were not used for calibration. In the example, 10,543 signal detections with GPS location matches resulted in a median error of 4.5° and a root mean square error (RMSE) of 8.3°. While the median error indicated that the antenna might be rotated slightly by around 4.5 during the tests, the RMSE showed the variance in bearing estimates. Specifically the bearings near perpendicular to the antenna axes, i.e., 0°, 90°, 180° and 270°, had the largest errors. This was due to falsely selecting the antenna with the second strongest signal reception, which might happen due to the reception on the back lobe of the antenna.
 
 ```{r, include=TRUE, fig.align="center", fig.cap = c("Example of linear bearing model applied to one station in maisC. x-axis = estimated bearings, y-axis = (true) bearings based on GPS locations from ground-truth data."), out.width = "400px"}
-knitr::include_graphics("./plots/bearing-model-crop.png")
+knitr::include_graphics("./plots_supplement/bearing-model-crop.png")
 ```
 
 ## Distance estimation
 
-Fig. XX showed a calibration curve of an exponential power distance model fitted to the underlying calibration data. The received signals and GPS locations were matched based on the nearest time, as described in the previous section. The curve was optimized using non-linear least squares. In the shown example of the directional station, a calibration track of 7,371 detected GPS fixes achieved a median distance error of 32.7 m with a root mean square error of 49.7 m. For the omnidirectional station, a calibration track of 13,014 detected GPS fixes achieved a median distance error of 24.4 m with a root mean square error of 60.2 m. The smaller distance error for omnidirectional stations is due to their uniform antenna characteristic compared to the directional characteristic. The error in distance estimation was mainly caused by topography and vegetation in the test area as well as transmitter orientation.
+Fig. 1.2 showed a calibration curve of an exponential power distance model fitted to the underlying calibration data. The received signals and GPS locations were matched based on the nearest time, as described in the previous section. The curve was optimized using non-linear least squares. In the shown example of the directional station, a calibration track of 7,371 detected GPS fixes achieved a median distance error of 32.7 m with a root mean square error of 49.7 m. For the omnidirectional station, a calibration track of 13,014 detected GPS fixes achieved a median distance error of 24.4 m with a root mean square error of 60.2 m. The smaller distance error for omnidirectional stations is due to their uniform antenna characteristic compared to the directional characteristic. The error in distance estimation was mainly caused by topography and vegetation in the test area as well as transmitter orientation.
 
 ```{r, include=TRUE, fig.align="center", fig.cap = c("Exponential power distance model fit for one directional (*left*) and one omnidirectional (*right*) station in maisC."), out.width = "800px"}
-knitr::include_graphics("./plots/Distance_model.png")
+knitr::include_graphics("./plots_supplement/Distance_model.png")
 ```
 
 ## Angulation
@@ -89,7 +87,7 @@ Bearing and distance estimations are then used to compute pairwise intersections
 
 
 ```{r, include=TRUE, fig.align="center", fig.cap=c("Exemplified position finding using angulation based on bearings."), out.width = "400px"}
-knitr::include_graphics("./plots/pos2-intersections.png")
+knitr::include_graphics("./plots_supplement/pos2-intersections.png")
 ```
 
 ## Antenna beams
@@ -118,7 +116,7 @@ For every station with at least one received signal, a station location and a we
 Finally, using the weight $w$ of the stations, a combined position (weighted mean) was computed illustrated by the diamond marker.
 
 ```{r, include=TRUE, fig.align="center", fig.cap=c("Exemplified position finding using antenna beams based on antenna geometry."), out.width = "400px"}
-knitr::include_graphics("./plots/pos2-antennabeams.png")
+knitr::include_graphics("./plots_supplement/pos2-antennabeams.png")
 ```
 
 ## Multilateration 
@@ -134,7 +132,7 @@ $x_0 = 0.437 * (200, 400) +  0.221 * (600, 700) +  0.341 * (800, 200) = (493.4, 
 Starting at this initial position the location is optimized by minimizing the summed distance error using the Nelder-Mead method, resulting in the final position $(442.9, 243.5)$.
 
 ```{r, include=TRUE, fig.align="center", fig.cap=c("Exemplified position finding using multilateration based on distances."), out.width = "400px"}
-knitr::include_graphics("./plots/pos2-multilaterations.png")
+knitr::include_graphics("./plots_supplement/pos2-multilaterations.png")
 ```
 
 
@@ -715,7 +713,7 @@ plotPA <- function(d.sim, PAsim, ytitle) {
 
 ### pPE model {.unnumbered}
 
-```{r, fig.cap = "Predicted mean PE (pPE, based on 4000 repetitions) from the global model, namely the median pPE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels) for all present combinations of Ac-Sc per site and method. For predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination.", fig.height = 12}
+```{r, fig.cap = "Predicted mean PE (pPE, based on 4000 repetitions) from the model, namely the median pPE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels) for all present combinations of Ac-Sc per site and method. For predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination.", fig.height = 12}
 
 g1 <- plotPAdab(d.pred = df.pred3[df.pred3$meth == "direct.ab",], 
        PApred = "pred_mod", lower = "lwr", upper = "upr", 
@@ -799,7 +797,7 @@ g
 
 ### pPE model q50 {.unnumbered}
 
-```{r, fig.cap = "Predicted median PE (pPE50, based on 4000 repetitions) from the global model, namely the median pPE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels) for all present combinations of Ac-Sc per site and method. For predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination. This could be done for any desired quantile (e.g. 65 % quantile instead of 50 % quantile).", fig.height = 12}
+```{r, fig.cap = "Predicted median PE (pPE50, based on 4000 repetitions) from the model, namely the median pPE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels) for all present combinations of Ac-Sc per site and method. For predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination. This could be done for any desired quantile (e.g. 65 % quantile instead of 50 % quantile).", fig.height = 12}
 
 g1 <- plotPAdab(d.pred = df.pred3[df.pred3$meth == "direct.ab",],
        PApred = "q50", lower = "lwrq50", upper = "uprq50",
@@ -855,7 +853,7 @@ g
 
 <!-- ### pPE q65 {.unnumbered} -->
 
-```{r, fig.cap = "Predicted 65% quantile of PE (pPE65, based on 4000 repetitions) from the global model, namely the median estimated 65% quantile of PE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels) for all present combinations of Ac-Sc per site and method. For predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination.", fig.height = 12}
+```{r, fig.cap = "Predicted 65% quantile of PE (pPE65, based on 4000 repetitions) from the model, namely the median estimated 65% quantile of PE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels) for all present combinations of Ac-Sc per site and method. For predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination.", fig.height = 12}
 
 # g1 <- plotPAdab(d.pred = df.pred3[df.pred3$meth == "direct ab",], 
 #        PApred = "q65", lower = "lwrq65", upper = "uprq65",
