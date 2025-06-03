@@ -1,6 +1,6 @@
 ---
-title: "Supplement of 'Optimizing Position Finding and Accuracy of wildlife movement
-data using the trackIT Automated Radiotelemetry System'"
+title: "Supplement of 'Enabling High-Resolution Wildlife Movement: A novel antenna beam-based approach including per-position error estimations for Automated Radiotelemetry Systems'"
+author: "Rieger, M. R., Schmitt, J., Machin, P., Musculus, J., Dittrich, R., Gottschalk, T. K., Gottwald, J., Lampe, P., & Höchst, J."
 output: bookdown::html_document2
 always_allow_html: true
 language: eng

@@ -1,6 +1,6 @@
 # MaisLE_ARTS
 
-repository for manuscript 'Optimizing positing finding and accuracy of wildlife movement data using the trackIT Automated Radiotelemetry System' containing data and R scripts.  
+repository for manuscript 'Enabling High-Resolution Wildlife Movement: A novel antenna beam-based approach including per-position error estimations for Automated Radiotelemetry Systems' containing data and R scripts.  
 
 ## scripts
 
