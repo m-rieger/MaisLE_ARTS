@@ -1,5 +1,5 @@
-#### Model position error to define best method ####
-####################################################-
+#### Model position error, validate method ####
+###############################################-
 
 ## some support functions concerning glmmTMB (in 'help_functions.R') are used or 
 # adjusted from Santon et al. 2023, https://github.com/MSSanton/glmms_workflow

@@ -1,6 +1,6 @@
 # MaisLE_ARTS
 
-repository for manuscript 'Enabling High-Resolution Wildlife Movement: A novel antenna beam-based approach including per-position error estimations for Automated Radiotelemetry Systems' containing data and R scripts.  
+repository for manuscript 'Enabling High-Resolution Wildlife Tracking: A novel antenna beam-based approach including per-position error estimations for Automated Radiotelemetry Systems' by Rieger, M. R., Schmitt, J., Machin, P., Musculus, J., Dittrich, R., Gottschalk, T. K., Gottwald, J., Lampe, P., & Höchst, J. containing data and R scripts.  
 
 ## scripts
 
