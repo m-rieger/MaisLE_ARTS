@@ -16,7 +16,7 @@ library(ggnewscale) # adding several (color, fill) scales to ggplot
 library(patchwork) # for combining plots
 library(ggdist) # plot densities
 # devtools::install_github("psyteachr/introdataviz")
-library(introdataviz)
+# library(introdataviz)
 library(spatstat) # kernel density of sf object
 
 # source("./R_model/Linear modelling workflow_support functions.R") 
@@ -32,7 +32,7 @@ if(!dir.exists("./plots")) dir.create("./plots")
 
 #### 0) load data --------------------------------------------------------------
 ## station
-df.stat <- st_read("./data/station.gpkg")
+df.stat <- st_read("./data/Station.gpkg")
 df.stat <- st_transform(df.stat, crs = crsPlot) 
 
 # df.stat <- df.stat %>% group_by(station.project_id, type) %>%
@@ -853,19 +853,19 @@ df.meth <- data.frame(meth = c("direct.ab", "direct.ab", "direct.an", "direct.an
 df.meth$ID <- paste0(df.meth$site, "_", df.meth$meth)
 
 # for(i in df.meth$ID) {
-  # df.meth$R2[df.meth$ID == i] <- round(pR2(model = Lm[[i]], resp = Lm[[i]]$frame$PE)*100, 2)
-  # df.meth$MAE[df.meth$ID == i] <- round(mean(Lk[[i]]$mfull2), 2)
-  # Ld[[i]]$ID <- paste0(Ld[[i]]$site, "_", Ld[[i]]$meth)
-  # Ld[[i]] <- left_join(Ld[[i]], df.m2[df.m2$ID == i, c("X_time", "tagID", "allM", "thresh", "ID")], by = c("X_time", "tagID", "ID"))
-  # df.meth$MAE2[df.meth$ID == i] <- mean(abs(predict(Lm[[i]], newdata = Ld[[i]], type = "response")-Ld[[i]]$PE))
-  # df.meth$MAE3[df.meth$ID == i] <- mean(abs(predict(Lm[[i]], newdata = Ld[[i]][Ld[[i]]$allM == "yes",], type = "response")-Ld[[i]]$PE[Ld[[i]]$allM == "yes"]))
-  # df.meth$MAE4[df.meth$ID == i] <- mean(abs(predict(Lm[[i]], newdata = Ld[[i]][Ld[[i]]$thresh == "yes",], type = "response")-Ld[[i]]$PE[Ld[[i]]$thresh == "yes"]))
-  # df.meth$ME2[df.meth$ID == i] <- -mean(predict(Lm[[i]], newdata = Ld[[i]], type = "response")-Ld[[i]]$PE)
-  # df.meth$ME3[df.meth$ID == i] <- -mean(predict(Lm[[i]], newdata = Ld[[i]][Ld[[i]]$allM == "yes",], type = "response")-Ld[[i]]$PE[Ld[[i]]$allM == "yes"])
-  # df.meth$ME4[df.meth$ID == i] <- -mean(predict(Lm[[i]], newdata = Ld[[i]][Ld[[i]]$thresh == "yes",], type = "response")-Ld[[i]]$PE[Ld[[i]]$thresh == "yes"])
-  # df.meth$m2[df.meth$ID == i] <- median(predict(Lm[[i]], newdata = Ld[[i]], type = "response"))
-  # df.meth$m3[df.meth$ID == i] <- median(predict(Lm[[i]], newdata = Ld[[i]][Ld[[i]]$allM == "yes",], type = "response"))
-  # df.meth$m4[df.meth$ID == i] <- median(predict(Lm[[i]], newdata = Ld[[i]][Ld[[i]]$thresh == "yes",], type = "response"))
+#   df.meth$R2[df.meth$ID == i] <- round(pR2(model = Lm[[i]], resp = Lm[[i]]$frame$PE)*100, 2)
+#   # df.meth$MAE[df.meth$ID == i] <- round(mean(Lk[[i]]$mfull2), 2)
+#   # Ld[[i]]$ID <- paste0(Ld[[i]]$site, "_", Ld[[i]]$meth)
+#   # Ld[[i]] <- left_join(Ld[[i]], df.m2[df.m2$ID == i, c("X_time", "tagID", "allM", "thresh", "ID")], by = c("X_time", "tagID", "ID"))
+#   # df.meth$MAE2[df.meth$ID == i] <- mean(abs(predict(Lm[[i]], newdata = Ld[[i]], type = "response")-Ld[[i]]$PE))
+#   # df.meth$MAE3[df.meth$ID == i] <- mean(abs(predict(Lm[[i]], newdata = Ld[[i]][Ld[[i]]$allM == "yes",], type = "response")-Ld[[i]]$PE[Ld[[i]]$allM == "yes"]))
+#   # df.meth$MAE4[df.meth$ID == i] <- mean(abs(predict(Lm[[i]], newdata = Ld[[i]][Ld[[i]]$thresh == "yes",], type = "response")-Ld[[i]]$PE[Ld[[i]]$thresh == "yes"]))
+#   # df.meth$ME2[df.meth$ID == i] <- -mean(predict(Lm[[i]], newdata = Ld[[i]], type = "response")-Ld[[i]]$PE)
+#   # df.meth$ME3[df.meth$ID == i] <- -mean(predict(Lm[[i]], newdata = Ld[[i]][Ld[[i]]$allM == "yes",], type = "response")-Ld[[i]]$PE[Ld[[i]]$allM == "yes"])
+#   # df.meth$ME4[df.meth$ID == i] <- -mean(predict(Lm[[i]], newdata = Ld[[i]][Ld[[i]]$thresh == "yes",], type = "response")-Ld[[i]]$PE[Ld[[i]]$thresh == "yes"])
+#   # df.meth$m2[df.meth$ID == i] <- median(predict(Lm[[i]], newdata = Ld[[i]], type = "response"))
+#   # df.meth$m3[df.meth$ID == i] <- median(predict(Lm[[i]], newdata = Ld[[i]][Ld[[i]]$allM == "yes",], type = "response"))
+#   # df.meth$m4[df.meth$ID == i] <- median(predict(Lm[[i]], newdata = Ld[[i]][Ld[[i]]$thresh == "yes",], type = "response"))
 # }
 
 df.t3 %>% group_by(group) %>% 
@@ -1029,7 +1029,10 @@ g2 <- ggplot() +
 
 # ggsave("./plots/plotAnimal1.pdf", plot = g1, width = 34, height = 18, device = "pdf", units = "cm")
 ggsave("./plots/plotAnimal.pdf", plot = g2, width = 34, height = 18, device = "pdf", units = "cm")
+ggsave("./plots_supplement/plotAnimal.png", plot = g2, width = 34, height = 18, device = "png", units = "cm")
 
 ## run markdown for supplement -------------------------------------------------
+df.ov <- read.csv("./data/Compare_ARTS_PE.csv")
+
 rmarkdown::render(input = here("supplement.Rmd"))
 

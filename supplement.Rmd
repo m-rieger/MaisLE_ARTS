@@ -1,5 +1,5 @@
 ---
-title: "Supplement of 'Enabling High-Resolution Wildlife Tracking: A novel antenna beam-based approach including per-position error estimations for Automated Radiotelemetry Systems'"
+title: "Supplement of 'Enabling High-Resolution Wildlife Tracking: antenna beam-based approach including novel per-position error estimations for Automated Radiotelemetry Systems'"
 author: "Rieger, M. R., Schmitt, J., Machin, P., Musculus, J., Dittrich, R., Gottschalk, T. K., Gottwald, J., Lampe, P., & Höchst, J."
 output: bookdown::html_document2
 always_allow_html: true
@@ -876,4 +876,44 @@ g
 # 
 # g <- g1 + g2 + g3 + plot_layout(design = layout)
 # g
+```
+
+## Position error overview
+
+```{r}
+
+tab.ov <- df.ov
+tab.ov$mean[tab.ov$mean == ""] <- NA
+
+colnames(tab.ov) <- c("study", "antenna type", "spacing [km]", "height [m]", "testtag", "area covered", "method", "mean [m]", "median [m]", "DOI")
+
+tab.ov$study <- cell_spec(tab.ov$study, "html", link = tab.ov$DOI)
+tab.ov <- select(tab.ov, -DOI)
+
+kbl(tab.ov, caption = "Overview of position errors (PE) of recent studies using ARTS with different position estimation methods in comparison with our study. PEs are given as mean and/or median. The number of directional antennas per station is given in brackets. To set the PE in relation to the used station set-up, average distance between station (spacing), station height, type of testtag procedure (stationary at points or moving along a track), as well as the covered area (core area = within the station set-up, all = including perimeter outside the set-up) are given as well.",     
+    row.names = F,
+      escape = FALSE,
+      align = c("lll")) %>%
+  add_header_above(c(" ", "station" = 3, " " = 3, "PE" = 2)) %>%
+  row_spec(which(1:nrow(tab.ov)%%2!=1),
+           background = "#CCCCCC") %>%
+  kable_styling(font_size = 12, latex_options = "hold_position") %>%
+  row_spec(0, extra_css = "border-bottom: 1px solid black;", background = "#CCCCCC") %>%
+  row_spec(9, extra_css = "border-bottom: 1px solid black;") %>%
+  row_spec(20, extra_css = "border-bottom: 1px solid black;")
+
+```
+
+## Bird data example
+We also used data from one Great Tit *Parus major* and one European Robin *Erithacus rubecula* that were tagged in the course of the project to test whether the methods used can also be applied to real data.
+We collected the respective ground-truth data with handheld antennas and manual angulation in the field, estimating a position at least every ten minutes for one day.
+As there was rarely visual contact with the bird, these positions only served as a rough estimate of where the bird was. 
+For the trapping, handling and tagging of birds, authorizations were issued by the State Office for Labor Protection, Consumer Protection and Health, Brandenburg (LAVG, 2347-80-2023-9-G) and the State Office for the Environment, Brandenburg (LfU).
+For animal tagging we used the same transmitters as for test tracks and ensured that transmitter weights (0.37 g, 0.6 g) did not exceed 3 % of the animal's body weight.
+
+Visual comparison of position estimation and error prediction with data from a tagged Great Tit and European Robin revealed a close match between positions derived from handheld telemetry and positions derived from our ARTS using directional antenna beams, but positions spread further when estimated with antenna beams.
+Further, pPEs were larger for positions that were farther away from the respective handheld positions.
+
+```{r, include=TRUE, fig.align="center", fig.cap = c("Estimated positions using directional antenna beams (empty symbols, size is scaled to pPE) and positions located with handheld antennas (filled symbols) recorded in one day for two individuals in maisC (Great Tit, European Robin)."), out.width = "800px"}
+knitr::include_graphics("./plots_supplement/plotAnimal.png")
 ```

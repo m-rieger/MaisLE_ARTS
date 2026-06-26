@@ -1,0 +1,28 @@
+﻿study,antenna,spacing,height,testtag,covered,method,mean,median,DOI
+Rüppel et al. 2026,directional (3-4),1-20,10,moving,all,antenna beams,,2757,https://doi.org/10.1111/2041-210x.70273
+Fisher et al. 2020,directional (4),0.250,7,stationary,core area,angluation,,15,https://doi.org/10.1111/2041-210X.13529
+Fisher et al. 2020,directional (4),0.250,7,stationary (butterfly),core area,angluation,,72,https://doi.org/10.1111/2041-210X.13529
+Gottwald et al. 2019,directional (4),0.200,2.5,stationary,core area,angluation,21-25,,https://doi.org/10.1111/2041-210X.13294
+van Osta et al. 2024,directional (4),0.500,4,stationary (bird),all,RSS fingerprinting,308,230,https://doi.org/10.1186/s40317-024-00379-w
+van Osta et al. 2024,directional (4),0.500,4,stationary (bird),all,linear regression,335,280,https://doi.org/10.1186/s40317-024-00379-w
+van Osta et al. 2024,directional (4),0.500,4,stationary (bird),all,(bi)angulation,550,540,https://doi.org/10.1186/s40317-024-00379-w
+Kays et al. 2011,directional (6),0.800,40,moving,all,angluation,42,,https://doi.org/10.1093/comjnl/bxr072
+Kays et al. 2011,directional (6),0.800,40,moving,core area,angluation,73,,https://doi.org/10.1093/comjnl/bxr072
+Beardsworth et al. 2022,omnidirectional,3.000,NA,stationary,core area,Time of arrival ,,4,https://doi.org/10.1111/2041-210X.13913
+Beardsworth et al. 2022,omnidirectional,3.000,NA,mobile,core area,Time of arrival ,,6,https://doi.org/10.1111/2041-210X.13913
+Burcher et al. 2025,omnidirectional,0.100,2.5,moving,all,grid search algorithm,25,,https://doi.org/10.1186/s40317-025-00431-3
+Burcher et al. 2025,omnidirectional,0.100,2.5,moving,all,multilateration,63,,https://doi.org/10.1186/s40317-025-00431-3
+Menzies et al. 2016,omnidirectional,0.200,NA,stationary,core area,Time of arrival ,22,,https://doi.org/10.1016/j.compag.2016.04.001
+Paxton et a. 2022,omnidirectional,0.215,9,stationary,core area,"multilateration, filters",62,50,https://doi.org/10.1002/ece3.8561
+Paxton et a. 2022,omnidirectional,0.215,9,stationary,core area,multilateration,181,172,https://doi.org/10.1002/ece3.8561
+Ruede-Uribe et al. 2024,omnidirectional,0.150,2.5,moving,core area,trilateration,116,105,https://doi.org/10.1002/ece3.70405
+Tyson et al. 2024,omnidirectional,0.100,2,stationary,core area,multilateration,,43,https://doi.org/10.1111/2041-210X.14410
+Tyson et al. 2024,omnidirectional,0.100,2,stationary,core area,RSS fingerprinting,,30,https://doi.org/10.1111/2041-210X.14410
+Wallace et al. 2021,omnidirectional,0.012,NA,stationary,all,trilateration,7,4,https://doi.org/10.1111/2041-210X.13794
+this study,directional (4),0.165,6,moving,core area,antenna beams,34-50,,
+this study,directional (4),0.165,6,moving,core area,angulation,47-55,,
+this study,directional (4),0.165,6,moving,all,antenna beams,52-65,,
+this study,omnidirectional,0.170,8,moving,core area,multilateration,82,,
+this study,omnidirectional,0.170,8,moving,all,multilateration,103,,
+this study,omnidirectional,0.170,8,moving,core area,antenna beams,110,,
+this study,omnidirectional,0.170,8,moving,all,antenna beams,145

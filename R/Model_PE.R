@@ -566,7 +566,7 @@ for(s in c("maisC", "maisD")) {
     newdat$Weight_z <- (df.t$Weight-mean(df$Weight)) / sd(df$Weight)
     
     tmp.pred <- pred.glmmTMB(data = df, mod = mod,
-                              sims = TRUE, nsim = 1000,
+                              sims = TRUE, nsim = 4000,
                               newdat = newdat,
                               DISP = T)
     

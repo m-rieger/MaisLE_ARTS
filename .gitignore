@@ -9,3 +9,4 @@ rosm.cache
 data/cali/savedFiles
 R_previous
 0_dataprep.R
+plots_DOG.R
