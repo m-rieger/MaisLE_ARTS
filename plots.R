@@ -748,6 +748,7 @@ df.t3 <- as.data.frame(df.t3)
 df.t3$Sc <- as.factor(df.t3$Sc)
 
 ## summarize df.t3
+# per Ac-c
 sum.t3 <- df.t3 %>% group_by(site, meth, Sc, Ac) %>%
   summarise(nPoints = n(),
             mdiff = median(diff),
@@ -779,6 +780,109 @@ sum.t3.2 <- df.t3 %>% group_by(site, meth, Sc, Ac) %>%
   )
 
 sum.t3.2 <- as.data.frame(sum.t3.2)
+
+# per maxSig-Sc
+df.t3$maxSig_c <- round(df.t3$maxSig/10, 0)*10
+sum.t3Sig <- df.t3 %>% group_by(site, meth, Sc, maxSig_c) %>%
+  summarise(nPoints = n(),
+            mdiff = median(diff),
+            lwr = quantile(diff, probs = 0.025),
+            upr = quantile(diff, probs = 0.975),
+            lwr25 = quantile(diff, probs = 0.25),
+            upr75 = quantile(diff, probs = 0.75),
+            mdiffq50 = median(diffq50),
+            lwrq50 = quantile(diffq50, probs = 0.025),
+            uprq50 = quantile(diffq50, probs = 0.975),
+            lwr25q50 = quantile(diffq50, probs = 0.25),
+            upr75q50 = quantile(diffq50, probs = 0.75),.groups = "drop"
+  )
+
+sum.t3Sig <- as.data.frame(sum.t3Sig)
+
+sum.t3.2Sig <- df.t3 %>% group_by(site, meth, Sc, maxSig_c) %>%
+  summarise(nPoints = n(),
+            mPE = median(pred_mod),
+            lwr = quantile(pred_mod, probs = 0.025),
+            upr = quantile(pred_mod, probs = 0.975),
+            lwr25 = quantile(pred_mod, probs = 0.25),
+            upr75 = quantile(pred_mod, probs = 0.75),
+            mPEq50 = median(q50),
+            lwrq50 = quantile(q50, probs = 0.025),
+            uprq50 = quantile(q50, probs = 0.975),
+            lwr25q50 = quantile(q50, probs = 0.25),
+            upr75q50 = quantile(q50, probs = 0.75),.groups = "drop"
+  )
+
+sum.t3.2Sig <- as.data.frame(sum.t3.2Sig)
+
+# per weight-Sc
+df.t3$Weight_c <- round(df.t3$Weight/50, 0)*50
+sum.t3W <- df.t3 %>% group_by(site, meth, Sc, Weight_c) %>%
+  summarise(nPoints = n(),
+            mdiff = median(diff),
+            lwr = quantile(diff, probs = 0.025),
+            upr = quantile(diff, probs = 0.975),
+            lwr25 = quantile(diff, probs = 0.25),
+            upr75 = quantile(diff, probs = 0.75),
+            mdiffq50 = median(diffq50),
+            lwrq50 = quantile(diffq50, probs = 0.025),
+            uprq50 = quantile(diffq50, probs = 0.975),
+            lwr25q50 = quantile(diffq50, probs = 0.25),
+            upr75q50 = quantile(diffq50, probs = 0.75),.groups = "drop"
+  )
+
+sum.t3W <- as.data.frame(sum.t3W)
+
+sum.t3.2W <- df.t3 %>% group_by(site, meth, Sc, Weight_c) %>%
+  summarise(nPoints = n(),
+            mPE = median(pred_mod),
+            lwr = quantile(pred_mod, probs = 0.025),
+            upr = quantile(pred_mod, probs = 0.975),
+            lwr25 = quantile(pred_mod, probs = 0.25),
+            upr75 = quantile(pred_mod, probs = 0.75),
+            mPEq50 = median(q50),
+            lwrq50 = quantile(q50, probs = 0.025),
+            uprq50 = quantile(q50, probs = 0.975),
+            lwr25q50 = quantile(q50, probs = 0.25),
+            upr75q50 = quantile(q50, probs = 0.75),.groups = "drop"
+  )
+
+sum.t3.2W <- as.data.frame(sum.t3.2W)
+
+# per cover-Sc
+df.t3$cover_c <- round(df.t3$cover, 0)
+sum.t3C <- df.t3 %>% group_by(site, meth, Sc, cover_c) %>%
+  summarise(nPoints = n(),
+            mdiff = median(diff),
+            lwr = quantile(diff, probs = 0.025),
+            upr = quantile(diff, probs = 0.975),
+            lwr25 = quantile(diff, probs = 0.25),
+            upr75 = quantile(diff, probs = 0.75),
+            mdiffq50 = median(diffq50),
+            lwrq50 = quantile(diffq50, probs = 0.025),
+            uprq50 = quantile(diffq50, probs = 0.975),
+            lwr25q50 = quantile(diffq50, probs = 0.25),
+            upr75q50 = quantile(diffq50, probs = 0.75),.groups = "drop"
+  )
+
+sum.t3C <- as.data.frame(sum.t3C)
+
+sum.t3.2C <- df.t3 %>% group_by(site, meth, Sc, cover_c) %>%
+  summarise(nPoints = n(),
+            mPE = median(pred_mod),
+            lwr = quantile(pred_mod, probs = 0.025),
+            upr = quantile(pred_mod, probs = 0.975),
+            lwr25 = quantile(pred_mod, probs = 0.25),
+            upr75 = quantile(pred_mod, probs = 0.75),
+            mPEq50 = median(q50),
+            lwrq50 = quantile(q50, probs = 0.025),
+            uprq50 = quantile(q50, probs = 0.975),
+            lwr25q50 = quantile(q50, probs = 0.25),
+            upr75q50 = quantile(q50, probs = 0.75),.groups = "drop"
+  )
+
+sum.t3.2C <- as.data.frame(sum.t3.2C)
+
 
 gdiff <- ggplot(sum.t3[sum.t3$meth == "direct.ab",]) + 
 

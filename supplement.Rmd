@@ -645,30 +645,31 @@ pairs(df, upper.panel = panel.cor, diag.panel = panel.hist, lower.panel = panel.
 all_levels <- levels(df.sim3$Sc)
 fill_values <- color_values <- viridis::viridis(length(all_levels))  # Generates 10 distinct colors
 
-plotPAdab <- function(d.pred, PApred, lower, upper, lower25, upper75, ytitle) {
+plotPAdab <- function(d.pred, PApred, lower, upper, lower25, upper75, ytitle, xtitle, x, dw) {
   
   d.pred$PApred <- d.pred[,PApred]
   d.pred$lower <- d.pred[,lower]
   d.pred$upper <- d.pred[,upper]
   d.pred$lower25 <- d.pred[,lower25]
   d.pred$upper75 <- d.pred[,upper75]
+  d.pred$x <- d.pred[,x]
   
   g <- ggplot(d.pred) + 
-    geom_line(aes(x = Ac, y = PApred, group = as.factor(Sc), color = as.factor(Sc)),
-              lwd = 1, alpha = 0.5, position = position_dodge(width = 0.4)) + 
-    geom_linerange(aes(x = Ac, y = PApred, ymin = lower, ymax = upper,
+    geom_line(aes(x = x, y = PApred, group = as.factor(Sc), color = as.factor(Sc)),
+              lwd = 1, alpha = 0.5, position = position_dodge(width = dw)) + 
+    geom_linerange(aes(x = x, y = PApred, ymin = lower, ymax = upper,
                         group = as.factor(Sc), color = as.factor(Sc)),
-              lwd = 0.5, alpha = 0.7, position = position_dodge(width = 0.4)) + 
-    geom_linerange(aes(x = Ac, y = PApred, ymin = lower25, ymax = upper75,
+              lwd = 0.5, alpha = 0.7, position = position_dodge(width = dw)) + 
+    geom_linerange(aes(x = x, y = PApred, ymin = lower25, ymax = upper75,
                        group = as.factor(Sc), color = as.factor(Sc)),
-                   lwd = 1, alpha = 0.7, position = position_dodge(width = 0.4)) + 
+                   lwd = 1, alpha = 0.7, position = position_dodge(width = dw)) + 
 
     scale_color_manual(name = "Sc", values = color_values, breaks = all_levels) +
     facet_wrap(~paste0(meth, " - ", site), ncol = 2, strip.position = "top") +
-    xlab("number of antennas") +
+    xlab(xtitle) +
     ylab(ytitle) +
     # ylim(0, 500) +
-    scale_x_continuous(breaks = c(4, 8, 12, 16, 20, 24, 28, 32)) +
+    # scale_x_continuous(breaks = c(4, 8, 12, 16, 20, 24, 28, 32)) +
     ylim(min(c(0, d.pred$lwr, d.pred$lwrq50, d.pred$lwrq65), na.rm = T), max(c(d.pred$upr, d.pred$uprq50, d.pred$uprq65), na.rm = T)) +
     theme_light(base_size = 16) +
     theme(strip.background = element_rect(fill = "grey60", color = "grey60"),
@@ -679,13 +680,15 @@ plotPAdab <- function(d.pred, PApred, lower, upper, lower25, upper75, ytitle) {
 }
 
 
-plotPA <- function(d.sim, PAsim, ytitle) {
+plotPA <- function(d.sim, PAsim, ytitle, xtitle, x) {
   
   d.sim$PAsim <- d.sim[,PAsim]
+  d.sim$x <- d.sim[,x]
+  
   
   g <- ggplot(d.sim) + 
 
-    stat_halfeye(aes(x = as.factor(Ac), y = PAsim, fill = Sc, color = Sc,
+    stat_halfeye(aes(x = as.factor(x), y = PAsim, fill = Sc, color = Sc,
                      linewidth = after_stat(.width)), # needed for linewidth
                  .width = c(0.5, 0.95),
                  #color = "black",
@@ -698,7 +701,7 @@ plotPA <- function(d.sim, PAsim, ytitle) {
     scale_color_manual(name = "Sc", values = color_values, breaks = all_levels) +
     scale_fill_manual(name = "Sc", values = fill_values, breaks = all_levels) +
     facet_wrap(~ paste0(meth, " - ", site), ncol = 2, strip.position = "top") +
-    xlab("number of antennas") +
+    xlab(xtitle) +
     ylab(ytitle) +
     ylim(min(c(0, d.sim$PAsim)), max(d.sim$PAsim)) +
     theme_light(base_size = 16) +
@@ -713,20 +716,23 @@ plotPA <- function(d.sim, PAsim, ytitle) {
 
 ### pPE model {.unnumbered}
 
-```{r, fig.cap = "Predicted mean PE (pPE, based on 4000 repetitions) from the model, namely the median pPE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels) for all present combinations of Ac-Sc per site and method. For predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination.", fig.height = 12}
+```{r, fig.cap = "Predicted mean PE (pPE, based on 4000 simulations) from the model, namely the median pPE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels) for all present combinations of Ac-Sc per site and method. For conditional posterior predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination.", fig.height = 12}
 
 g1 <- plotPAdab(d.pred = df.pred3[df.pred3$meth == "direct.ab",], 
        PApred = "pred_mod", lower = "lwr", upper = "upr", 
        lower25 = "lwr25", upper75 = "upr75",
-       ytitle = "pPE [m]")
+       ytitle = "pPE [m]",
+       xtitle = "number of antennas", x = "Ac", dw = 0.4)
 
 g2 <- plotPA(d.sim = df.sim3[df.sim3$meth == "direct.an",], 
        PAsim = "sim.m", 
-       ytitle = "pPE [m]")
+       ytitle = "pPE [m]",
+       xtitle = "number of antennas", x = "Ac")
 
 g3 <- plotPA(d.sim = df.sim3[df.sim3$meth %in% c("omni.ab", "omni.ml"),], 
        PAsim = "sim.m", 
-       ytitle = "pPE [m]")
+       ytitle = "pPE [m]",
+       xtitle = "number of antennas", x = "Ac")
 
 layout <- "
 A
@@ -739,22 +745,27 @@ g
 
 ```
 
-### pPE Ctest, Dtest {.unnumbered}
+### pPE Ctest, Dtest {.unnumbered .tabset}
 
-```{r, fig.cap = "Predicted PE (pPE, based on 4000 repetitions) for position estimates from test tracks *Ctest* and *Dtest*, namely the median pPE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels). Positiones are summarized per present combinations of Ac-Sc per site and method. Note that this is based on raw data (not mean predictions per Ac-Sc combination), therefore showing more variance and larger CIs.", fig.height = 12}
+#### Ac {.unnumbered}
+
+```{r, fig.cap = "Predicted PE (pPE, based on 4000 simulations) for position estimates from test tracks *Ctest* and *Dtest*, namely the median pPE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels). Positiones are summarized per present combinations of Ac-Sc per site and method. Note that this is based on raw data (observation-level posterior predictions), therefore showing more variance and larger CIs.", fig.height = 12}
 
 g1 <- plotPAdab(d.pred = sum.t3.2[sum.t3.2$meth == "direct.ab",], 
        PApred = "mPE", lower = "lwr", upper = "upr", 
        lower25 = "lwr25", upper75 = "upr75",
-       ytitle = "pPE [m]")
+       ytitle = "pPE [m]",
+       xtitle = "number of antennas", x = "Ac", dw = 0.4)
 
 g2 <- plotPA(d.sim = df.t3[df.t3$meth == "direct.an",], 
        PAsim = "pred_mod", 
-       ytitle = "pPE [m]")
+       ytitle = "pPE [m]",
+       xtitle = "number of antennas", x = "Ac")
 
 g3 <- plotPA(d.sim = df.t3[df.t3$meth %in% c("omni.ab", "omni.ml"),], 
        PAsim = "pred_mod",
-       ytitle = "pPE [m]")
+       ytitle = "pPE [m]",
+       xtitle = "number of antennas", x = "Ac")
 
 layout <- "
 A
@@ -767,22 +778,213 @@ g
 
 ```
 
-### diff PE - pPE Ctest, Dtest {.unnumbered}
+#### maxSig {.unnumbered}
 
-```{r, fig.cap = "Difference between raw PE and predicted PE (pPE, based on 4000 repetitions) for position estimates from test tracks *Ctest* and *Dtest*, namely the median difference (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels). Positiones are summarized per present combinations of Ac-Sc per site and method. Note that this is based on raw data (not mean predictions per Ac-Sc combination), therefore showing more variance and larger CIs.", fig.height = 12}
+```{r, fig.cap = "Predicted PE (pPE, based on 4000 simulations) for position estimates from test tracks *Ctest* and *Dtest*, namely the median pPE (triangle) including 50 % (thick bar) and 95 % CI (thin bar). Positiones are summarized per present combinations of maximum signal strength (rounded to tens) and Sc per site and method. Note that this is based on raw data (observation-level posterior predictions), therefore showing more variance and larger CIs.", fig.height = 12}
+
+g1 <- plotPAdab(d.pred = sum.t3.2Sig[sum.t3.2Sig$meth == "direct.ab",], 
+       PApred = "mPE", lower = "lwr", upper = "upr", 
+       lower25 = "lwr25", upper75 = "upr75",
+       ytitle = "pPE [m]",
+       xtitle = "max. signal strength", x = "maxSig_c", dw = 4)
+
+g2 <- plotPAdab(d.pred = sum.t3.2Sig[sum.t3.2Sig$meth == "direct.an",], 
+       PApred = "mPE", lower = "lwr", upper = "upr", 
+       lower25 = "lwr25", upper75 = "upr75",
+       ytitle = "pPE [m]",
+       xtitle = "max. signal strength", x = "maxSig_c", dw = 4)
+
+g3 <- plotPAdab(d.pred = sum.t3.2Sig[sum.t3.2Sig$meth %in% c("omni.ab", "omni.ml"),], 
+       PApred = "mPE", lower = "lwr", upper = "upr", 
+       lower25 = "lwr25", upper75 = "upr75",
+       ytitle = "pPE [m]",
+       xtitle = "max. signal strength", x = "maxSig_c", dw = 4)
+
+layout <- "
+A
+B
+C
+"
+
+g <- g1 + g2 + g3 + plot_layout(design = layout)
+g
+
+```
+
+
+#### weight {.unnumbered}
+
+```{r, fig.cap = "Predicted PE (pPE, based on 4000 simulations) for position estimates from test tracks *Ctest* and *Dtest*, namely the median pPE (triangle) including 50 % (thick bar) and 95 % CI (thin bar). Positiones are summarized per present combinations of summed up normalized signals (rounded to fifties) and Sc per site and method antenna beams. Note that this is based on raw data (observation-level posterior predictions), therefore showing more variance and larger CIs.", fig.height = 8}
+
+g1 <- plotPAdab(d.pred = sum.t3.2W[sum.t3.2W$meth == "direct.ab",], 
+       PApred = "mPE", lower = "lwr", upper = "upr", 
+       lower25 = "lwr25", upper75 = "upr75",
+       ytitle = "pPE [m]",
+       xtitle = "summed up normalized signals", x = "Weight_c", dw = 20)
+
+g3 <- plotPAdab(d.pred = sum.t3.2W[sum.t3.2W$meth %in% c("omni.ab"),], 
+       PApred = "mPE", lower = "lwr", upper = "upr", 
+       lower25 = "lwr25", upper75 = "upr75",
+       ytitle = "pPE [m]",
+       xtitle = "summed up normalized signals", x = "Weight_c", dw = 20)
+
+layout <- "
+AA
+B#
+"
+
+g <- g1 + g3 + plot_layout(design = layout)
+g
+
+```
+
+
+#### cover {.unnumbered}
+
+```{r, fig.cap = "Predicted PE (pPE, based on 4000 simulations) for position estimates from test tracks *Ctest* and *Dtest*, namely the median pPE (triangle) including 50 % (thick bar) and 95 % CI (thin bar). Positiones are summarized per present combinations of station cover (rounded to ones) and Sc per site and method. Note that this is based on raw data (observation-level posterior predictions), therefore showing more variance and larger CIs.", fig.height = 12}
+
+g1 <- plotPAdab(d.pred = sum.t3.2C[sum.t3.2C$meth == "direct.ab",], 
+       PApred = "mPE", lower = "lwr", upper = "upr", 
+       lower25 = "lwr25", upper75 = "upr75",
+       ytitle = "pPE [m]",
+       xtitle = "station cover", x = "cover_c", dw = 0.4)
+
+g2 <- plotPAdab(d.pred = sum.t3.2C[sum.t3.2C$meth == "direct.an",], 
+       PApred = "mPE", lower = "lwr", upper = "upr", 
+       lower25 = "lwr25", upper75 = "upr75",
+       ytitle = "pPE [m]",
+       xtitle = "station cover", x = "cover_c", dw = 0.4)
+
+g3 <- plotPAdab(d.pred = sum.t3.2C[sum.t3.2C$meth %in% c("omni.ab", "omni.ml"),], 
+       PApred = "mPE", lower = "lwr", upper = "upr", 
+       lower25 = "lwr25", upper75 = "upr75",
+       ytitle = "pPE [m]",
+       xtitle = "station cover", x = "cover_c", dw = 0.4)
+
+layout <- "
+A
+B
+C
+"
+
+g <- g1 + g2 + g3 + plot_layout(design = layout)
+g
+
+```
+
+### diff PE - pPE Ctest, Dtest {.unnumbered .tabset}
+
+#### Ac {.unnumbered}
+
+```{r, fig.cap = "Difference between raw PE and predicted PE (pPE, based on 4000 simulations) for position estimates from test tracks *Ctest* and *Dtest*, namely the median difference (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels). Positiones are summarized per present combinations of Ac-Sc per site and method. Note that this is based on raw data (observation-level posterior predictions), therefore showing more variance and larger CIs.", fig.height = 12}
 
 g1 <- plotPAdab(d.pred = sum.t3[sum.t3$meth == "direct.ab",], 
        PApred = "mdiff", lower = "lwr", upper = "upr", 
        lower25 = "lwr25", upper75 = "upr75",
-       ytitle = "PE - pPE [m]")
+       ytitle = "PE - pPE [m]",
+       xtitle = "number of antennas", x = "Ac", dw = 0.4)
 
 g2 <- plotPA(d.sim = df.t3[df.t3$meth == "direct.an",], 
        PAsim = "diff", 
-       ytitle = "PE - pPE [m]")
+       ytitle = "PE - pPE [m]",
+       xtitle = "number of antennas", x = "Ac")
 
 g3 <- plotPA(d.sim = df.t3[df.t3$meth %in% c("omni.ab", "omni.ml"),], 
        PAsim = "diff",
-       ytitle = "PE - pPE [m]")
+       ytitle = "PE - pPE [m]",
+       xtitle = "number of antennas", x = "Ac")
+
+layout <- "
+A
+B
+C
+"
+
+g <- g1 + g2 + g3 + plot_layout(design = layout)
+g
+
+```
+
+#### maxSig {.unnumbered}
+
+```{r, fig.cap = "Difference between raw PE and predicted PE (pPE, based on 4000 simulations) for position estimates from test tracks *Ctest* and *Dtest*, namely the median difference (triangle) including 50 % (thick bar) and 95 % CI (thin bar). Positiones are summarized per present combinations of maximum signal strength (rounded to tens) and Sc per site and method. Note that this is based on raw data (observation-level posterior predictions), therefore showing more variance and larger CIs.", fig.height = 12}
+
+g1 <- plotPAdab(d.pred = sum.t3Sig[sum.t3Sig$meth == "direct.ab",], 
+       PApred = "mdiff", lower = "lwr", upper = "upr", 
+       lower25 = "lwr25", upper75 = "upr75",
+       ytitle = "PE - pPE [m]",
+       xtitle = "max. signal strength", x = "maxSig_c", dw = 4)
+
+g2 <- plotPAdab(d.pred = sum.t3Sig[sum.t3Sig$meth == "direct.an",], 
+       PApred = "mdiff", lower = "lwr", upper = "upr", 
+       lower25 = "lwr25", upper75 = "upr75",
+       ytitle = "PE - pPE [m]",
+       xtitle = "max. signal strength", x = "maxSig_c", dw = 4)
+
+g3 <- plotPAdab(d.pred = sum.t3Sig[sum.t3Sig$meth %in% c("omni.ab", "omni.ml"),], 
+       PApred = "mdiff", lower = "lwr", upper = "upr", 
+       lower25 = "lwr25", upper75 = "upr75",
+       ytitle = "PE - pPE [m]",
+       xtitle = "max. signal strength", x = "maxSig_c", dw = 4)
+
+layout <- "
+A
+B
+C
+"
+
+g <- g1 + g2 + g3 + plot_layout(design = layout)
+g
+
+```
+
+#### weight {.unnumbered}
+
+```{r, fig.cap = "Difference between raw PE and predicted PE (pPE, based on 4000 simulations) for position estimates from test tracks *Ctest* and *Dtest*, namely the median difference (triangle) including 50 % (thick bar) and 95 % CI (thin bar). Positiones are summarized per present combinations of summed up normalized signals (rounded to fifties) and Sc per site and method antenna beams. Note that this is based on raw data (observation-level posterior predictions), therefore showing more variance and larger CIs.", fig.height = 8}
+
+g1 <- plotPAdab(d.pred = sum.t3W[sum.t3W$meth == "direct.ab",], 
+       PApred = "mdiff", lower = "lwr", upper = "upr", 
+       lower25 = "lwr25", upper75 = "upr75",
+       ytitle = "PE - pPE [m]",
+       xtitle = "summed up normalized signals", x = "Weight_c", dw = 20)
+
+g3 <- plotPAdab(d.pred = sum.t3W[sum.t3W$meth %in% c("omni.ab"),], 
+       PApred = "mdiff", lower = "lwr", upper = "upr", 
+       lower25 = "lwr25", upper75 = "upr75",
+       ytitle = "PE - pPE [m]",
+       xtitle = "summed up normalized signals", x = "Weight_c", dw = 20)
+
+layout <- "
+AA
+B#
+"
+
+g <- g1 +  g3 + plot_layout(design = layout)
+g
+
+```
+
+#### cover {.unnumbered}
+
+```{r, fig.cap = "Difference between raw PE and predicted PE (pPE, based on 4000 simulations) for position estimates from test tracks *Ctest* and *Dtest*, namely the median difference (triangle) including 50 % (thick bar) and 95 % CI (thin bar). Positiones are summarized per present combinations of station cover (rounded to ones) and Sc per site and method. Note that this is based on raw data (observation-level posterior predictions), therefore showing more variance and larger CIs.", fig.height = 12}
+
+g1 <- plotPAdab(d.pred = sum.t3C[sum.t3C$meth == "direct.ab",], 
+       PApred = "mdiff", lower = "lwr", upper = "upr", 
+       lower25 = "lwr25", upper75 = "upr75",
+       ytitle = "PE - pPE [m]",
+       xtitle = "station cover", x = "cover_c", dw = 0.4)
+
+g2 <- plotPAdab(d.pred = sum.t3C[sum.t3C$meth == "direct.an",], 
+       PApred = "mdiff", lower = "lwr", upper = "upr", 
+       lower25 = "lwr25", upper75 = "upr75",
+       ytitle = "PE - pPE [m]",
+       xtitle = "station cover", x = "cover_c", dw = 0.4)
+
+g3 <- plotPAdab(d.pred = sum.t3C[sum.t3C$meth %in% c("omni.ab", "omni.ml"),], 
+       PApred = "mdiff", lower = "lwr", upper = "upr", 
+       lower25 = "lwr25", upper75 = "upr75",
+       ytitle = "PE - pPE [m]",
+       xtitle = "station cover", x = "cover_c", dw = 0.4)
 
 layout <- "
 A
@@ -797,20 +999,23 @@ g
 
 ### pPE model q50 {.unnumbered}
 
-```{r, fig.cap = "Predicted median PE (pPE50, based on 4000 repetitions) from the model, namely the median pPE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels) for all present combinations of Ac-Sc per site and method. For predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination. This could be done for any desired quantile (e.g. 65 % quantile instead of 50 % quantile).", fig.height = 12}
+```{r, fig.cap = "Predicted median PE (pPE50, based on 4000 simulations) from the model, namely the median pPE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels) for all present combinations of Ac-Sc per site and method. For conditional posterior predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination. This could be done for any desired quantile (e.g. 65 % quantile instead of 50 % quantile).", fig.height = 12}
 
 g1 <- plotPAdab(d.pred = df.pred3[df.pred3$meth == "direct.ab",],
        PApred = "q50", lower = "lwrq50", upper = "uprq50",
        lower25 = "lwr25q50", upper75 = "upr75q50",
-       ytitle = "pPE50 [m]")
+       ytitle = "pPE50 [m]",
+       xtitle = "number of antennas", x = "Ac", dw = 0.4)
 
 g2 <- plotPA(d.sim = df.sim3[df.sim3$meth == "direct.an",],
        PAsim = "sim.q50",
-       ytitle = "pPE50 [m]")
+       ytitle = "pPE50 [m]",
+       xtitle = "number of antennas", x = "Ac")
 
 g3 <- plotPA(d.sim = df.sim3[df.sim3$meth %in% c("omni.ab", "omni.ml"),],
        PAsim = "sim.q50",
-       ytitle = "pPE50 [m]")
+       ytitle = "pPE50 [m]",
+       xtitle = "number of antennas", x = "Ac")
 
 layout <- "
 A
@@ -825,20 +1030,23 @@ g
 
 ### pPE Ctest, Dtest q50 {.unnumbered}
 
-```{r, fig.cap = "Predicted median PE (pPE50, based on 4000 repetitions) for position estimates from test tracks *Ctest* and *Dtest*, namely the median pPE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels). Positiones are summarized per present combinations of Ac-Sc per site and method. Note that this is based on raw data (not mean predictions per Ac-Sc combination), therefore showing more variance and larger CIs.", fig.height = 12}
+```{r, fig.cap = "Predicted median PE (pPE50, based on 4000 simulations) for position estimates from test tracks *Ctest* and *Dtest*, namely the median pPE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels). Positiones are summarized per present combinations of Ac-Sc per site and method. Note that this is based on raw data (observation-level posterior predictions), therefore showing more variance and larger CIs.", fig.height = 12}
 
 g1 <- plotPAdab(d.pred = sum.t3.2[sum.t3.2$meth == "direct.ab",], 
        PApred = "mPEq50", lower = "lwrq50", upper = "uprq50", 
        lower25 = "lwr25q50", upper75 = "upr75q50",
-       ytitle = "pPE50 [m]")
+       ytitle = "pPE50 [m]",
+       xtitle = "number of antennas", x = "Ac", dw = 0.4)
 
 g2 <- plotPA(d.sim = df.t3[df.t3$meth == "direct.an",], 
        PAsim = "q50", 
-       ytitle = "pPE50 [m]")
+       ytitle = "pPE50 [m]",
+       xtitle = "number of antennas", x = "Ac")
 
 g3 <- plotPA(d.sim = df.t3[df.t3$meth %in% c("omni.ab", "omni.ml"),], 
        PAsim = "q50",
-       ytitle = "pPE50 [m]")
+       ytitle = "pPE50 [m]",
+       xtitle = "number of antennas", x = "Ac")
 
 layout <- "
 A
@@ -853,7 +1061,7 @@ g
 
 <!-- ### pPE q65 {.unnumbered} -->
 
-```{r, fig.cap = "Predicted 65% quantile of PE (pPE65, based on 4000 repetitions) from the model, namely the median estimated 65% quantile of PE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels) for all present combinations of Ac-Sc per site and method. For predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination.", fig.height = 12}
+```{r, fig.cap = "Predicted 65% quantile of PE (pPE65, based on 4000 simulations) from the model, namely the median estimated 65% quantile of PE (triangle) including 50 % (thick bar) and 95 % CI (thin bar), as well as the distribution (polygon, only center and bottom panels) for all present combinations of Ac-Sc per site and method. For conditional posterior predictions, maxSig, (weight) and cover were set to their respective raw data mean per Ac-Sc combination.", fig.height = 12}
 
 # g1 <- plotPAdab(d.pred = df.pred3[df.pred3$meth == "direct ab",], 
 #        PApred = "q65", lower = "lwrq65", upper = "uprq65",
